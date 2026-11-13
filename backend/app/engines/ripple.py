@@ -84,7 +84,7 @@ def propose(c: dict, day_idx: int, now: int, event: dict) -> dict:
 
     seq = to_seq(future)
     old_times = {b["id"]: (b["start"], b["name"]) for b in future if b["kind"] != "leg"}
-    swapped, inserted, notes = [], [], []
+    swapped, inserted, notes, user_skipped = [], [], [], []
     headline = ""
 
     if kind in ("delay", "late"):
@@ -167,6 +167,50 @@ def propose(c: dict, day_idx: int, now: int, event: dict) -> dict:
                     seq.pop(i)
                 headline = f"{p['name']} closed today"
                 break
+    elif kind == "skip":
+        bid = event.get("block_id")
+        if current and current["id"] == bid:
+            notes.append(f"Ended {current['name']} early")
+            current = {**current, "e": now, "end": fmt(now), "dwell": max(0, now - current["s"])}
+            t = now
+            headline = f"Skipping the rest of {current['name']}"
+        else:
+            for i, it in enumerate(seq):
+                if it.get("id") == bid:
+                    nm = it.get("name") or PLACE_BY_ID.get(it.get("place_id") or "", {}).get("name", "stop")
+                    seq.pop(i)
+                    user_skipped.append({"name": nm, "reason": "you chose to skip it"})
+                    headline = f"Skipping {nm}"
+                    break
+    elif kind == "over_budget":
+        from .planner import choose_food
+        planned = {b["id"]: b["s"] for b in future}
+        for i, it in enumerate(seq):
+            if it.get("kind") == "meal" and it.get("place_id"):
+                p = PLACE_BY_ID[it["place_id"]]
+                at = planned.get(it.get("id"), t) - 10
+                opts = [o for o in choose_food(ctx, it["place_id"], at, it.get("meal") or "lunch",
+                                               day["weekday_idx"], {it["place_id"]}, 6)
+                        if o[0]["cost"] <= p["cost"] * .7]
+                if opts:
+                    alt = min(opts, key=lambda o: o[0]["cost"])[0]
+                    seq[i] = {**it, "place_id": alt["id"], "name": alt["name"], "dwell": alt["dwell"],
+                              "why": f"Budget swap: Rs {alt['cost']} vs Rs {p['cost']} per person"}
+                    swapped.append({"from": p["name"], "to": alt["name"], "reason": "cheaper"})
+            elif it.get("kind") == "place":
+                p = PLACE_BY_ID[it["place_id"]]
+                if p.get("cost", 0) * ctx.party >= 400:
+                    alts = [a for a in (it.get("plan_b") or {}).values()
+                            if isinstance(a, dict) and a.get("place_id")
+                            and PLACE_BY_ID[a["place_id"]].get("cost", 0) < p["cost"] * .5]
+                    if alts:
+                        a = alts[0]
+                        seq[i] = {"kind": "place", "place_id": a["place_id"],
+                                  "why": f"Budget swap for {p['name']}: similar, much cheaper"}
+                        swapped.append({"from": p["name"], "to": a["name"], "reason": "cheaper"})
+        headline = "Over budget: cheaper picks for the rest of today"
+        if not swapped:
+            notes.append("Remaining stops are already the cheapest good options nearby")
 
     budget = day["energy_budget"]
     out = _resim(ctx, seq, t, node, day, used_energy)
@@ -196,7 +240,7 @@ def propose(c: dict, day_idx: int, now: int, event: dict) -> dict:
                 gone.add(id(x[0]))
 
     # move dropped places to a later day where they fit
-    moved, lost = [], []
+    moved, lost = [], list(user_skipped)
     for it, why in dropped:
         if it.get("kind") != "place":
             continue

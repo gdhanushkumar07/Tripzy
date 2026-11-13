@@ -368,6 +368,111 @@ def expense(trip_id: str, body: ExpenseIn):
     return c["budget"]
 
 
+# ------------------------------------------------------------------ platform bridge (Tripzy <-> trip planner)
+
+LINKS = store.STORE / "links.json"
+
+
+def _links() -> dict:
+    return json.loads(LINKS.read_text()) if LINKS.exists() else {}
+
+
+class LinkIn(BaseModel):
+    capsule_id: str
+    platform_trip_id: int
+    places: dict[str, str] = {}   # platform place id -> Tripzy place id
+
+
+@app.post("/api/links")
+def link(body: LinkIn):
+    _get(body.capsule_id)
+    data = _links()
+    prev = data.get(str(body.platform_trip_id))
+    places = {**(prev.get("places", {}) if isinstance(prev, dict) else {}), **body.places}
+    data[str(body.platform_trip_id)] = {"capsule_id": body.capsule_id, "places": places}
+    LINKS.write_text(json.dumps(data))
+    c = _get(body.capsule_id)
+    c["platform_trip_id"] = body.platform_trip_id
+    store.save(c)
+    return {"ok": True}
+
+
+@app.get("/api/links/{platform_trip_id}")
+def get_link(platform_trip_id: int):
+    rec = _links().get(str(platform_trip_id))
+    rec = {"capsule_id": rec, "places": {}} if isinstance(rec, str) else rec
+    if not rec or not store.load(rec["capsule_id"]):
+        raise HTTPException(404, "This trip has no Tripzy intelligence yet")
+    return rec
+
+
+@app.get("/api/cities/{city_key}/places")
+def city_places(city_key: str):
+    if city_key not in CITIES:
+        raise HTTPException(404, "Unknown city")
+    keep = ("id", "name", "cat", "tags", "lat", "lon", "hours", "closed", "dwell", "intensity", "stairs",
+            "indoor", "cost", "diet", "best", "desc")
+    return [{k: p.get(k) for k in keep} for p in PLACE_BY_ID.values() if p["city"] == city_key]
+
+
+class ResequenceIn(BaseModel):
+    day: int
+    place_ids: list[str]
+
+
+@app.post("/api/trips/{trip_id}/resequence")
+def resequence(trip_id: str, body: ResequenceIn):
+    """Re-check a day after the traveller re-arranged it in the planner: keep their
+    order of sights, keep meals/rests in their slots, add or remove sights, then
+    re-time it and re-run the feasibility check."""
+    c = _get(trip_id)
+    if not (0 <= body.day < len(c["days"])):
+        raise HTTPException(400, "bad day")
+    ctx = T.build_ctx(c)
+    d = c["days"][body.day]
+    seq = to_seq(d["blocks"])
+    wanted = [pid for pid in body.place_ids if pid in PLACE_BY_ID and PLACE_BY_ID[pid]["city"] == c["city_key"]
+              and PLACE_BY_ID[pid]["cat"] not in ("food", "cafe")]
+    queue = list(wanted)
+    out = []
+    for it in seq:
+        if it.get("kind") == "place":
+            if queue:
+                pid = queue.pop(0)
+                same = it.get("place_id") == pid
+                out.append(it if same else {"kind": "place", "place_id": pid, "why": "Your choice"})
+        else:
+            out.append(it)
+    for pid in queue:
+        out.append({"kind": "place", "place_id": pid, "why": "Your choice"})
+    before = d["verify"]["score"]
+    T.retime_day(c, ctx, d, out)
+    T.finish(c, ctx)
+    store.save(c)
+    return {"capsule": c, "feasibility": {"before": before, "after": c["days"][body.day]["verify"]["score"]}}
+
+
+@app.post("/api/demo/seed")
+def demo_seed():
+    """One-click demo: a parents-friendly Hyderabad trip with an arrival train (DEMO data)."""
+    from datetime import date, timedelta
+    start = date.today() + timedelta(days=(4 - date.today().weekday()) % 7 or 7)  # next Friday
+    brief = B.parse_rules(f"Hyderabad, 3 days, with my parents, veg, {start.isoformat()}").model_dump()
+    swipes = {"c1": "a", "c3": "a", "c4": "a", "c6": "b", "c7": "a", "c9": "a", "c11": "b"}
+    capsule = None
+    for node, _step, cap in run_stream({"brief": brief, "swipes": swipes}):
+        if cap:
+            capsule = cap
+    c = store.load(capsule["id"])
+    c["demo"] = True
+    c["bookings"].append({"id": "demo01", "kind": "arrival", "mode": "train", "number": "12723",
+                          "date": start.isoformat(), "time": "07:30", "station_id": "HYB",
+                          "pnr": "DEMO000001", "live_delay": 0, "demo": True})
+    T.compose(c)
+    store.save(c)
+    return {"capsule_id": c["id"]}
+
+
 # ------------------------------------------------------------------ static frontend (single deploy)
 
 DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"

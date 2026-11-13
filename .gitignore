@@ -5,3 +5,8 @@ __pycache__/
 backend/data_store/trips/
 backend/data_store/dwell_stats.json
 .env
+platform/server/.env
+platform/server/data/
+platform/node_modules/
+.trash/
+backend/data_store/links.json

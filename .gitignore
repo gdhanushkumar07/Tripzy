@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+backend/data_store/trips/
+backend/data_store/dwell_stats.json
+.env

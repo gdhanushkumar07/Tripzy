@@ -1,0 +1,1 @@
+{"root":["./src/main.tsx","./src/components/diffcard.tsx","./src/components/mapview.tsx","./src/components/timeline.tsx","./src/components/ui.tsx","./src/lib/api.ts","./src/lib/store.ts","./src/lib/types.ts","./src/pages/capsule.tsx","./src/pages/compose.tsx","./src/pages/dna.tsx","./src/pages/home.tsx","./src/pages/live.tsx","./src/pages/trip.tsx"],"version":"5.6.3"}

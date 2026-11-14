@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AlertTriangle, CalendarRange, CheckCircle2, Info, Loader2, MessageSquare, Radio, RefreshCw, Send, Sparkles, Ticket, Wand2 } from 'lucide-react'
 import PageShell from '../../components/Layout/PageShell'
+import { filesApi } from '../../api/client'
 import { engine, rememberCapsule, rupees } from '../../tripzy/engine'
 import { readPlannerDay, resyncDays } from '../../tripzy/bridge'
 import IntelTimeline from '../../tripzy/IntelTimeline'
@@ -172,7 +173,7 @@ export default function TripIntelPage(): React.ReactElement {
           {busy && <span className="ml-auto inline-flex items-center gap-2 text-body text-content-muted"><Loader2 className="h-4 w-4 animate-spin" />{busy}…</span>}
         </Card>
 
-        <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_420px]">
+        <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <section aria-label={`Day ${day + 1} timeline`}>
             <IntelTimeline day={d} onChoose={busy ? undefined : onChoose} onRemove={busy ? undefined : onRemove} onSelect={(b) => setSel(b.id)} selected={sel} />
           </section>
@@ -222,7 +223,7 @@ export default function TripIntelPage(): React.ReactElement {
         </div>
       </form>
       {showBooking && (
-        <BookingSheet c={c} onClose={() => setShowBooking(false)}
+        <BookingSheet c={c} tripId={tripId} onClose={() => setShowBooking(false)}
           onSave={(body) => (setShowBooking(false), apply('Anchoring booking', () => engine.booking(c.id, body), 'all', 'Booking anchored; the plan now protects this connection'))} />
       )}
       {toast && <Toast text={toast} onClose={() => setToast('')} />}
@@ -230,7 +231,24 @@ export default function TripIntelPage(): React.ReactElement {
   )
 }
 
-function BookingSheet({ c, onClose, onSave }: { c: Capsule; onClose: () => void; onSave: (b: Record<string, unknown>) => void }) {
+function BookingSheet({ c, tripId, onClose, onSave }: { c: Capsule; tripId: number; onClose: () => void; onSave: (b: Record<string, unknown>) => void }) {
+  const [fileMsg, setFileMsg] = useState('')
+  const onFile = async (file?: File) => {
+    if (!file) return
+    setFileMsg('Saving document and reading ticket…')
+    try {
+      // 1. keep the document privately with the trip (platform files, access-controlled)
+      const fd = new FormData()
+      fd.append('file', file)
+      await filesApi.upload(tripId, fd).catch(() => undefined)
+      // 2. extract the booking fields
+      const r = await engine.parseTicketFile(file, c.city_key)
+      setF((x) => ({ ...x, ...r.fields }))
+      setFileMsg(`Read ${Object.keys(r.fields).length} fields from ${file.name}. Saved to this trip's documents. Check them below.`)
+    } catch (e) {
+      setFileMsg((e as Error).message)
+    }
+  }
   const [f, setF] = useState<Record<string, string>>({ kind: 'arrival', mode: 'train', number: '', date: c.days[0].date, time: '07:30', station_id: c.city.stations[0].id, pnr: '' })
   const [paste, setPaste] = useState('')
   const set = (k: string, val: string) => setF({ ...f, [k]: val })
@@ -239,7 +257,13 @@ function BookingSheet({ c, onClose, onSave }: { c: Capsule; onClose: () => void;
       <div className="tz-rise w-full max-w-md rounded-3xl border border-edge bg-surface-card p-6 shadow-modal">
         <h3 className="text-subtitle font-bold text-content">Add a booking</h3>
         <p className="text-body text-content-muted">Fixed anchors the plan must respect. Paste a ticket confirmation to fill this in.</p>
-        <textarea className="tz-input mt-3 !h-20 py-2" placeholder="PNR: 4521378890 Train No: 12723 … Arr 07:30 HYB" value={paste} onChange={(e) => setPaste(e.target.value)} />
+        <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-edge p-4 text-body font-semibold text-content-secondary hover:border-[var(--accent)]">
+          <Ticket className="h-4 w-4" />Upload ticket (PDF or text)
+          <input type="file" accept=".pdf,.txt,.eml,application/pdf,text/plain" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+        </label>
+        {fileMsg && <p className="mt-2 text-caption text-content-muted">{fileMsg}</p>}
+        <div className="mt-3 text-center text-caption text-content-faint">or paste the confirmation text</div>
+        <textarea className="tz-input mt-2 !h-20 py-2" placeholder="PNR: 4521378890 Train No: 12723 … Arr 07:30 HYB" value={paste} onChange={(e) => setPaste(e.target.value)} />
         <Button variant="secondary" className="mt-2 w-full" disabled={!paste.trim()} onClick={async () => setF({ ...f, ...(await engine.parseTicket(paste, c.city_key)) })}>Read ticket text</Button>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <select className="tz-input" value={f.kind} onChange={(e) => set('kind', e.target.value)}><option value="arrival">Arrival</option><option value="departure">Departure</option></select>

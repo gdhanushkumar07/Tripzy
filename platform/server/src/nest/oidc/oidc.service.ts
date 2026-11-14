@@ -288,12 +288,13 @@ export class OidcService implements OnModuleDestroy {
     redirectUri: string,
     inviteToken?: string,
     remember?: boolean,
-  ): Promise<{ state: string; codeChallenge: string }> {
+  ): Promise<{ state: string; codeChallenge: string; nonce: string }> {
     const state = crypto.randomBytes(32).toString('hex');
+    const nonce = base64url(crypto.randomBytes(24));
     const codeVerifier = base64url(crypto.randomBytes(32));
     const codeChallenge = base64url(crypto.createHash('sha256').update(codeVerifier).digest());
-    await this.flows.putState(state, { createdAt: Date.now(), redirectUri, inviteToken, codeVerifier, remember });
-    return { state, codeChallenge };
+    await this.flows.putState(state, { createdAt: Date.now(), redirectUri, inviteToken, codeVerifier, remember, nonce });
+    return { state, codeChallenge, nonce };
   }
 
   consumeState(state: string): Promise<OidcPendingState | null> {
@@ -572,6 +573,7 @@ export class OidcService implements OnModuleDestroy {
     doc: OidcDiscoveryDoc,
     clientId: string,
     expectedIssuer: string,
+    expectedNonce?: string,
   ): Promise<{ ok: true; claims: Record<string, unknown> } | { ok: false; error: string }> {
     if (!doc.jwks_uri) return { ok: false, error: 'no_jwks_uri' };
     const parts = idToken.split('.');
@@ -630,6 +632,9 @@ export class OidcService implements OnModuleDestroy {
     const tokenIssuer = typeof claims['iss'] === 'string' ? claims['iss'].replace(/(?<!\/)\/+$/, '') : '';
     if (tokenIssuer !== expectedIssuer) {
       return { ok: false, error: `signature_or_claim_mismatch: jwt issuer invalid. expected: ${expectedIssuer}` };
+    }
+    if (expectedNonce && claims['nonce'] !== expectedNonce) {
+      return { ok: false, error: 'nonce_mismatch' };
     }
 
     return { ok: true, claims };

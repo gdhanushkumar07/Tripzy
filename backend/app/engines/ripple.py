@@ -242,6 +242,10 @@ def propose(c: dict, day_idx: int, now: int, event: dict) -> dict:
     # move dropped places to a later day where they fit
     moved, lost = [], list(user_skipped)
     for it, why in dropped:
+        if it.get("kind") in ("meal", "rest"):
+            nm = it.get("name") or PLACE_BY_ID.get(it.get("place_id") or "", {}).get("name", it.get("meal", "stop"))
+            notes.append(f"Skipped {it.get('meal') or 'break'} at {nm}: {why}")
+            continue
         if it.get("kind") != "place":
             continue
         name = PLACE_BY_ID[it["place_id"]]["name"]

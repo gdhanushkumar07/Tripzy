@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.engines.timeutil import to_min  # noqa: E402
 from app.main import app  # noqa: E402
 
-client = TestClient(app)
+client = TestClient(app, headers={"x-tripzy-user": "1"})
 
 
 def compose(text="Hyderabad, 3 days, with my parents, veg, Dec 18", swipes=None):
@@ -119,3 +119,9 @@ def test_ticket_parse():
                     "PNR: 4521378890 Train No: 12723 TELANGANA EXP Date 18-Dec-2026 Arr 07:30 HYB"}).json()
     assert r["pnr"] == "4521378890" and r["number"] == "12723" and r["date"] == "2026-12-18"
     assert r["time"] == "07:30" and r["station_id"] == "HYB"
+
+
+def test_date_found_after_duration_words():
+    for text, iso in [("Hyderabad 2 days Dec 12", "12-12"), ("Jaipur, 2 days with friends, Dec 5", "12-05"),
+                      ("Hyderabad 3 days 20th december parents", "12-20")]:
+        assert client.post("/api/brief/parse", json={"text": text}).json()["start_date"].endswith(iso)

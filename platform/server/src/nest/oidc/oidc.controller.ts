@@ -71,7 +71,7 @@ export class OidcController {
       const query = oidcLoginQuerySchema.safeParse(req.query);
       const inviteToken = query.success ? query.data.invite : (req.query.invite as string | undefined);
       const remember = query.success && query.data.remember !== undefined ? query.data.remember === '1' : undefined;
-      const { state, codeChallenge } = await this.oidc.createState(redirectUri, inviteToken, remember);
+      const { state, codeChallenge, nonce } = await this.oidc.createState(redirectUri, inviteToken, remember);
       // Bind the state to THIS browser. The callback requires a matching cookie,
       // so an attacker-initiated login (whose callback URL carries a valid state
       // from the shared server map) cannot be replayed in a victim's browser to
@@ -87,6 +87,7 @@ export class OidcController {
         state,
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
+        nonce,
       });
       res.redirect(`${doc.authorization_endpoint}?${params}`);
     } catch (err: unknown) {
@@ -153,6 +154,7 @@ export class OidcController {
         // Same trim as oidc.service.ts, and the same reason for the lookbehind — this one
         // runs over an issuer read out of a fetched discovery document.
         (doc.issuer ?? '').replace(/(?<!\/)\/+$/, '') || config.issuer,
+        pending.nonce,
       );
       if (idVerify.ok !== true) {
         const reason = 'error' in idVerify ? idVerify.error : 'unknown';

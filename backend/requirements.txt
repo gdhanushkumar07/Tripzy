@@ -6,3 +6,5 @@ sse-starlette
 langgraph
 anthropic
 pytest
+python-multipart
+pypdf

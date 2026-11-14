@@ -1,46 +1,46 @@
 # Implementation status
 
-Legend: ✅ working and verified in the browser or by tests · 🟡 partial · ⏳ not built
+✅ = implemented and verified (browser walk-through and/or automated tests) · 🟡 = partial · ⏳ = not built
 
-## Audit summary
-- **Existing**: the Tripzy V1 engine (FastAPI + LangGraph, 7 tests) and a basic V1 React UI. The old UI is superseded by `platform/`, and `frontend/` is kept only for reference.
-- **Reused**: TREK as the product shell (auth, trips, planner, budget, bookings, files, collab, journal, atlas, PWA). PlannerAgent's agent graph and SSE pattern were already in the engine. OpenTripPlanner was not used: the clone is a 2015 Java snapshot and there is no GTFS data for these cities.
+## Verified end-to-end journey (fresh browser session, 14 Nov 2026)
+1. Public homepage at `/` → typed "Jaipur, 2 days with friends…" in the hero ✅
+2. Anonymous plan: brief, Travel DNA swipes, 9-agent pipeline, preview with real photos ✅
+3. "Sign in to save" → **registered a new account** (Priya) → returned to the draft ✅
+4. Saved → real platform trip; the anonymous draft was claimed by Priya's account ✅
+5. Dashboard redirected the new user to **onboarding** (7 steps) → saved to the backend ✅
+6. Second trip planned from the **saved Travel DNA** (veg, no stairs, couple prefilled, no swipes needed) ✅
+7. **Uploaded a ticket file**: stored in the trip's private documents, 7 booking fields extracted ✅
+8. Live Companion → simulated train delay +2 h → Diff Card → accepted ✅
+9. Accepted re-plan persisted in the engine **and** re-synced into the platform trip (Day 1 now starts 11:10) ✅
+10. "Loved it" feedback → trip DNA **and** profile learning history updated ✅
+11. Logged an expense → written to the trip's budget ✅
+12. Logged out → `/api/tripzy/me/*` returns 401 → logged back in → Priya's own trips, DNA and activity ✅
+13. Isolation: as Priya, the demo user's capsule, link and platform trip all return 404 ✅
+14. Phone width (390 px): homepage, dashboard, intel, live, DNA, lab, plan and status have no horizontal overflow ✅
 
-## Critical path (all ✅)
-1. Create trip from one sentence or voice, without an account ✅
-2. Personalize: brief editing + 12-card Travel DNA ✅
-3. Generate itinerary (9-agent pipeline streamed live) ✅
-4. Map + real-road routes (OSRM) ✅
-5. Feasibility + energy per day ✅
-6. Save as a Trip Capsule = a real platform trip (places, timed assignments, budget, booking) ✅
-7. Simulate a disruption (Live or Test Lab) ✅
-8. Re-plan (Ripple Engine) ✅
-9. Accept or reject ✅
-10. Accepted changes persist in the engine and are re-synced into the platform trip ✅
+## Architecture changes in this round
+- **Trust boundary**: the browser never talks to the engine. `/api/tripzy/*` is a NestJS proxy (`server/src/nest/tripzy`) that resolves the session and forwards a keyed user id. The engine (loopback only) rejects requests without `TRIPZY_ENGINE_KEY` and enforces ownership of every capsule, link and profile.
+- **Profiles**: per-user Travel DNA (`/api/tripzy/me/profile`) built from onboarding. Composition starts from it, and feedback updates it.
+- **OIDC hardening**: a nonce was added to TREK's auth-code + PKCE + state flow and is verified against the ID token.
 
 ## Modules
-| Module | Status | Notes |
+| Area | Status | Notes |
 |---|---|---|
-| Discover / trip creation | ✅ | Text + voice (Web Speech), examples, demo trip, editable brief, auth only at save |
-| Travel DNA | ✅ | Swipe deck, trait and interest weights, group energy limiter, DNA page, learning history |
-| Itinerary engine | ✅ | Hours, closures, best time, clustering by travel cost, meals/rests, costs, alternatives |
-| Time-Truth | ✅ | 0–100 score, reasons, inline risk flags per stop |
-| Energy engine | ✅ | Party-aware budget; "my father can't climb" actually removes stair-heavy stops |
-| Shadow itinerary | ✅ | Rain / crowd / tired alternatives per stop, one-tap switch |
-| Decision cards | ✅ | Stay area and meals (2–3 options, tradeoffs, Tripzy pick). No queue data is invented |
-| Trip Capsule + sharing | ✅ | Platform trip, share links, collaborators, files, export (platform features) |
-| Bookings | ✅ | Fixed anchors in the engine plus a platform reservation; ticket-text parsing |
-| Trip Wallet | ✅ | Platform budget with categories, charts and settlements; Live quick-expense writes to both |
-| Live Companion | ✅ | NOW/NEXT, leave-by, navigate, geolocation (opt-in), real or demo clock |
-| Ripple Engine | ✅ | delay · late · rain · tired · extend · closed · skip · over_budget; auto-applies minor shifts |
-| Test Lab | ✅ | 6 scenarios, pipeline status, before/after, accept/reject, history |
-| Self-learning | ✅ | Reaction → DNA update → "apply to upcoming days" re-tunes and re-syncs |
-| Memories | 🟡 | Platform Journey/photo book is available; no Tripzy-generated summary page yet |
-| Group travel | 🟡 | Platform collaboration + traveller list; no merged multi-member DNA voting |
-| Provider status panel | ⏳ | Sources are labelled inline instead |
-| Engine auth | ⏳ | See README, "Known limitations" |
+| Public homepage | ✅ | Nav, hero with in-page trip input, how it works, 8 differentiators, **real screenshots**, about, footer, privacy, terms, status |
+| Email auth | ✅ | Register (`/signup`), login, forgot password, logout (TREK auth: bcrypt, sessions, MFA, rate limits) |
+| Google sign-in | 🟡 | Full OIDC integration (code + PKCE + state + nonce). Needs Google credentials; see README. Not tested live without credentials |
+| Onboarding | ✅ | 7 steps, skippable, persisted, drives future plans, shown once |
+| Dashboard | ✅ | Real greeting, upcoming journey, readiness, quick actions, real stats (demo excluded), activity, DNA discovery, alerts. TREK's currency, timezone and generic widgets removed |
+| Itinerary intelligence | ✅ | As before: Time-Truth, energy, Plan B, decision cards, Ripple, learning |
+| Documents | ✅ | Ticket upload → trip files (access-controlled) + PDF/text parsing. Photos of tickets need OCR ⏳ |
+| Provider health | ✅ | `/status`: OSRM, Open-Meteo, Wikipedia, matrix cache, places catalogue, Claude, train feed (simulated) |
+| Demo environment | ✅ | Separate non-admin `demo@tripzy.app`, seeded by `backend/scripts/seed_demo.py`; trips titled `[Demo]`, excluded from stats |
+| Test Lab | ✅ | 6 scenarios; events labelled simulated |
+| Group DNA merging | ⏳ | Platform collaboration only |
+| Memories summary | 🟡 | Platform Journey/journal; no Tripzy-generated recap yet |
+| Places API | 🟡 | Curated verified catalogue (2 cities) + Wikipedia photos. No live Places provider is configured (needs a keyed provider) |
+| Currency conversion | — | Removed from the dashboard rather than shown with stale rates |
 
-## Verification
-- Engine: `pytest` 12/12 passing (brief parsing, closures/diet, edits, train-delay ripple, rain swap, tired + learning, ticket parsing, demo seed, links, resequence, skip, budget swap).
-- Client: `tsc --noEmit` 0 errors; `vite build` passes.
-- Browser walk-through: visitor plan → login → save → Intelligence page → Test Lab train delay → accept → the platform planner shows the re-timed Day 1 (11:10 start after the 2 h delay).
+## Tests
+- Engine: **18/18** pytest (flow, platform bridge, security/isolation, trust boundary, date parsing).
+- Client: `tsc --noEmit` 0 errors; `vite build` OK. Server: `tsc --noEmit` 0 errors; boots with the route-guard ratchet passing.

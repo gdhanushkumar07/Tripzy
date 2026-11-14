@@ -76,7 +76,7 @@ RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends tzdata dumb-init wget ca-certificates \
     libkitinerary-bin libsqlite3-0 && \
-    npm ci --workspace=server --omit=dev --ignore-scripts && \
+    npm install --workspace=server --omit=dev --ignore-scripts && \
     { ln -sf "$(find /usr/lib -name kitinerary-extractor -type f | head -1)" /usr/local/bin/kitinerary-extractor || true; } && \
     rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx && \
     chown -R node:node /app

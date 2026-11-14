@@ -55,20 +55,18 @@ Google sign-in: in Google Cloud Console → Credentials → your OAuth client, a
 - `https://<your-app>.vercel.app/status` lists every provider and shows whether the backend is reachable.
 - Sign in, open a trip and ask the Companion "What's next?".
 
-## 5. The Tripzy engine on Render (required)
+## 5. The Tripzy engine on Render (required, one-time)
 
-The platform service (`platform/Dockerfile`) does **not** contain the Python engine. Without the engine, every `/api/tripzy/*` call returns 502. The Travel DNA questions, recommendations, readiness, money, hotels, the Companion and trip planning then all fail. Deploy it as its own service:
+`platform/Dockerfile` contains only the platform; without the Python engine every `/api/tripzy/*` call returns 502. The Travel DNA questions, recommendations, readiness, money, hotels, the Companion and trip planning all fail.
 
-1. Render → **New → Web Service** → this repository.
-   - **Root Directory:** `backend`
-   - **Runtime:** Docker (uses `backend/Dockerfile`)
-   - **Instance:** Free
-2. Environment variables on the **engine** service:
-   - `TRIPZY_ENGINE_KEY` = a long random string (the container refuses to start without it)
-   - optional free keys: `GEMINI_API_KEY`, `GEOAPIFY_API_KEY`, `LITEAPI_KEY`
-3. Environment variables on the **platform** service (the existing `tripzy-y6bi` one):
-   - `TRIPZY_ENGINE_URL` = the engine's URL, e.g. `https://tripzy-engine.onrender.com` (no trailing slash)
-   - `TRIPZY_ENGINE_KEY` = the same value as on the engine
-4. Redeploy the platform service. Check that `https://<platform>/api/tripzy/dna/cards` returns 12 questions (not 502).
+The repository root now has a `Dockerfile` that builds the platform **and** the engine into one image. The engine listens on `127.0.0.1` inside the container, so it is never public and is reached only through the authenticated proxy.
 
-Note: Render's free disk is temporary, so trips stored by the engine are lost when it restarts or redeploys. Accounts and platform trips live in the platform service.
+On your existing Render service (`tripzy-y6bi`):
+1. **Settings → Build & Deploy**:
+   - **Root Directory:** leave empty
+   - **Dockerfile Path:** `./Dockerfile`
+2. Optional **Environment** variables, for the free providers: `GEMINI_API_KEY`, `GEOAPIFY_API_KEY`, `LITEAPI_KEY`. `TRIPZY_ENGINE_KEY` is optional too; a random key is generated at start if it is absent.
+3. **Manual Deploy → Deploy latest commit.**
+4. Check that `https://tripzy-five-ashen.vercel.app/api/tripzy/dna/cards` returns 12 questions instead of 502.
+
+Note: Render's free disk is temporary, so engine trips (`/app/data/tripzy`) reset when the service restarts. Attach a Render disk at `/app/data` to keep them.

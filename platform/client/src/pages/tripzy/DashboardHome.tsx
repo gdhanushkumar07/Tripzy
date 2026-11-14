@@ -29,6 +29,7 @@ export default function DashboardHome(): React.ReactElement {
   const [trips, setTrips] = useState<Trip[] | null>(null)
   const [caps, setCaps] = useState<CapsuleSummary[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [profileFailed, setProfileFailed] = useState(false)
   const [disc, setDisc] = useState<DiscoverItem[] | null>(null)
   const [next, setNext] = useState<CapsuleX | null>(null)
   const [ready, setReady] = useState<Readiness | null>(null)
@@ -48,7 +49,7 @@ export default function DashboardHome(): React.ReactElement {
         try { sessionStorage.setItem('tripzy:onboard-asked', '1') } catch { /* storage unavailable */ }
         nav('/onboarding')
       }
-    }).catch(() => undefined)
+    }).catch(() => !off && setProfileFailed(true))
     engine.discover(undefined, 3).then((d) => !off && setDisc(d.items)).catch(() => !off && setDisc([]))
     return () => { off = true }
   }, [nav])
@@ -114,7 +115,7 @@ export default function DashboardHome(): React.ReactElement {
         <div className="mt-20 grid gap-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-20">
           <section aria-labelledby="dna">
             <SectionHead id="dna" kicker="Your Travel DNA" title={profile?.completed ? 'How you like to travel' : 'Tell Tripzy how you travel'} />
-            <DnaPortrait profile={profile} />
+            <DnaPortrait profile={profile} failed={profileFailed} />
           </section>
           <section aria-labelledby="discover">
             <SectionHead id="discover" kicker="Discover" title="Picked for you" action={<Link to="/plan" className="tz-link text-[14px] font-semibold text-accent-on">Plan around these</Link>} />
@@ -286,9 +287,9 @@ const TRAITS: [keyof Profile['dna'], string, string][] = [
   ['morning', 'Late starts', 'Sunrise'],
 ]
 
-function DnaPortrait({ profile }: { profile: Profile | null }) {
-  if (!profile) return <Skeleton className="mt-8 h-64 rounded-[22px]" />
-  if (!profile.completed) {
+function DnaPortrait({ profile, failed }: { profile: Profile | null; failed?: boolean }) {
+  if (!profile && !failed) return <Skeleton className="mt-8 h-64 rounded-[22px]" />
+  if (!profile || !profile.completed) {
     return (
       <div className="mt-8 rounded-[22px] border border-dashed border-edge p-8">
         <p className="text-[15px] text-content-muted">Two minutes of questions and every plan starts from you: your pace, your interests, who you travel with.</p>

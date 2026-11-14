@@ -59,13 +59,16 @@ def _parse_date(t: str, today: date) -> Optional[date]:
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", t)
     if m:
         return date(int(m[1]), int(m[2]), int(m[3]))
-    m = re.search(r"(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3})[a-z]*", t)
-    m2 = re.search(r"\b([a-z]{3})[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\b", t)
     day = mon = None
-    if m and m[2] in MONTHS:
-        day, mon = int(m[1]), MONTHS[m[2]]
-    elif m2 and m2[1] in MONTHS:
-        day, mon = int(m2[2]), MONTHS[m2[1]]
+    for m in re.finditer(r"(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3})[a-z]*", t):
+        if m[2] in MONTHS:
+            day, mon = int(m[1]), MONTHS[m[2]]
+            break
+    if not day:
+        for m2 in re.finditer(r"\b([a-z]{3})[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\b", t):
+            if m2[1] in MONTHS:
+                day, mon = int(m2[2]), MONTHS[m2[1]]
+                break
     if day and mon:
         y = today.year if (mon, day) >= (today.month, today.day) else today.year + 1
         try:

@@ -65,7 +65,7 @@ const isOidcOnly = (config: AppConfig | null): boolean =>
  */
 export function useLogin() {
   const { t } = useTranslation()
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register'>(() => (/^\/(signup|register)/.test(window.location.pathname) ? 'register' : 'login'))
   const [username, setUsername] = useState<string>('')
   const [email, setEmail] = useState<string>('')
   const [password, setPassword] = useState<string>('')

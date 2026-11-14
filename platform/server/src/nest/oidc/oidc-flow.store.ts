@@ -4,6 +4,8 @@ export interface OidcPendingState {
   redirectUri: string;
   inviteToken?: string;
   codeVerifier: string;
+  /** OIDC nonce bound to this login; the id_token must echo it (replay protection). */
+  nonce?: string;
   remember?: boolean;
 }
 

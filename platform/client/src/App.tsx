@@ -14,6 +14,10 @@ import TripIntelPage from './pages/tripzy/TripIntelPage'
 import LivePage, { LiveRedirect } from './pages/tripzy/LivePage'
 import LabPage from './pages/tripzy/LabPage'
 import DnaPage from './pages/tripzy/DnaPage'
+import HomePage from './pages/tripzy/HomePage'
+import OnboardingPage from './pages/tripzy/OnboardingPage'
+import DashboardHome from './pages/tripzy/DashboardHome'
+import { PrivacyPage, StatusPage, TermsPage } from './pages/tripzy/InfoPages'
 import { ToastContainer } from './components/shared/Toast'
 import SaveToCollectionModal from './components/Collections/SaveToCollectionModal'
 import MSaveToCollectionSheet from './components/Collections/MSaveToCollectionSheet'
@@ -243,6 +247,12 @@ function RouteMemory() {
   return null
 }
 
+/** OAuth return: the server finishes the code exchange, then hands the one-time code to /login. */
+function AuthCallback() {
+  const location = useLocation()
+  return <Navigate to={`/login${location.search}`} replace />
+}
+
 function RootRedirect() {
   const { isAuthenticated, isLoading } = useAuthStore()
   const settingsLoaded = useSettingsStore((s) => s.isLoaded)
@@ -297,8 +307,9 @@ function RootRedirect() {
     )
   }
 
-  // Tripzy: a visitor lands on Discover and sees value before any sign-up.
-  return <Navigate to={isAuthenticated ? (target ?? '/dashboard') : '/plan'} replace />
+  // Tripzy: a visitor sees the public homepage; a signed-in traveller goes to their dashboard.
+  if (!isAuthenticated) return <HomePage />
+  return <Navigate to={target ?? '/dashboard'} replace />
 }
 
 /**
@@ -485,7 +496,7 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <ViewportRoute phone={MDashboardScreen} desktop={DashboardPage} />
+                <DashboardHome />
               </ProtectedRoute>
             }
           />
@@ -525,6 +536,12 @@ export default function App() {
           />
           {/* ── Tripzy intelligence ─────────────────────────────────── */}
           <Route path="/plan" element={<PublicRoute><PlanPage /></PublicRoute>} />
+          <Route path="/signup" element={<PublicRoute redirectAuthed><LoginPage /></PublicRoute>} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+          <Route path="/status" element={<PublicRoute><StatusPage /></PublicRoute>} />
+          <Route path="/privacy" element={<PublicRoute><PrivacyPage /></PublicRoute>} />
+          <Route path="/terms" element={<PublicRoute><TermsPage /></PublicRoute>} />
           <Route path="/trips/:id/intel" element={<ProtectedRoute><TripIntelPage /></ProtectedRoute>} />
           <Route path="/trips/:id/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
           <Route path="/live" element={<ProtectedRoute><LiveRedirect /></ProtectedRoute>} />

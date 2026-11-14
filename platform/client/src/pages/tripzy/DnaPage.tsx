@@ -75,7 +75,7 @@ export default function DnaPage(): React.ReactElement {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-[1.2fr_1fr]">
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <Card className="p-6">
             <Eyebrow className="mb-4">Traits · start of trip vs now</Eyebrow>
             <div className="space-y-5">

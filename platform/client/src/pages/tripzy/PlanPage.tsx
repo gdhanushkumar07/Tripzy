@@ -6,6 +6,8 @@ import { useAuthStore } from '../../store/authStore'
 import { composeStream, engine, rememberCapsule, rupees, type DnaCard } from '../../tripzy/engine'
 import { materialize } from '../../tripzy/bridge'
 import type { Brief, CapsuleX, Step } from '../../tripzy/types'
+import { PublicNav } from '../../tripzy/PublicLayout'
+import type { Profile } from '../../tripzy/engine'
 import { Button, Card, EnergyBar, Eyebrow, Pill, PlaceImage, ScoreRing, Toast, usePlacePhoto } from '../../tripzy/ui'
 
 type Stage = 'describe' | 'shape' | 'compose' | 'preview'
@@ -23,12 +25,7 @@ export default function PlanPage(): React.ReactElement {
   if (authed) return <PageShell background="var(--bg-primary)">{body}</PageShell>
   return (
     <div className="min-h-screen bg-surface">
-      <header className="sticky top-0 z-50 border-b border-edge bg-surface-elevated backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <Link to="/plan"><img src="/logo-dark.svg" alt="Tripzy" className="h-8 dark:hidden" /><img src="/logo-light.svg" alt="Tripzy" className="hidden h-8 dark:block" /></Link>
-          <Link to="/login?redirect=%2Fplan" className="text-body font-semibold text-accent-on">Sign in</Link>
-        </div>
-      </header>
+      <PublicNav />
       {body}
     </div>
   )
@@ -46,6 +43,21 @@ function PlanFlow({ authed }: { authed: boolean }) {
   const [capsuleId, setCapsuleId] = useState<string | null>(saved?.capsuleId ?? null)
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  useEffect(() => {
+    if (authed) engine.profile().then(setProfile).catch(() => undefined)
+  }, [authed])
+  // Arriving from the homepage with a sentence: start straight away.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q')
+    if (q) {
+      setText(q)
+      setCapsuleId(null)
+      window.history.replaceState(null, '', '/plan')
+      void start(q)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ brief, swipes, capsuleId })) } catch { /* ignore */ }
@@ -55,7 +67,20 @@ function PlanFlow({ authed }: { authed: boolean }) {
     if (!t.trim()) return
     setBusy(true)
     try {
-      setBrief(await engine.parseBrief(t))
+      const b = await engine.parseBrief(t)
+      // Saved Travel DNA fills what the sentence didn't say (diet, access, usual companions).
+      const p = profile ?? (authed ? await engine.profile().catch(() => null) : null)
+      if (p?.completed) {
+        const said = (re: RegExp) => re.test(t.toLowerCase())
+        if (b.diet === 'any' && p.constraints?.diet && p.constraints.diet !== 'any') b.diet = p.constraints.diet as Brief['diet']
+        if (p.constraints?.no_stairs) b.no_stairs = true
+        if (b.party === 'solo' && p.companions && !said(/solo|alone|myself|friends|parents|family|kids|wife|husband|partner|couple/)) {
+          b.party = p.companions as Brief['party']
+          b.kids = p.kids ?? b.kids
+        }
+        if (b.budget_style === 'mid' && p.budget_style) b.budget_style = p.budget_style as Brief['budget_style']
+      }
+      setBrief(b)
       setSwipes({})
       setStage('shape')
     } catch (e) {
@@ -82,7 +107,7 @@ function PlanFlow({ authed }: { authed: boolean }) {
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-6">
       {stage === 'describe' && <Describe text={text} setText={setText} onGo={start} onDemo={demo} busy={busy} />}
       {stage === 'shape' && brief && (
-        <Shape brief={brief} setBrief={setBrief} swipes={swipes} setSwipes={setSwipes}
+        <Shape brief={brief} setBrief={setBrief} swipes={swipes} setSwipes={setSwipes} profile={profile}
           onBack={() => setStage('describe')} onBuild={() => setStage('compose')} />
       )}
       {stage === 'compose' && brief && (
@@ -206,9 +231,12 @@ function HeroTile({ src, label, className }: { src: string | null; label: string
 
 // ---------------------------------------------------------------- 2. brief + DNA
 
-function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild }: {
+function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild, profile }: {
   brief: Brief; setBrief: (b: Brief) => void; swipes: Record<string, string>; setSwipes: (s: Record<string, string>) => void; onBack: () => void; onBuild: () => void
+  profile: Profile | null
 }) {
+  const [customise, setCustomise] = useState(false)
+  const useSaved = !!profile?.completed && !customise
   const [cards, setCards] = useState<DnaCard[]>([])
   const [i, setI] = useState(Object.keys(swipes).length)
   useEffect(() => { engine.cards().then(setCards).catch(() => undefined) }, [])
@@ -233,7 +261,7 @@ function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild }: {
   return (
     <div>
       <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1 text-body text-content-muted hover:text-content"><ArrowLeft className="h-4 w-4" />Start over</button>
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <Card className="h-fit p-5">
           <Eyebrow>Trip brief</Eyebrow>
           <p className="mt-1 text-body italic text-content-muted">“{brief.raw}”</p>
@@ -269,6 +297,20 @@ function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild }: {
           {brief.interests.length > 0 && <div className="mt-3 flex flex-wrap gap-1">{brief.interests.map((x) => <Pill key={x} tone="accent">{x}</Pill>)}</div>}
         </Card>
 
+        {useSaved ? (
+          <Card className="flex min-h-[460px] flex-col items-center justify-center p-8 text-center">
+            <span className="grid h-16 w-16 place-items-center rounded-2xl bg-accent-subtle text-accent-on"><Sparkles className="h-8 w-8" /></span>
+            <Eyebrow className="mt-5 tz-coral-text">Your saved Travel DNA</Eyebrow>
+            <h2 className="mt-1 text-title font-bold text-content">Planning around you</h2>
+            <div className="mt-3 flex max-w-md flex-wrap justify-center gap-1.5">{(profile?.summary ?? []).map((x) => <Pill key={x} tone="accent">{x}</Pill>)}</div>
+            <p className="mt-3 max-w-sm text-body text-content-muted">Including everything Tripzy has learned from your past trips. Diet and accessibility limits are applied automatically.</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <Button variant="secondary" onClick={() => setCustomise(true)}>Customise for this trip</Button>
+              <Button className="h-12 px-7" disabled={!ready} onClick={() => (setSwipes({}), onBuild())}><Wand2 className="h-5 w-5" />Build my trip</Button>
+            </div>
+            {!ready && <p className="mt-2 text-body text-danger">Choose a destination and start date first.</p>}
+          </Card>
+        ) : (
         <Card className="flex min-h-[460px] flex-col p-6 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -308,6 +350,7 @@ function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild }: {
             </div>
           )}
         </Card>
+        )}
       </div>
     </div>
   )

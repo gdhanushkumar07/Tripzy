@@ -106,6 +106,7 @@ import { VacayModule } from './vacay/vacay.module';
 import { WalletPassModule } from './wallet-pass/wallet-pass.module';
 import { WandererModule } from './wanderer/wanderer.module';
 import { WeatherModule } from './weather/weather.module';
+import { TripzyModule } from './tripzy/tripzy.module';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
@@ -136,6 +137,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
     PlatformModule,
     McpTransportModule,
     WeatherModule,
+    TripzyModule,
     PublicApiModule,
     HelpModule,
     AirportsModule,

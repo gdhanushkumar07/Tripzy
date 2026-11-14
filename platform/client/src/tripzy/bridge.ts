@@ -66,7 +66,7 @@ export async function materialize(c: Capsule, onProgress?: (msg: string) => void
   const say = onProgress ?? (() => undefined)
   say('Creating your trip')
   const { trip } = await tripsApi.create({
-    title: `${c.city.name} · ${c.brief.days} day${c.brief.days > 1 ? 's' : ''}`,
+    title: `${(c as { demo?: boolean }).demo ? '[Demo] ' : ''}${c.city.name} · ${c.brief.days} day${c.brief.days > 1 ? 's' : ''}`,
     description: `Planned by Tripzy for ${c.travellers.map((t) => t.label).join(', ')}. ${c.dna_summary.join(' · ')}.`,
     start_date: c.days[0].date,
     end_date: c.days[c.days.length - 1].date,

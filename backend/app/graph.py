@@ -24,6 +24,7 @@ from .engines.weather import forecast
 
 
 class ComposeState(TypedDict, total=False):
+    profile: dict | None
     brief: dict
     swipes: dict
     travellers: list
@@ -48,9 +49,10 @@ def understand(s: ComposeState) -> dict:
 
 
 def profile(s: ComposeState) -> dict:
-    c = T.init_capsule(s["brief"], s.get("swipes") or {}, {"travellers": s.get("travellers")})
+    c = T.init_capsule(s["brief"], s.get("swipes") or {}, {"travellers": s.get("travellers")}, s.get("profile"))
     eb = D.energy_budget(c["dna"], c["travellers"], c["constraints"])
-    return {"capsule": c, "step": _step("Profile Agent", "Trip DNA ready",
+    src = "from your saved Travel DNA" if (s.get("profile") and not s.get("swipes")) else "from this trip's swipes"
+    return {"capsule": c, "step": _step("Profile Agent", f"Trip DNA ready ({src})",
                                         " · ".join(c["dna_summary"]) + f". {eb['explain']}.")}
 
 

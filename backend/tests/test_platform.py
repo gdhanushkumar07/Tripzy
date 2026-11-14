@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
 
-client = TestClient(app)
+client = TestClient(app, headers={"x-tripzy-user": "1"})
 
 
 def seed():

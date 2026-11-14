@@ -171,8 +171,9 @@ const CAT_ICON: Record<string, React.ElementType> = {
 
 export function PlaceImage({ id, cat, className = '', alt }: { id?: string | null; cat?: string; className?: string; alt: string }) {
   const src = usePlacePhoto(id)
+  const [broken, setBroken] = useState(false)
   const Icon = CAT_ICON[cat || ''] ?? Landmark
-  if (src) return <img src={src} alt={alt} loading="lazy" className={`object-cover ${className}`} />
+  if (src && !broken) return <img src={src} alt={alt} loading="lazy" onError={() => setBroken(true)} className={`object-cover ${className}`} />
   return (
     <div className={`grid place-items-center bg-accent-subtle text-accent-on ${className}`} aria-hidden>
       <Icon className="h-6 w-6 opacity-70" />

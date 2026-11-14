@@ -5,10 +5,12 @@
  */
 import type { Brief, Capsule, CapsuleX, CatalogPlace, Link, Proposal, Step } from './types'
 
-const BASE = '/engine'
+// Reached through the platform's authenticated proxy (never the engine directly).
+const BASE = '/api/tripzy'
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(BASE + path, {
+    credentials: 'same-origin',
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
   })
@@ -25,6 +27,24 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return r.json()
 }
 const post = <T,>(path: string, body: unknown) => req<T>(path, { method: 'POST', body: JSON.stringify(body) })
+
+export type Dna = Capsule['dna']
+export type Profile = {
+  completed: boolean; dna: Dna; dna_onboarding?: Dna; summary?: string[]; companions?: string; kids?: number
+  constraints?: { diet: string; no_stairs: boolean; wheelchair: boolean }; budget_style?: string; budget_per_day?: number | null
+  home_city?: string | null; history?: { text: string; from: string; city: string }[]; updated_at?: string; answers?: ProfileInput
+}
+export type ProfileInput = {
+  swipes: Record<string, string>; interests: string[]; pace?: number; morning?: number
+  companions: 'solo' | 'couple' | 'friends' | 'family' | 'parents'; kids: number; diet: 'any' | 'veg' | 'jain' | 'halal'
+  no_stairs: boolean; wheelchair: boolean; budget_style: 'low' | 'mid' | 'high'; budget_per_day?: number | null; home_city?: string | null; skipped: string[]
+}
+export type CapsuleSummary = {
+  id: string; city: string; city_key: string; demo: boolean; platform_trip_id?: number; created_at: string; start: string | null; days: number
+  scores: number[]; ripple_log: Capsule['ripple_log']; learned: Capsule['learned']; spent_total: number; planned_total: number
+}
+export type DiscoverItem = { place_id: string; name: string; city: string; city_key: string; cat: string; match: number; why: string; best?: [string, string, string]; desc: string }
+export type ProviderRow = { name: string; purpose: string; status: 'ok' | 'degraded' | 'down' | 'not_configured' | 'simulated'; latency_ms: number | null; detail: string; attribution: string }
 
 export type DnaCard = { id: string; a: { label: string; emoji: string }; b: { label: string; emoji: string } }
 
@@ -54,6 +74,18 @@ export const engine = {
     post<{ ok: boolean }>('/links', { capsule_id, platform_trip_id, places }),
   getLink: (platformTripId: number | string) => req<Link>(`/links/${platformTripId}`),
   demoSeed: () => post<{ capsule_id: string }>('/demo/seed', {}),
+  profile: () => req<Profile>('/me/profile'),
+  saveProfile: (p: ProfileInput) => req<Profile>('/me/profile', { method: 'PUT', body: JSON.stringify(p) }),
+  myCapsules: () => req<CapsuleSummary[]>('/me/capsules'),
+  discover: (city?: string, limit = 8) => req<{ personalised: boolean; items: DiscoverItem[] }>(`/me/discover?limit=${limit}${city ? `&city=${city}` : ''}`),
+  providers: () => req<{ checked_at: string; providers: ProviderRow[] }>('/providers'),
+  parseTicketFile: async (file: File, city_key: string) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const r = await fetch(`${BASE}/bookings/parse-file?city_key=${encodeURIComponent(city_key)}`, { method: 'POST', body: fd, credentials: 'same-origin' })
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail ?? `Upload failed (${r.status})`)
+    return (await r.json()) as { fields: Record<string, string>; chars: number }
+  },
   train: (number: string, date: string, station: string) =>
     req<{ number: string; name: string; status: string; delay_min: number; avg_delay_hist: number; source: string }>(
       `/live/train/${number}?date=${date}&station=${station}`),

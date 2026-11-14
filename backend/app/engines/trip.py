@@ -17,12 +17,27 @@ from .timeutil import WEEKDAYS, day_dates, fmt, to_min
 from .verify import day_cost, verify_day
 
 
-def init_capsule(brief: dict, swipes: dict, party_override: dict | None = None) -> dict:
+def init_capsule(brief: dict, swipes: dict, party_override: dict | None = None, profile: dict | None = None) -> dict:
+    import copy
     city_key = brief["city"]
     travellers = D.party_from(brief["party"], brief.get("kids", 0))
     if party_override and party_override.get("travellers"):
         travellers = party_override["travellers"]
-    dna = D.dna_from_swipes(swipes, brief.get("interests"))
+    if profile and profile.get("dna") and not swipes:
+        # Saved Travel DNA (onboarding + everything learned since) drives this trip.
+        dna = copy.deepcopy(profile["dna"])
+        for h in brief.get("interests") or []:
+            if h in dna["interests"]:
+                dna["interests"][h] = min(1.0, dna["interests"][h] + .25)
+        prefs = profile.get("constraints") or {}
+        if brief.get("diet", "any") == "any" and prefs.get("diet"):
+            brief["diet"] = prefs["diet"]
+        if prefs.get("no_stairs"):
+            brief["no_stairs"] = True
+        if brief.get("budget_style", "mid") == "mid" and profile.get("budget_style"):
+            brief["budget_style"] = profile["budget_style"]
+    else:
+        dna = D.dna_from_swipes(swipes, brief.get("interests"))
     if brief.get("budget_style") == "low":
         dna["budget"] = min(dna["budget"], .3)
     elif brief.get("budget_style") == "high":
@@ -35,7 +50,7 @@ def init_capsule(brief: dict, swipes: dict, party_override: dict | None = None) 
         "id": store.new_trip_id(), "created_at": datetime.now().isoformat(timespec="seconds"),
         "status": "planned", "city_key": city_key,
         "city": {k: CITIES[city_key][k] for k in ("name", "state", "center", "emergency", "local_phrase", "stations")},
-        "brief": brief, "travellers": travellers, "dna": dna, "dna_initial": D.dna_from_swipes(swipes, brief.get("interests")),
+        "brief": brief, "travellers": travellers, "dna": dna, "dna_initial": copy.deepcopy(dna),
         "dna_summary": D.describe(dna), "constraints": constraints, "overrides": {}, "bookings": [],
         "spent": [], "feedback": [], "learned": [], "ripple_log": [], "notes": [], "weather": {},
     }

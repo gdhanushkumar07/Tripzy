@@ -24,8 +24,27 @@ cd ..
 ./start.sh            # engine :8000 + platform API :3001 + web :5173
 ```
 
-Open **http://localhost:5173**. Visitors land on **Plan with AI** and need no account to plan.
-Demo login: **demo@tripzy.app / Tripzy@2026**. The account is seeded on first run from `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
+Open **http://localhost:5173**. Visitors see the public homepage and can plan without an account.
+
+Accounts:
+- **Demo (for judges)**: `demo@tripzy.app` / `Tripzy@2026`. A normal user with a completed Travel DNA and one `[Demo]` trip with a sample train booking. Create or refresh it with `cd backend && .venv/bin/python scripts/seed_demo.py` (repeatable).
+- **Admin**: seeded on first run from `ADMIN_EMAIL`/`ADMIN_PASSWORD` in `platform/server/.env`. Use a private email, not the demo one.
+- **Your own**: `/signup`. New accounts start empty and go through onboarding.
+
+### Google sign-in (OIDC)
+1. Google Cloud Console → APIs & Services → Credentials → Create **OAuth client ID** (Web application).
+2. Authorised redirect URI: `<APP_URL>/api/auth/oidc/callback` (local: `http://localhost:5173/api/auth/oidc/callback`).
+3. OAuth consent screen: scopes `openid`, `email`, `profile`.
+4. In `platform/server/.env`:
+   ```
+   OIDC_ISSUER=https://accounts.google.com
+   OIDC_CLIENT_ID=<id>.apps.googleusercontent.com
+   OIDC_CLIENT_SECRET=<secret>
+   OIDC_DISPLAY_NAME=Google
+   OIDC_SCOPE=openid email profile
+   ```
+5. Restart. The login page then shows "Sign in with Google". The flow uses authorization code + PKCE (S256) + state cookie + nonce, verifies the ID token signature, audience, issuer and nonce, creates the account on first login, and links by verified email.
+Without these variables the Google button is hidden. Google sign-in was not tested live, because no credentials are configured here.
 
 Tests: `cd backend && .venv/bin/python -m pytest -q` (12 end-to-end API tests).
 Client checks: `cd platform/client && npx tsc --noEmit -p . && npx vite build`.
@@ -62,8 +81,8 @@ Client checks: `cd platform/client && npx tsc --noEmit -p . && npx vite build`.
 
 ## Known limitations
 
-- The `/engine` route reaches the engine through the Vite dev proxy. In production, put a reverse proxy in front (`/engine` → `:8000`, rewriting the prefix to `/api`).
-- The engine API has no auth of its own yet. Capsules are addressed by unguessable ids. Next step: verify the platform session on the engine.
+- The engine is reached only through the platform's authenticated `/api/tripzy/*` proxy. It binds to 127.0.0.1 and requires `TRIPZY_ENGINE_KEY`, and it enforces ownership per capsule, link and profile.
+- Trip sharing to collaborators covers the platform trip. Tripzy Intelligence views of a shared trip are owner-only for now.
 - Two cities in V1. Group voting and veto tokens are not built; the group is handled through the traveller list and energy limiter, and through the platform's collaboration features.
 - Place OCR from uploaded tickets uses the platform's booking import (needs the optional KItinerary extractor). Tripzy's own parser reads pasted ticket text.
 

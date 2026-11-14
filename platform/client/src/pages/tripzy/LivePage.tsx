@@ -134,7 +134,7 @@ export default function LivePage(): React.ReactElement {
 
   return (
     <PageShell background="var(--bg-primary)">
-      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[440px_1fr]">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-5 lg:grid-cols-[440px_minmax(0,1fr)]">
         <section className="space-y-4">
           <Card className="p-4">
             <div className="flex items-center justify-between gap-2">

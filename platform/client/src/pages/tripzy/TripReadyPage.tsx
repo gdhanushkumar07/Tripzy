@@ -207,7 +207,7 @@ function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
       <section data-in className="grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div>
           <div className="tz-kicker">The whole trip, before you go</div>
-          <div className="mt-3 font-serif text-[64px] leading-none text-content md:text-[88px]">{rupees(f.total)}</div>
+          <div className="mt-3 break-words font-serif text-[56px] leading-none text-content sm:text-[64px] md:text-[88px]">{rupees(f.total)}</div>
           <div className="mt-3 text-[15px] text-content-muted">{rupees(f.per_person)} each for {f.people} traveller{f.people > 1 ? 's' : ''}{Object.keys(f.converted).length ? ` · ≈ ${Object.entries(f.converted).map(([k, v]) => `${k} ${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`).join(' · ')}` : ''}</div>
           <div className="mt-8 flex h-3 overflow-hidden rounded-full" role="img" aria-label="Cost by category">
             {cats.map(([k, v]) => <span key={k} style={{ width: `${(v / Math.max(1, f.total)) * 100}%`, background: CAT_COLOR[k] }} />)}
@@ -229,7 +229,7 @@ function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
             <select className="tz-input !w-24 shrink-0" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Currency">{CODES.map((x) => <option key={x}>{x}</option>)}</select>
             <Button variant="secondary" onClick={() => setToInr(!toInr)} aria-label="Swap direction"><Repeat className="h-4 w-4" /></Button>
           </div>
-          <div className="mt-5 font-serif text-[34px] leading-tight text-content">
+          <div className="mt-5 break-words font-serif text-[28px] leading-tight text-content sm:text-[34px]">
             {converted == null ? '—' : toInr ? <>{code} {n.toLocaleString()} <span className="text-content-muted">=</span> {rupees(converted)}</> : <>{rupees(n)} <span className="text-content-muted">=</span> {code} {converted.toLocaleString(undefined, { maximumFractionDigits: 2 })}</>}
           </div>
           <p className="mt-2 text-[12px] text-content-faint">{fx?.source ? `${fx.source} · ${fx.date}` : fx?.error ?? 'Loading live rates…'}</p>
@@ -238,14 +238,14 @@ function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
 
       <section data-in className="mt-16 grid gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div>
-          <div className="flex items-end justify-between"><div><div className="tz-kicker">Planned and spent</div><h3 className="tz-h3 mt-2 text-content">Day by day</h3></div><div className="text-[13px] text-content-muted">spent <b className="text-content">{rupees(f.spent)}</b> · {f.budget_total ? 'budget' : 'estimate'} left <b className="text-content">{rupees(f.remaining)}</b></div></div>
+          <div className="flex flex-wrap items-end justify-between gap-2"><div><div className="tz-kicker">Planned and spent</div><h3 className="tz-h3 mt-2 text-content">Day by day</h3></div><div className="text-[13px] text-content-muted">spent <b className="text-content">{rupees(f.spent)}</b> · {f.budget_total ? 'budget' : 'estimate'} left <b className="text-content">{rupees(f.remaining)}</b></div></div>
           <div className="mt-6 space-y-5">
             {f.by_day.map((d) => (
               <div key={d.day} className="grid grid-cols-[88px_minmax(0,1fr)] items-center gap-4">
                 <div><div className="font-serif text-[20px] leading-none text-content">Day {d.day + 1}</div><div className="mt-1 text-[11px] text-content-faint">{d.date}</div></div>
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-3"><div className="h-2 rounded-full bg-[var(--tz-sage)]" style={{ width: `${(d.planned / maxDay) * 100}%` }} /><span className="shrink-0 text-[12px] text-content-muted">planned {rupees(d.planned)}</span></div>
-                  <div className="flex items-center gap-3"><div className="h-2 rounded-full bg-accent" style={{ width: `${Math.max(0.5, (d.spent / maxDay) * 100)}%` }} /><span className="shrink-0 text-[12px] text-content-muted">spent {rupees(d.spent)}</span></div>
+                  <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><div className="h-2 rounded-full bg-[var(--tz-sage)]" style={{ width: `${(d.planned / maxDay) * 100}%` }} /></div><span className="w-[112px] shrink-0 text-[12px] text-content-muted">planned {rupees(d.planned)}</span></div>
+                  <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><div className="h-2 rounded-full bg-accent" style={{ width: `${Math.max(0.5, (d.spent / maxDay) * 100)}%` }} /></div><span className="w-[112px] shrink-0 text-[12px] text-content-muted">spent {rupees(d.spent)}</span></div>
                 </div>
               </div>
             ))}

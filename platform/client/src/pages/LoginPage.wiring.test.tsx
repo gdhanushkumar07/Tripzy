@@ -418,20 +418,19 @@ describe('LoginPage — register mode', () => {
 });
 
 describe('LoginPage — alternative sign-in buttons', () => {
-  it('FE-LOGIN-WIRE-026: the SSO button sits behind an "or" divider and reacts to hover', () => {
+  it('FE-LOGIN-WIRE-026: the SSO button leads the card, above an "or continue with email" divider', () => {
     fixture.appConfig.oidc_configured = true;
     fixture.appConfig.oidc_login = true;
     fixture.appConfig.oidc_display_name = 'Keycloak';
     fixture.inviteToken = 'abc';
     renderPage();
 
-    expect(screen.getByText('or')).toBeInTheDocument();
-    const link = screen.getByRole('link', { name: /sign in with keycloak/i });
+    expect(screen.getByText(/or continue with email/i)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /continue with keycloak/i });
     expect(link).toHaveAttribute('href', '/api/auth/oidc/login?invite=abc&remember=0');
-
-    const background = hoverRoundTrip(link, 'background');
-    expect(background.hovered).not.toBe(background.before);
-    expect(background.after).toBe(background.before);
+    // it sits above the email form
+    const form = document.querySelector('form');
+    expect(form && link.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('FE-LOGIN-WIRE-026b: the SSO link carries remember=1 when the toggle is on, and no flag in register mode (#1927)', () => {
@@ -440,13 +439,13 @@ describe('LoginPage — alternative sign-in buttons', () => {
     fixture.appConfig.oidc_display_name = 'Keycloak';
     fixture.rememberMe = true;
     renderPage();
-    expect(screen.getByRole('link', { name: /sign in with keycloak/i }))
+    expect(screen.getByRole('link', { name: /continue with keycloak/i }))
       .toHaveAttribute('href', '/api/auth/oidc/login?remember=1');
 
     cleanup();
     fixture.mode = 'register';
     renderPage();
-    expect(screen.getByRole('link', { name: /sign in with keycloak/i }))
+    expect(screen.getByRole('link', { name: /continue with keycloak/i }))
       .toHaveAttribute('href', '/api/auth/oidc/login');
   });
 

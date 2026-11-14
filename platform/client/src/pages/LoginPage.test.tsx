@@ -261,7 +261,8 @@ describe('LoginPage', () => {
       render(<LoginPage />);
 
       await waitFor(() => {
-        expect(screen.getByText(/sign in with okta/i)).toBeInTheDocument();
+        // Tripzy: the SSO entry is the "Continue with <provider>" button at the top of the card
+        expect(screen.getByText(/continue with okta/i)).toBeInTheDocument();
       });
     });
   });

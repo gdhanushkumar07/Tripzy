@@ -6,7 +6,7 @@ import { useSettingsStore } from '../../store/settingsStore'
 import { useAddonStore } from '../../store/addonStore'
 import { usePluginStore } from '../../store/pluginStore'
 import { useTranslation } from '../../i18n'
-import { Plane, LogOut, Settings, ChevronDown, Shield, ArrowLeft, ChevronLeft, Moon, Sun, Monitor, CalendarDays, Briefcase, Globe, Compass, BookOpen, Bookmark, Sparkles, Radio, Dna, FlaskConical } from 'lucide-react'
+import { Plane, LogOut, Settings, ChevronDown, Shield, ArrowLeft, ChevronLeft, Moon, Sun, Monitor, CalendarDays, Briefcase, Globe, Compass, BookOpen, Bookmark, Sparkles, Radio, Dna } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import InAppNotificationBell from './InAppNotificationBell.tsx'
 import HelpButton from '../Help/HelpButton'
@@ -98,7 +98,7 @@ export default function Navbar({ tripTitle, tripId, onBack, showBack, onSettings
     return translated !== key ? translated : addon.name
   }
 
-  // Tripzy navigation: My Trips · Plan with AI · Live · Travel DNA · Explore map · Memories · Test Lab
+  // Tripzy navigation: My Trips · Plan with AI · Live · Travel DNA · Explore map · Memories
   const TRIPZY_ADDON_LABELS: Record<string, string> = { atlas: 'Explore Map', journey: 'Memories' }
   const tabs = [{ id: '__trips', path: '/dashboard', label: t('nav.myTrips'), Icon: Briefcase },
     { id: 'tripzy-plan', path: '/plan', label: 'Plan with AI', Icon: Sparkles },
@@ -106,7 +106,6 @@ export default function Navbar({ tripTitle, tripId, onBack, showBack, onSettings
     { id: 'tripzy-dna', path: '/dna', label: 'Travel DNA', Icon: Dna },
     ...globalAddons.filter(a => a.id === 'atlas' || a.id === 'journey')
       .map(a => ({ id: a.id, path: `/${a.id}`, label: TRIPZY_ADDON_LABELS[a.id] ?? getAddonName(a), Icon: ADDON_ICONS[a.icon] || CalendarDays })),
-    { id: 'tripzy-lab', path: '/lab', label: 'Test Lab', Icon: FlaskConical },
     ...pagePlugins.map(p => ({ id: `plugin:${p.id}`, path: `/plugins/${p.id}`, label: p.name, Icon: resolvePluginIcon(p.icon) })),
     // Empty in this repository — see client/src/managed.
     ...visibleManagedNavItems(user?.role === 'admin').map(m => ({ id: `managed:${m.id}`, path: m.path, label: m.label, Icon: m.Icon }))

@@ -2,6 +2,51 @@
 
 ✅ = implemented and verified (browser walk-through and/or automated tests) · 🟡 = partial · ⏳ = not built
 
+## Round 5: images, Travel DNA, Test Lab, audit (14 Nov 2026, uncommitted)
+
+**Deployed-site root cause** ⏳ (needs a Render step) The Render platform service runs only `platform/Dockerfile`; the Python engine is not deployed. Every `/api/tripzy/*` call answers 502 "Tripzy Intelligence is unavailable", so the deployed site:
+- shows no Travel DNA questions
+- shows no recommendations
+- shows loading skeletons that never resolve
+
+Added `backend/Dockerfile` (refuses to start without `TRIPZY_ENGINE_KEY`; the key check is now constant-time) and the setup steps in DEPLOY.md §5.
+
+**Images** ✅
+- 6 Wikipedia titles in the catalogue no longer existed (404): two corrected, four removed.
+- Place photos are now test-loaded before display and cached for 7 days.
+- Loading shows a shimmer that resolves within 9 s.
+- Fallback: the place's own self-hosted photo where one exists (13 places), otherwise a designed name tile, never a different landmark.
+- Readiness, Money, Memories and dashboard Discover show an error with retry instead of endless skeletons.
+- Verified on dashboard, intel, memories, hotels and the homepage, with and without Wikipedia reachable: 0 broken images, 0 stuck placeholders.
+
+**Travel DNA** ✅
+- **The 12 questions:** loaded once, shared by onboarding and the planner (`useDnaCards`); an error state with retry replaces the silent empty step.
+- **Answering:**
+  - Back between questions, with the chosen answer highlighted
+  - "Clear answer"
+  - progress, and ← → keys
+- **Saving and resuming:**
+  - the draft survives a refresh
+  - existing travellers start from their saved answers
+  - for a saved-DNA user, the planner now offers "Answer the 12 questions for this trip"
+  - the DNA page links to the questionnaire
+- **Verified:** 17/17 browser checks, including saved answers via the API (12 answers, interests, companions, diet), and a new account's full 12-question flow.
+
+**Test Lab** ✅ Removed from:
+- the desktop navbar and mobile navigation
+- the dashboard footer
+- the homepage showcase (replaced by a Readiness screen)
+- the terms text
+
+`/lab` exists only in development builds and redirects to the dashboard in production. The engine's ripple endpoints and their tests are unchanged.
+
+**Audit** ✅ 18 pages at 1440, 1024, 768, 390 and 375 px: no HTTP errors and no Tripzy page errors. Fixed the Money tab's phone overflow (unbounded grid column).
+
+**Known issues**
+- An intermittent `DatabaseClosedError` from TREK's offline IndexedDB layer during full-page reloads (1 in 4 runs at 768 px, not Tripzy code).
+- 9 TREK navigation unit tests still expect TREK's original nav (they predate the Tripzy nav items).
+- Google sign-in on Vercel still needs the redirect URI added in Google Cloud Console.
+
 ## Round 4: cinematic UI/UX transformation (14 Nov 2026)
 Design system, motion and every main page redesigned; all features and data flows kept. Verified with Playwright in Chrome (desktop 1440, phones 390/375, tablet 768) and the test suites below.
 

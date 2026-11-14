@@ -549,7 +549,8 @@ export default function App() {
           <Route path="/trips/:id/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
           <Route path="/live" element={<ProtectedRoute><LiveRedirect /></ProtectedRoute>} />
           <Route path="/dna" element={<ProtectedRoute><DnaPage /></ProtectedRoute>} />
-          <Route path="/lab" element={<ProtectedRoute><LabPage /></ProtectedRoute>} />
+          {/* Ripple Test Lab: a developer tool only. Not linked anywhere; production sends /lab home. */}
+          <Route path="/lab" element={import.meta.env.DEV ? <ProtectedRoute><LabPage /></ProtectedRoute> : <Navigate to="/dashboard" replace />} />
           <Route
             path="/trips/:id/files"
             element={

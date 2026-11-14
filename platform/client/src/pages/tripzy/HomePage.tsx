@@ -329,7 +329,7 @@ function Solution() {
         <div className="mt-24 grid gap-6 md:grid-cols-3">
           {([['/showcase/intel.png', 'Trip Intelligence', 'Every day checked against opening hours, travel time and energy.'],
              ['/showcase/live.png', 'Live', 'Now, next and when to leave, while you travel.'],
-             ['/showcase/lab.png', 'Ripple Engine', 'A delay re-planned, shown before anything changes.']] as const).map(([src, t, d], i) => (
+             ['/showcase/ready.png', 'Readiness', 'A checklist that ticks itself, and a packing list with reasons.']] as const).map(([src, t, d], i) => (
             <figure key={src} className={i === 1 ? 'md:mt-16' : ''}>
               <div data-reveal="mask" className="overflow-hidden rounded-[22px] border border-edge bg-surface-card">
                 <img src={src} alt={`${t}, a real Tripzy screen`} loading="lazy" className="aspect-[4/3] w-full object-cover object-top" />

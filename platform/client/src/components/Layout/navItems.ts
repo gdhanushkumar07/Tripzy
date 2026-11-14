@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { LayoutGrid, CalendarDays, Globe, Compass, Bookmark, Sparkles, Radio, Dna, FlaskConical, type LucideIcon } from 'lucide-react'
+import { LayoutGrid, CalendarDays, Globe, Compass, Bookmark, Sparkles, Radio, Dna, type LucideIcon } from 'lucide-react'
 import { useTranslation } from '../../i18n'
 import { useAddonStore } from '../../store/addonStore'
 import { usePluginStore } from '../../store/pluginStore'
@@ -59,7 +59,6 @@ export function buildNavItems(
     { id: 'tripzy-plan', to: '/plan', label: 'Plan with AI', icon: Sparkles },
     { id: 'tripzy-live', to: '/live', label: 'Live Companion', icon: Radio },
     { id: 'tripzy-dna', to: '/dna', label: 'Travel DNA', icon: Dna },
-    { id: 'tripzy-lab', to: '/lab', label: 'Test Lab', icon: FlaskConical },
     ...globalAddons.map((a) => {
       const key = `admin.addons.catalog.${a.id}.name`
       const translated = t(key)

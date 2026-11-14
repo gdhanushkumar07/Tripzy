@@ -1663,3 +1663,7 @@ img[alt="TREK"] {
 html.tz-doc { overflow: visible; height: auto; overscroll-behavior: none; }
 html.tz-doc body { height: auto; overflow: visible; overflow-x: clip; }
 .tz-glass { background: color-mix(in srgb, var(--bg-primary) 86%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); }
+/* Designed stand-in for a place without a photo: forest-to-ink with faint map contours. */
+.tz-place-tile { background:
+  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='160' fill='none' stroke='%23F7F5EF' stroke-opacity='.07'><path d='M-10 120C40 80 90 140 140 100S220 60 260 90'/><path d='M-10 90C40 50 90 110 140 70S220 30 260 60'/><path d='M-10 60C40 20 90 80 140 40S220 0 260 30'/><path d='M-10 150C40 110 90 170 140 130S220 90 260 120'/></svg>") center / 240px 160px,
+  linear-gradient(160deg, #3d6b5a 0%, #315C4C 45%, #18211F 100%); }

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Activity, ArrowRight, ArrowUpRight, Brain, CalendarDays, CloudRain, FlaskConical, Plus, Radio, ShieldCheck, Sparkles, Train, Users } from 'lucide-react'
+import { Activity, ArrowRight, ArrowUpRight, Brain, CalendarDays, CloudRain, Plus, Radio, ShieldCheck, Sparkles, Train, Users } from 'lucide-react'
 import PageShell from '../../components/Layout/PageShell'
 import { tripsApi } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
@@ -29,7 +29,7 @@ export default function DashboardHome(): React.ReactElement {
   const [trips, setTrips] = useState<Trip[] | null>(null)
   const [caps, setCaps] = useState<CapsuleSummary[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [disc, setDisc] = useState<DiscoverItem[]>([])
+  const [disc, setDisc] = useState<DiscoverItem[] | null>(null)
   const [next, setNext] = useState<CapsuleX | null>(null)
   const [ready, setReady] = useState<Readiness | null>(null)
   const [err, setErr] = useState('')
@@ -49,7 +49,7 @@ export default function DashboardHome(): React.ReactElement {
         nav('/onboarding')
       }
     }).catch(() => undefined)
-    engine.discover(undefined, 3).then((d) => !off && setDisc(d.items)).catch(() => undefined)
+    engine.discover(undefined, 3).then((d) => !off && setDisc(d.items)).catch(() => !off && setDisc([]))
     return () => { off = true }
   }, [nav])
 
@@ -82,7 +82,7 @@ export default function DashboardHome(): React.ReactElement {
     return rows.slice(0, 6)
   }, [caps])
 
-  useReveal(root, [trips === null, caps.length, disc.length])
+  useReveal(root, [trips === null, caps.length, disc?.length])
 
   return (
     <PageShell background="var(--bg-primary)">
@@ -118,7 +118,9 @@ export default function DashboardHome(): React.ReactElement {
           </section>
           <section aria-labelledby="discover">
             <SectionHead id="discover" kicker="Discover" title="Picked for you" action={<Link to="/plan" className="tz-link text-[14px] font-semibold text-accent-on">Plan around these</Link>} />
-            {disc.length === 0 ? <div className="mt-8 grid gap-4 sm:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-56 rounded-[22px]" />)}</div> : (
+            {disc === null ? <div className="mt-8 grid gap-4 sm:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-56 rounded-[22px]" />)}</div> : disc.length === 0 ? (
+              <p className="mt-8 max-w-md text-[15px] text-content-muted">Recommendations are taking a break right now. <Link to="/plan" className="text-accent-on underline underline-offset-2">Plan a journey</Link> and Tripzy will pick places for you there.</p>
+            ) : (
               <div data-reveal data-reveal-stagger className="mt-8 grid gap-4 sm:grid-cols-3">
                 {disc.map((d) => (
                   <Link key={d.place_id} to={`/plan?q=${encodeURIComponent(`${d.city}, 2 days, include ${d.name}`)}`} className="group block">
@@ -153,7 +155,6 @@ export default function DashboardHome(): React.ReactElement {
         </section>
 
         <footer className="mt-20 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-edge pt-6 text-[13px] text-content-muted">
-          <Link to="/lab" className="inline-flex items-center gap-1.5 hover:text-content"><FlaskConical className="h-3.5 w-3.5" />Ripple Test Lab (simulated events)</Link>
           <Link to="/status" className="hover:text-content">Data providers &amp; status</Link>
           <Link to="/credits" className="hover:text-content">Photo credits</Link>
         </footer>

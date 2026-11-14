@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ArrowLeft, ArrowRight, CheckCircle2, CloudRain, Gauge, Loader2, MapPinned, Mic, Route, ShieldCheck, Sparkles, Wand2, Zap } from 'lucide-react'
 import PageShell from '../../components/Layout/PageShell'
 import { useAuthStore } from '../../store/authStore'
-import { composeStream, engine, rememberCapsule, rupees, type DnaCard } from '../../tripzy/engine'
+import { composeStream, engine, rememberCapsule, rupees } from '../../tripzy/engine'
+import { useDnaCards } from '../../tripzy/useDnaCards'
+import { DnaCardsStatus, DnaProgress, DnaQuestion } from '../../tripzy/DnaQuestion'
 import { materialize } from '../../tripzy/bridge'
 import type { Brief, CapsuleX, Step } from '../../tripzy/types'
 import { PublicNav } from '../../tripzy/PublicLayout'
@@ -237,26 +239,20 @@ function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild, profile }:
 }) {
   const [customise, setCustomise] = useState(false)
   const useSaved = !!profile?.completed && !customise
-  const [cards, setCards] = useState<DnaCard[]>([])
+  const dna = useDnaCards()
+  const cards = dna.cards
   const [i, setI] = useState(Object.keys(swipes).length)
-  useEffect(() => { engine.cards().then(setCards).catch(() => undefined) }, [])
   const card = cards[i]
-  const done = cards.length > 0 && i >= cards.length
+  const done = dna.status === 'ready' && i >= cards.length
   const patch = (p: Partial<Brief>) => setBrief({ ...brief, ...p })
-  const pick = (c: 'a' | 'b') => {
+  const pick = useCallback((v: 'a' | 'b' | null) => {
     if (!card) return
-    setSwipes({ ...swipes, [card.id]: c })
-    setI(i + 1)
-  }
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'SELECT') return
-      if (e.key === 'ArrowLeft') pick('a')
-      if (e.key === 'ArrowRight') pick('b')
-    }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  })
+    const next = { ...swipes }
+    if (v) next[card.id] = v
+    else delete next[card.id]
+    setSwipes(next)
+    if (v) setI((n) => n + 1)
+  }, [card, swipes, setSwipes])
   const ready = !!brief.city && !!brief.start_date
   return (
     <div>
@@ -305,7 +301,7 @@ function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild, profile }:
             <div className="mt-3 flex max-w-md flex-wrap justify-center gap-1.5">{(profile?.summary ?? []).map((x) => <Pill key={x} tone="accent">{x}</Pill>)}</div>
             <p className="mt-3 max-w-sm text-body text-content-muted">Including everything Tripzy has learned from your past trips. Diet and accessibility limits are applied automatically.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <Button variant="secondary" onClick={() => setCustomise(true)}>Customise for this trip</Button>
+              <Button variant="secondary" onClick={() => setCustomise(true)}>Answer the 12 questions for this trip</Button>
               <Button className="h-12 px-7" disabled={!ready} onClick={() => (setSwipes({}), onBuild())}><Wand2 className="h-5 w-5" />Build my trip</Button>
             </div>
             {!ready && <p className="mt-2 text-body text-danger">Choose a destination and start date first.</p>}
@@ -318,25 +314,19 @@ function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild, profile }:
               <h2 className="mt-1 text-title font-bold text-content">Which sounds more like this trip?</h2>
               <p className="text-body text-content-muted">Your choices change real rankings, pace and energy limits. Use ← → keys.</p>
             </div>
-            <span className="shrink-0 text-body font-semibold tabular-nums text-content-muted">{Math.min(i, cards.length)}/{cards.length}</span>
+            <span className="shrink-0 text-body font-semibold tabular-nums text-content-muted">{Object.keys(swipes).length}/{cards.length || 12}</span>
           </div>
-          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-tertiary">
-            <div className="h-full rounded-full transition-all" style={{ width: `${cards.length ? (Math.min(i, cards.length) / cards.length) * 100 : 0}%`, background: 'var(--tz-coral)' }} />
-          </div>
+          <div className="mt-4"><DnaProgress answered={Object.keys(swipes).length} total={cards.length || 12} /></div>
+          <div className="mt-8"><DnaCardsStatus state={dna} /></div>
           {!done && card && (
             <>
-              <div key={card.id} className="tz-rise mt-8 grid flex-1 grid-cols-2 gap-4">
-                {(['a', 'b'] as const).map((k) => (
-                  <button key={k} type="button" onClick={() => pick(k)}
-                    className="group flex min-h-[210px] flex-col items-center justify-center gap-4 rounded-3xl border-2 border-edge bg-surface-secondary p-5 text-center transition hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-elevated">
-                    <span className="text-[56px] transition group-hover:scale-110" aria-hidden>{card[k].emoji}</span>
-                    <span className="text-subtitle font-semibold text-content">{card[k].label}</span>
-                  </button>
-                ))}
-              </div>
+              <div className="flex-1"><DnaQuestion card={card} value={swipes[card.id]} onAnswer={pick} index={i} total={cards.length} /></div>
               <div className="mt-4 flex justify-between text-body">
                 <button type="button" className="text-content-muted disabled:opacity-30" disabled={i === 0} onClick={() => setI(i - 1)}>← Back</button>
-                <button type="button" className="text-content-muted hover:text-content" onClick={() => setI(cards.length)}>Skip the rest</button>
+                <div className="flex gap-4">
+                  <button type="button" className="text-content-muted hover:text-content" onClick={() => setI(i + 1)}>{swipes[card.id] ? 'Next' : 'Skip question'}</button>
+                  <button type="button" className="text-content-muted hover:text-content" onClick={() => setI(cards.length)}>Finish</button>
+                </div>
               </div>
             </>
           )}
@@ -344,7 +334,8 @@ function Shape({ brief, setBrief, swipes, setSwipes, onBack, onBuild, profile }:
             <div className="tz-rise flex flex-1 flex-col items-center justify-center text-center">
               <span className="grid h-16 w-16 place-items-center rounded-2xl bg-accent-subtle text-accent-on"><Sparkles className="h-8 w-8" /></span>
               <h3 className="mt-4 text-title font-bold text-content">Travel DNA captured</h3>
-              <p className="mt-1 max-w-sm text-body text-content-muted">{Object.keys(swipes).length} preferences. Tripzy keeps learning from your reactions during the trip.</p>
+              <p className="mt-1 max-w-sm text-body text-content-muted">{Object.keys(swipes).length} of {cards.length} answered. Tripzy keeps learning from your reactions during the trip.</p>
+              <button type="button" className="mt-2 text-[14px] text-accent-on underline underline-offset-2" onClick={() => setI(0)}>Review my answers</button>
               <Button className="mt-6 h-12 px-7" disabled={!ready} onClick={onBuild}><Wand2 className="h-5 w-5" />Build my trip</Button>
               {!ready && <p className="mt-2 text-body text-danger">Choose a destination and start date first.</p>}
             </div>

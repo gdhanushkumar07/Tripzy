@@ -69,6 +69,16 @@ export default function TripReadyPage(): React.ReactElement {
 }
 
 /** Fade a tab's sections in once it mounts. */
+function TabError({ what, onRetry }: { what: string; onRetry: () => void }) {
+  return (
+    <div className="rounded-[28px] border border-dashed border-edge p-10 text-center" role="alert">
+      <p className="font-serif text-[24px] text-content">{what} didn't load</p>
+      <p className="mx-auto mt-2 max-w-sm text-[14px] text-content-muted">Tripzy couldn't reach its planning service. Your trip is safe; try again in a moment.</p>
+      <Button className="mt-5" onClick={onRetry}>Try again</Button>
+    </div>
+  )
+}
+
 function useTabIntro(ref: React.RefObject<HTMLDivElement | null>, ready: boolean) {
   useGSAP(() => {
     if (!ready || !ref.current || prefersReducedMotion()) return
@@ -80,15 +90,18 @@ function useTabIntro(ref: React.RefObject<HTMLDivElement | null>, ready: boolean
 
 function ReadyTab({ c, tripId, docs, onToast }: { c: CapsuleX; tripId: number; docs: number; onToast: (s: string) => void }) {
   const [r, setR] = useState<Readiness | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [tries, setTries] = useState(0)
   const [adding, setAdding] = useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
   useTabIntro(ref, !!r)
   useEffect(() => {
     let off = false
-    engine.readiness(c.id, docs).then((x) => !off && setR(x)).catch((e) => onToast((e as Error).message))
+    setFailed(false)
+    engine.readiness(c.id, docs).then((x) => !off && setR(x)).catch(() => !off && setFailed(true))
     return () => { off = true }
-  }, [c.id, docs, onToast])
-  if (!r) return <Skeleton className="h-96 rounded-[28px]" />
+  }, [c.id, docs, tries])
+  if (!r) return failed ? <TabError what="Your readiness checklist" onRetry={() => setTries((n) => n + 1)} /> : <Skeleton className="h-96 rounded-[28px]" />
   const tick = async (item: string, done: boolean) => setR(await engine.tick(c.id, item, done, docs))
   const addPacking = async () => {
     setAdding(true)
@@ -104,7 +117,7 @@ function ReadyTab({ c, tripId, docs, onToast }: { c: CapsuleX; tripId: number; d
   const byCat = r.packing.reduce<Record<string, typeof r.packing>>((a, p) => ((a[p.category] ??= []).push(p), a), {})
   const days = r.countdown_days
   return (
-    <div ref={ref} className="grid gap-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-20">
+    <div ref={ref} className="grid grid-cols-1 gap-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-20">
       <div>
         <div data-in className="flex flex-wrap items-end gap-x-10 gap-y-4">
           <div>
@@ -184,6 +197,8 @@ const CAT_COLOR: Record<string, string> = { stay: '#315C4C', food: '#D98955', ti
 
 function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
   const [f, setF] = useState<Finance | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [tries, setTries] = useState(0)
   const [fx, setFx] = useState<Fx | null>(null)
   const [amt, setAmt] = useState('1000')
   const [code, setCode] = useState('USD')
@@ -192,11 +207,12 @@ function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
   useTabIntro(ref, !!f)
   useEffect(() => {
     let off = false
-    engine.finance(c.id).then((x) => !off && setF(x)).catch(() => undefined)
+    setFailed(false)
+    engine.finance(c.id).then((x) => !off && setF(x)).catch(() => !off && setFailed(true))
     engine.fx('INR').then((x) => !off && setFx(x)).catch(() => undefined)
     return () => { off = true }
-  }, [c.id])
-  if (!f) return <Skeleton className="h-96 rounded-[28px]" />
+  }, [c.id, tries])
+  if (!f) return failed ? <TabError what="Trip money" onRetry={() => setTries((n) => n + 1)} /> : <Skeleton className="h-96 rounded-[28px]" />
   const rate = fx?.rates?.[code]
   const n = Number(amt) || 0
   const converted = rate ? (toInr ? n / rate : n * rate) : null
@@ -204,7 +220,7 @@ function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
   const maxDay = Math.max(1, ...f.by_day.map((d) => Math.max(d.planned, d.spent)))
   return (
     <div ref={ref}>
-      <section data-in className="grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      <section data-in className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div>
           <div className="tz-kicker">The whole trip, before you go</div>
           <div className="mt-3 break-words font-serif text-[56px] leading-none text-content sm:text-[64px] md:text-[88px]">{rupees(f.total)}</div>
@@ -236,7 +252,7 @@ function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
         </div>
       </section>
 
-      <section data-in className="mt-16 grid gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      <section data-in className="mt-16 grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div>
           <div className="flex flex-wrap items-end justify-between gap-2"><div><div className="tz-kicker">Planned and spent</div><h3 className="tz-h3 mt-2 text-content">Day by day</h3></div><div className="text-[13px] text-content-muted">spent <b className="text-content">{rupees(f.spent)}</b> · {f.budget_total ? 'budget' : 'estimate'} left <b className="text-content">{rupees(f.remaining)}</b></div></div>
           <div className="mt-6 space-y-5">
@@ -292,7 +308,7 @@ function StaysTab({ c }: { c: CapsuleX }) {
   const cheapest = h?.items.length ? Math.min(...h.items.map((x) => x.total)) : 0
   return (
     <div ref={ref}>
-      <section data-in className="grid items-end gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
+      <section data-in className="grid grid-cols-1 items-end gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
         <div>
           <div className="tz-kicker">Tripzy's stay pick</div>
           <h3 className="tz-h2 mt-2 text-content">{c.stay.name}</h3>
@@ -335,15 +351,18 @@ function StaysTab({ c }: { c: CapsuleX }) {
 
 function RecapTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
   const [r, setR] = useState<Recap | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [tries, setTries] = useState(0)
   const [busy, setBusy] = useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
   useTabIntro(ref, !!r)
   useEffect(() => {
     let off = false
-    engine.recap(c.id).then((x) => !off && setR(x)).catch(() => undefined)
+    setFailed(false)
+    engine.recap(c.id).then((x) => !off && setR(x)).catch(() => !off && setFailed(true))
     return () => { off = true }
-  }, [c.id])
-  if (!r) return <Skeleton className="h-96 rounded-[28px]" />
+  }, [c.id, tries])
+  if (!r) return failed ? <TabError what="Your trip journal" onRetry={() => setTries((n) => n + 1)} /> : <Skeleton className="h-96 rounded-[28px]" />
   const story = async () => {
     setBusy(true)
     try { setR(await engine.recap(c.id, true)) } finally { setBusy(false) }
@@ -351,8 +370,8 @@ function RecapTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
   const [lead, ...rest] = r.highlights
   return (
     <div ref={ref}>
-      <section data-in className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
-        {lead && <div className="overflow-hidden rounded-[28px]"><PlaceImage id={lead.place_id} alt={lead.name} className="aspect-[16/10] w-full" /></div>}
+      <section data-in className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
+        {lead && <div className="overflow-hidden rounded-[28px]"><PlaceImage id={lead.place_id} cat={lead.cat} alt={lead.name} className="aspect-[16/10] w-full" /></div>}
         <div>
           <div className="tz-chapter">A journal of {r.city}</div>
           <p className="mt-3 font-serif text-[34px] leading-[1.15] text-content">{r.days} days, {r.stops} places, {r.km} km of road and {r.meals} meals.</p>
@@ -379,7 +398,7 @@ function RecapTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
         <section data-in className="mt-14 columns-2 gap-4 md:columns-3 [&>figure]:mb-4">
           {rest.map((h, i) => (
             <figure key={h.name + h.day} className="break-inside-avoid">
-              <div className="overflow-hidden rounded-[20px]"><PlaceImage id={h.place_id} alt={h.name} className={`${i % 3 === 0 ? 'aspect-[3/4]' : i % 3 === 1 ? 'aspect-square' : 'aspect-[4/3]'} w-full`} /></div>
+              <div className="overflow-hidden rounded-[20px]"><PlaceImage id={h.place_id} cat={h.cat} alt={h.name} className={`${i % 3 === 0 ? 'aspect-[3/4]' : i % 3 === 1 ? 'aspect-square' : 'aspect-[4/3]'} w-full`} /></div>
               <figcaption className="mt-2 flex items-baseline justify-between gap-2"><span className="font-serif text-[18px] text-content">{h.name}</span><span className="shrink-0 text-[11px] text-content-faint">Day {h.day + 1} · {h.start}{r.loved.includes(h.name) ? ' · ♥' : ''}</span></figcaption>
             </figure>
           ))}
@@ -387,7 +406,7 @@ function RecapTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
       )}
 
       {(r.adaptations.length > 0 || r.learned.length > 0) && (
-        <section data-in className="mt-14 grid gap-12 md:grid-cols-2">
+        <section data-in className="mt-14 grid grid-cols-1 gap-12 md:grid-cols-2">
           {r.adaptations.length > 0 && (
             <div>
               <div className="tz-kicker">When plans changed</div>

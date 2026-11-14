@@ -74,7 +74,7 @@ export type Finance = {
 }
 export type Recap = {
   city: string; start_date: string; days: number; stops: number; meals: number; km: number; travel_min: number
-  highlights: { name: string; place_id?: string; day: number; start: string }[]; loved: string[]; reactions: number
+  highlights: { name: string; place_id?: string; cat?: string; day: number; start: string }[]; loved: string[]; reactions: number
   adaptations: { headline: string; day: number; auto: boolean }[]; learned: string[]; spent: number; story: string | null; story_source?: string | null
 }
 

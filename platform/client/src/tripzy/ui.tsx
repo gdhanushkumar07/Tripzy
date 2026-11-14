@@ -124,42 +124,98 @@ export function Toast({ text, onClose, tone = 'neutral' }: { text: string; onClo
 
 // ---------------------------------------------------------------- photography
 
-/** Wikipedia article for each curated place (real, attributed photography). */
+/**
+ * Wikipedia article for each curated place (real, attributed photography).
+ * Places without an article are left out on purpose: they go straight to the
+ * local fallback instead of costing a request that can only 404.
+ */
 const WIKI: Record<string, string> = {
   'hyd-charminar': 'Charminar', 'hyd-mecca': 'Mecca_Masjid,_Hyderabad', 'hyd-laad': 'Laad_Bazaar',
   'hyd-chowmahalla': 'Chowmahalla_Palace', 'hyd-salarjung': 'Salar_Jung_Museum', 'hyd-golconda': 'Golconda_Fort',
   'hyd-golconda-show': 'Golconda_Fort', 'hyd-qutbshahi': 'Qutb_Shahi_tombs', 'hyd-birla': 'Birla_Mandir,_Hyderabad',
   'hyd-hussainsagar': 'Hussain_Sagar', 'hyd-museum': 'Telangana_State_Archaeology_Museum', 'hyd-zoo': 'Nehru_Zoological_Park',
-  'hyd-shilparamam': 'Shilparamam', 'hyd-cablebridge': 'Durgam_Cheruvu_Cable_Bridge', 'hyd-ramoji': 'Ramoji_Film_City',
-  'hyd-sudhacars': 'Sudha_Cars_Museum', 'hyd-paigah': 'Paigah_Tombs', 'hyd-kbr': 'KBR_National_Park',
-  'jai-amber': 'Amber_Fort', 'jai-panna': 'Panna_Meena_ka_Kund', 'jai-jalmahal': 'Jal_Mahal', 'jai-nahargarh': 'Nahargarh_Fort',
+  'hyd-shilparamam': 'Shilparamam', 'hyd-cablebridge': 'Durgam_Cheruvu_Bridge', 'hyd-ramoji': 'Ramoji_Film_City',
+  'hyd-sudhacars': 'Sudha_Cars_Museum', 'hyd-paigah': 'Paigah_Tombs', 'hyd-kbr': 'Kasu_Brahmananda_Reddy_National_Park',
+  'jai-amber': 'Amber_Fort', 'jai-jalmahal': 'Jal_Mahal', 'jai-nahargarh': 'Nahargarh_Fort',
   'jai-hawamahal': 'Hawa_Mahal', 'jai-citypalace': 'City_Palace,_Jaipur', 'jai-jantar': 'Jantar_Mantar,_Jaipur',
-  'jai-albert': 'Albert_Hall_Museum', 'jai-patrika': 'Patrika_Gate', 'jai-galta': 'Galtaji', 'jai-birla': 'Birla_Mandir,_Jaipur',
-  'jai-johari': 'Johari_Bazaar', 'jai-chokhidhani': 'Chokhi_Dhani',
+  'jai-albert': 'Albert_Hall_Museum', 'jai-galta': 'Galtaji', 'jai-birla': 'Birla_Mandir,_Jaipur',
   'city:hyderabad': 'Charminar', 'city:jaipur': 'Hawa_Mahal',
 }
-const photoCache = new Map<string, Promise<string | null>>()
+
+/**
+ * Local, self-hosted photos of these exact places (public/stories, credited on
+ * /credits). Used when Wikipedia is slow or unreachable. Other places fall back
+ * to a designed name tile: never a photo of a different landmark.
+ */
+const LOCAL: Record<string, string> = {
+  'hyd-charminar': 'charminar', 'hyd-golconda': 'golconda', 'hyd-golconda-show': 'golconda',
+  'hyd-chowmahalla': 'chowmahalla-palace', 'hyd-qutbshahi': 'qutb-shahi-tombs', 'hyd-mecca': 'makkah-masjid-hyderabad',
+  'hyd-salarjung': 'salar-jung-museum', 'hyd-hussainsagar': 'hussain-sagar', 'hyd-birla': 'birla-mandir-hyderabad',
+  'jai-amber': 'amber-fort', 'jai-hawamahal': 'hawa-mahal', 'jai-jalmahal': 'jal-mahal', 'jai-jantar': 'jantar-mantar-jaipur',
+  'jai-nahargarh': 'nahargarh-fort', 'city:hyderabad': 'charminar', 'city:jaipur': 'hawa-mahal',
+}
+export function localFallback(id?: string | null): string | null {
+  return id && LOCAL[id] ? `/stories/${LOCAL[id]}-sm.webp` : null
+}
+
+// Resolved URLs survive reloads (7 days), so the same photo is never looked up twice.
+const STORE_KEY = 'tripzy:photos:v2'
+const TTL = 7 * 86400_000
+const memo = new Map<string, Promise<string | null>>()
+let stored: Record<string, { u: string | null; t: number }> | null = null
+function readStore() {
+  if (stored) return stored
+  try { stored = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') } catch { stored = {} }
+  return stored!
+}
+function remember(title: string, u: string | null) {
+  const st = readStore()
+  st[title] = { u, t: Date.now() }
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(st)) } catch { /* storage full or blocked: the in-memory cache still works */ }
+}
+
+/** Resolve an image URL only once it has actually loaded (no broken-image icons). */
+function verify(url: string, timeoutMs = 9000): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const t = window.setTimeout(() => resolve(null), timeoutMs)
+    img.onload = () => { window.clearTimeout(t); resolve(img.naturalWidth > 0 ? url : null) }
+    img.onerror = () => { window.clearTimeout(t); resolve(null) }
+    img.decoding = 'async'
+    img.src = url
+  })
+}
 
 export function placePhoto(id?: string | null): Promise<string | null> {
   const title = id ? WIKI[id] : undefined
   if (!title) return Promise.resolve(null)
-  if (!photoCache.has(title)) {
-    photoCache.set(title, fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
+  const hit = readStore()[title]
+  if (hit && Date.now() - hit.t < TTL && (hit.u || Date.now() - hit.t < 3600_000)) return Promise.resolve(hit.u)
+  if (!memo.has(title)) {
+    memo.set(title, fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => j?.thumbnail?.source?.replace(/\/\d+px-/, '/500px-') ?? null)
+      .then((j: { thumbnail?: { source?: string } } | null) => {
+        const src = j?.thumbnail?.source
+        return src ? verify(src.replace(/\/\d+px-/, '/500px-')) : null
+      })
+      .then((u) => { remember(title, u); return u })
       .catch(() => null))
   }
-  return photoCache.get(title)!
+  return memo.get(title)!
 }
 
-export function usePlacePhoto(id?: string | null) {
-  const [src, setSrc] = useState<string | null>(null)
+/** undefined while resolving, then a URL or null. */
+export function usePlacePhoto(id?: string | null): string | null {
+  return usePlacePhotoState(id) ?? null
+}
+export function usePlacePhotoState(id?: string | null): string | null | undefined {
+  const [src, setSrc] = useState<string | null | undefined>(id && WIKI[id] ? undefined : null)
   useEffect(() => {
     let alive = true
+    if (!id || !WIKI[id]) { setSrc(null); return }
+    setSrc(undefined)
     placePhoto(id).then((s) => alive && setSrc(s))
-    return () => {
-      alive = false
-    }
+    return () => { alive = false }
   }, [id])
   return src
 }
@@ -169,14 +225,23 @@ const CAT_ICON: Record<string, React.ElementType> = {
   viewpoint: Eye, show: Theater, entertainment: Theater, food: Utensils, cafe: Coffee,
 }
 
+/**
+ * Place photography with a loading state, a fixed box (no layout shift) and an
+ * intentional fallback: a matching local photo, or a designed tile for places
+ * like restaurants where a stand-in photo would mislead.
+ */
 export function PlaceImage({ id, cat, className = '', alt }: { id?: string | null; cat?: string; className?: string; alt: string }) {
-  const src = usePlacePhoto(id)
-  const [broken, setBroken] = useState(false)
+  const remote = usePlacePhotoState(id)
+  const [failed, setFailed] = useState<string | null>(null)
+  const local = localFallback(id)
+  const src = remote && remote !== failed ? remote : remote === undefined ? undefined : local && local !== failed ? local : null
   const Icon = CAT_ICON[cat || ''] ?? Landmark
-  if (src && !broken) return <img src={src} alt={alt} loading="lazy" onError={() => setBroken(true)} className={`object-cover ${className}`} />
+  if (src === undefined) return <div className={`animate-pulse bg-surface-tertiary motion-reduce:animate-none ${className}`} aria-hidden />
+  if (src) return <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setFailed(src)} className={`object-cover ${className}`} />
   return (
-    <div className={`grid place-items-center bg-accent-subtle text-accent-on ${className}`} aria-hidden>
-      <Icon className="h-6 w-6 opacity-70" />
+    <div className={`tz-place-tile relative flex flex-col justify-end overflow-hidden p-3 text-[#F7F5EF] ${className}`} role="img" aria-label={alt}>
+      <Icon className="absolute end-3 top-3 h-5 w-5 text-[#D98955]" aria-hidden />
+      <span className="line-clamp-2 font-serif text-[18px] leading-tight">{alt}</span>
     </div>
   )
 }

@@ -34,7 +34,10 @@ export default function DnaPage(): React.ReactElement {
           <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-accent-subtle text-accent-on"><Brain className="h-7 w-7" /></span>
           <h1 className="mt-4 text-title font-bold text-content">Your Travel DNA starts with a trip</h1>
           <p className="mt-2 text-body text-content-muted">Answer 12 quick either/or cards while planning. Tripzy turns them into pace, energy and interest weights, and keeps learning on the road.</p>
-          <Link to="/plan" className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl bg-accent px-5 text-body font-semibold text-accent-text"><Sparkles className="h-4 w-4" />Plan with Tripzy</Link>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Link to="/onboarding" className="inline-flex h-10 items-center gap-2 rounded-full bg-accent px-5 text-body font-semibold text-accent-text">Answer the Travel DNA questions</Link>
+            <Link to="/plan" className="inline-flex h-10 items-center gap-2 rounded-full border border-edge px-5 text-body font-semibold text-content"><Sparkles className="h-4 w-4" />Plan with Tripzy</Link>
+          </div>
         </div>
       </PageShell>
     )
@@ -70,7 +73,8 @@ export default function DnaPage(): React.ReactElement {
             <div className="mt-2 flex flex-wrap gap-1.5">{c.dna_summary.map((x) => <Pill key={x} tone="accent">{x}</Pill>)}</div>
           </div>
           <div className="flex gap-2">
-            <Link to="/plan" className="inline-flex h-10 items-center rounded-xl border border-edge bg-surface-card px-4 text-body font-semibold text-content hover:bg-surface-hover">Retake on a new trip</Link>
+            <Link to="/onboarding" className="inline-flex h-10 items-center rounded-full border border-edge bg-surface-card px-4 text-body font-semibold text-content hover:bg-surface-hover">Retake the questionnaire</Link>
+            <Link to="/plan" className="inline-flex h-10 items-center rounded-full border border-edge bg-surface-card px-4 text-body font-semibold text-content hover:bg-surface-hover">Retake on a new trip</Link>
             <Button onClick={retune} disabled={busy || !c.learned.length}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Apply learning to upcoming days</Button>
           </div>
         </div>

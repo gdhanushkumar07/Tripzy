@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+data_store/trips/
+data_store/profiles/
+data_store/links.json
+data_store/dwell_stats.json
+tests/
+*.env

@@ -1,29 +1,66 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Accessibility, ArrowLeft, ArrowRight, Baby, Check, Heart, Loader2, Sparkles, User, Users, UsersRound, Wallet } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { Brand } from '../../tripzy/PublicLayout'
-import { engine, type DnaCard, type Profile, type ProfileInput } from '../../tripzy/engine'
+import { engine, type Profile, type ProfileInput } from '../../tripzy/engine'
+import { useDnaCards } from '../../tripzy/useDnaCards'
+import { DnaCardsStatus, DnaProgress, DnaQuestion } from '../../tripzy/DnaQuestion'
 import { Button, Pill, Toast } from '../../tripzy/ui'
 
 const STEPS = ['Welcome', 'Travel DNA', 'Preferences', 'Companions', 'Diet & access', 'Budget', 'Done']
+const DRAFT = 'tripzy:onboarding-draft'
+const BLANK: ProfileInput = {
+  swipes: {}, interests: [], pace: 0.5, morning: 0.5, companions: 'solo', kids: 0, diet: 'any',
+  no_stairs: false, wheelchair: false, budget_style: 'mid', budget_per_day: null, home_city: null, skipped: [],
+}
+type Draft = { a: ProfileInput; step: number; ci: number }
+function readDraft(): Draft | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT) || 'null') as Draft | null
+    return d && d.a && typeof d.step === 'number' ? d : null
+  } catch { return null }
+}
+const writeDraft = (d: Draft | null) => {
+  try { if (d) localStorage.setItem(DRAFT, JSON.stringify(d)); else localStorage.removeItem(DRAFT) } catch { /* storage unavailable: the draft is a convenience only */ }
+}
+
 const INTERESTS = ['history', 'culture', 'food', 'shopping', 'nature', 'spiritual', 'art', 'nightlife', 'photography', 'adventure', 'kids', 'entertainment']
 
 export default function OnboardingPage(): React.ReactElement {
   const nav = useNavigate()
   const user = useAuthStore((s) => s.user)
-  const [step, setStep] = useState(0)
-  const [cards, setCards] = useState<DnaCard[]>([])
-  const [ci, setCi] = useState(0)
+  const draft = readDraft()
+  const [step, setStep] = useState(draft?.step ?? 0)
+  const dna = useDnaCards()
+  const cards = dna.cards
+  const [ci, setCi] = useState(draft?.ci ?? 0)
+  const [restored] = useState(!!draft)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState<Profile | null>(null)
   const [toast, setToast] = useState('')
-  const [a, setA] = useState<ProfileInput>({
-    swipes: {}, interests: [], pace: 0.5, morning: 0.5, companions: 'solo', kids: 0, diet: 'any',
-    no_stairs: false, wheelchair: false, budget_style: 'mid', budget_per_day: null, home_city: null, skipped: [],
-  })
+  const [a, setA] = useState<ProfileInput>(draft?.a ?? BLANK)
   const set = (p: Partial<ProfileInput>) => setA((x) => ({ ...x, ...p }))
-  useEffect(() => { engine.cards().then(setCards).catch(() => undefined) }, [])
+  // Existing travellers start from their saved answers (unless a newer draft exists).
+  useEffect(() => {
+    if (restored) return
+    let alive = true
+    engine.profile().then((p) => { if (alive && p.answers) setA({ ...BLANK, ...p.answers, skipped: [] }) }).catch(() => undefined)
+    return () => { alive = false }
+  }, [restored])
+  // Interrupted? Pick up where you left off after a refresh.
+  useEffect(() => { if (step < 6) writeDraft({ a, step, ci }) }, [a, step, ci])
+  const answer = useCallback((v: 'a' | 'b' | null) => {
+    const card = cards[ci]
+    if (!card) return
+    setA((x) => {
+      const swipes = { ...x.swipes }
+      if (v) swipes[card.id] = v
+      else delete swipes[card.id]
+      return { ...x, swipes }
+    })
+    if (v) setCi((c) => c + 1)
+  }, [cards, ci])
 
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1))
   const skip = () => (set({ skipped: [...a.skipped, STEPS[step]] }), next())
@@ -31,6 +68,7 @@ export default function OnboardingPage(): React.ReactElement {
     setSaving(true)
     try {
       setDone(await engine.saveProfile(a))
+      writeDraft(null)
       setStep(6)
     } catch (e) {
       setToast((e as Error).message)
@@ -62,7 +100,7 @@ export default function OnboardingPage(): React.ReactElement {
           {step === 0 && (
             <div className="text-center">
               <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-accent-subtle text-accent-on"><Sparkles className="h-8 w-8" /></span>
-              <h1 className="mt-5 text-[30px] font-bold text-content">Welcome to Tripzy, {name}</h1>
+              <h1 className="tz-h2 mt-5 text-content">Welcome to Tripzy, {name}</h1>
               <p className="mx-auto mt-2 max-w-md text-body text-content-muted">Two minutes of questions make every plan fit you: your pace, your energy, your food, your budget. You can change any of it later.</p>
               <Button className="mt-8 h-12 px-8" onClick={next}>Let's build my Travel DNA <ArrowRight className="h-4 w-4" /></Button>
             </div>
@@ -70,24 +108,24 @@ export default function OnboardingPage(): React.ReactElement {
 
           {step === 1 && (
             <div>
-              <Head title="Which sounds more like you?" sub="Twelve quick either/or choices. Use the ← → keys if you like." />
-              {card && ci < cards.length ? (
-                <>
-                  <div className="mb-3 text-right text-caption tabular-nums text-content-muted">{ci + 1}/{cards.length}</div>
-                  <div className="grid grid-cols-2 gap-4" key={card.id}>
-                    {(['a', 'b'] as const).map((k) => (
-                      <button key={k} type="button" onClick={() => (set({ swipes: { ...a.swipes, [card.id]: k } }), setCi(ci + 1))}
-                        className="tz-rise group flex min-h-[190px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-edge bg-surface-secondary p-4 text-center transition hover:-translate-y-1 hover:border-[var(--accent)]">
-                        <span className="text-[52px] transition group-hover:scale-110" aria-hidden>{card[k].emoji}</span>
-                        <span className="font-semibold text-content">{card[k].label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
+              <Head title="Which sounds more like you?" sub={`${cards.length || 12} quick either/or choices. Answer as many as you like; use the ← → keys if you prefer.`} />
+              <div className="mb-6"><DnaProgress answered={Object.keys(a.swipes).length} total={cards.length || 12} /></div>
+              <DnaCardsStatus state={dna} />
+              {dna.status === 'ready' && (ci < cards.length ? (
+                <DnaQuestion card={cards[ci]} value={a.swipes[cards[ci].id]} onAnswer={answer} index={ci} total={cards.length} />
               ) : (
-                <div className="py-10 text-center text-content-secondary"><Check className="mx-auto h-8 w-8 text-success" /><p className="mt-2">{Object.keys(a.swipes).length} choices captured.</p></div>
-              )}
-              <Nav onBack={() => setStep(0)} onSkip={skip} onNext={next} nextLabel={ci >= cards.length ? 'Continue' : 'Skip remaining'} />
+                <div className="py-10 text-center text-content-secondary">
+                  <Check className="mx-auto h-8 w-8 text-success" />
+                  <p className="mt-2">{Object.keys(a.swipes).length} of {cards.length} answered.</p>
+                  <button type="button" className="mt-2 text-[14px] text-accent-on underline underline-offset-2" onClick={() => setCi(0)}>Review my answers</button>
+                </div>
+              ))}
+              <Nav
+                onBack={() => (ci > 0 && dna.status === 'ready' ? setCi(Math.min(ci, cards.length) - 1) : setStep(0))}
+                onSkip={skip}
+                onNext={() => (dna.status === 'ready' && ci < cards.length ? setCi(ci + 1) : next())}
+                nextLabel={dna.status === 'ready' && ci < cards.length ? (a.swipes[cards[ci].id] ? 'Next question' : 'Skip question') : 'Continue'}
+              />
             </div>
           )}
 
@@ -166,7 +204,7 @@ export default function OnboardingPage(): React.ReactElement {
           {step === 6 && done && (
             <div className="text-center">
               <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-success-soft text-success"><Check className="h-8 w-8" /></span>
-              <h2 className="mt-5 text-[28px] font-bold text-content">Your Travel DNA is ready</h2>
+              <h2 className="tz-h2 mt-5 text-content">Your Travel DNA is ready</h2>
               <div className="mt-4 flex flex-wrap justify-center gap-1.5">{(done.summary ?? []).map((s) => <Pill key={s} tone="accent">{s}</Pill>)}</div>
               <p className="mx-auto mt-4 max-w-md text-body text-content-muted">Every plan now starts from this profile, and it keeps learning from how you react on the road.</p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -183,7 +221,7 @@ export default function OnboardingPage(): React.ReactElement {
 }
 
 function Head({ title, sub }: { title: string; sub: string }) {
-  return <div className="mb-6"><h2 className="text-[26px] font-bold text-content">{title}</h2><p className="mt-1 text-body text-content-muted">{sub}</p></div>
+  return <div className="mb-6"><h2 className="tz-h3 text-content">{title}</h2><p className="mt-2 text-[15px] text-content-muted">{sub}</p></div>
 }
 
 function Nav({ onBack, onSkip, onNext, nextLabel = 'Continue' }: { onBack: () => void; onSkip: () => void; onNext: () => void; nextLabel?: string }) {

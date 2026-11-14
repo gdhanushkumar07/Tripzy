@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import contextvars
+import hmac
 import os
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
@@ -42,7 +43,7 @@ _user_name: contextvars.ContextVar[str] = contextvars.ContextVar("tripzy_user_na
 @app.middleware("http")
 async def trust_boundary(request: Request, call_next):
     if request.url.path != "/api/health" and request.url.path.startswith("/api/"):
-        if ENGINE_KEY and request.headers.get("x-tripzy-key") != ENGINE_KEY:
+        if ENGINE_KEY and not hmac.compare_digest(request.headers.get("x-tripzy-key", ""), ENGINE_KEY):
             return JSONResponse({"detail": "Forbidden"}, status_code=403)
     uid = request.headers.get("x-tripzy-user")
     _user.set(int(uid) if uid and uid.isdigit() else None)
@@ -855,7 +856,7 @@ def recap(trip_id: str, story: bool = False):
         "stops": len(places), "meals": sum(1 for d in c["days"] for b in d["blocks"] if b["kind"] == "meal"),
         "km": round(sum(float(b.get("km") or 0) for b in legs), 1),
         "travel_min": sum(int(b.get("minutes") or 0) for b in legs),
-        "highlights": [{"name": b["name"], "place_id": b.get("place_id"), "day": d["index"], "start": b["start"]}
+        "highlights": [{"name": b["name"], "place_id": b.get("place_id"), "cat": b.get("cat"), "day": d["index"], "start": b["start"]}
                        for d in c["days"] for b in d["blocks"] if b["kind"] == "place"][:12],
         "loved": loved, "reactions": len(fb),
         "adaptations": [{"headline": r["diff"].get("headline"), "day": r.get("day"), "auto": r.get("auto")}

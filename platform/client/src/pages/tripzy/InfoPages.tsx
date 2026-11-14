@@ -93,7 +93,7 @@ export function TermsPage(): React.ReactElement {
       <h2>Planning assistance</h2>
       <p>Tripzy helps you plan. Opening hours, prices and travel times come from the sources shown in the app and can change. Always confirm critical details (tickets, closures, train times) with the operator before you travel.</p>
       <h2>Simulated data</h2>
-      <p>Features marked “simulated” or “demo” (for example train running status and the Test Lab) use generated data to demonstrate behaviour and are not live information.</p>
+      <p>Features marked “simulated” or “demo” (for example train running status and demo trips) use generated data to demonstrate behaviour and are not live information.</p>
       <h2>Bookings</h2>
       <p>Tripzy does not sell tickets or take payments. Links to booking providers take you to their own sites and terms.</p>
       <h2>Open source</h2>

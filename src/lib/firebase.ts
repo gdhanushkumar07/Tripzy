@@ -32,7 +32,7 @@ export const db = initializeFirestore(app, {
 })
 
 if (usingEmulators) {
-  const host = window.location.hostname
+  const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true })
   connectFirestoreEmulator(db, host, 8080)
 }

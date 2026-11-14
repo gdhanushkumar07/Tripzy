@@ -91,6 +91,7 @@ export default function TourPage() {
 
     if (groupCode) {
       const result: GroupResult = { ...trip, groupCode, at: Date.now() }
+      await updateMember(groupCode, user.uid, { ready: true })
       await setGroup(groupCode, { result, settings: { city: a.city, start: a.start, days: a.days } })
       await write(() => setDoc(tripDoc(user.uid, `g_${groupCode}`), { title: `${trip.title} (group)`, groupCode, updatedAt: Date.now() }))
       draft.update((p) => ({ ...p, doneTripId: `g_${groupCode}` }))

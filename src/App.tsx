@@ -20,8 +20,8 @@ function Header() {
         </NavLink>
         {user && (
           <nav className="flex flex-1 items-center gap-1 overflow-x-auto" aria-label="Main">
-            <NavLink to="/commute" className={link}>Daily Traveller</NavLink>
-            <NavLink to="/tour" className={link} end={false}>Tourist Planner</NavLink>
+            <NavLink to="/commute" className={link}><span className="sm:hidden">Commute</span><span className="hidden sm:inline">Daily Traveller</span></NavLink>
+            <NavLink to="/tour" className={link} end={false}><span className="sm:hidden">Tour</span><span className="hidden sm:inline">Tourist Planner</span></NavLink>
           </nav>
         )}
         {user && (

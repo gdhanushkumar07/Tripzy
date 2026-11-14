@@ -82,8 +82,8 @@ export function RouteCard({
           ₹{route.fare} · {route.km} km · {route.changes} change{route.changes === 1 ? '' : 's'} · arrive {fmtTime(route.arrive)}
         </p>
         <p className="mt-2 flex flex-wrap items-center gap-1 text-lg" aria-label={route.legs.map((l) => l.mode).join(', then ')}>
-          {route.legs.filter((l) => l.name !== 'Walk (change)').map((l, i) => (
-            <span key={i} title={l.name}>{MODE_ICON[l.mode]}{i < route.legs.length - 1 ? <span className="mx-0.5 text-xs text-slate-400">›</span> : null}</span>
+          {route.legs.filter((l) => l.name !== 'Walk (change)').map((l, i, arr) => (
+            <span key={i} title={l.name}>{MODE_ICON[l.mode]}{i < arr.length - 1 ? <span className="mx-0.5 text-xs text-slate-400">›</span> : null}</span>
           ))}
         </p>
         <p className="mt-2 text-sm font-medium text-brand-800">Why this route: {route.why}</p>

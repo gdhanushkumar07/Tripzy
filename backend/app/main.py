@@ -12,8 +12,7 @@ import contextvars
 import os
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
@@ -276,7 +275,7 @@ def parse_ticket(body: ParseTicketIn):
     out: dict = {"mode": "flight" if re.search(r"\b(flight|indigo|6E|air india|AI-?\d)", t, re.I) else "train"}
     if m := re.search(r"PNR[^\d]{0,10}(\d{10})", t, re.I):
         out["pnr"] = m[1]
-    if m := re.search(r"(?:train|tr\.?)\s*(?:no\.?|number|#)?\s*[:\-]?\s*(\d{5})", t, re.I):
+    if m := re.search(r"(?:train|tr\.?)\s*(?:no\.?|number|#)?\s*(?:/\s*name)?\s*[:\-]?\s*(\d{5})", t, re.I):
         out["number"] = m[1]
     elif m := re.search(r"\b(6E|AI|UK|SG|QP)\s*-?\s*(\d{2,4})\b", t):
         out["number"] = f"{m[1]} {m[2]}"
@@ -662,9 +661,29 @@ def providers():
                  "latency_ms": 0, "detail": ", ".join(f"{k}: {v}" for k, v in mx.items()), "attribution": "OSRM"})
     rows.append({"name": "Verified places catalogue", "purpose": "Places, hours, closures, best times", "status": "ok", "latency_ms": 0,
                  "detail": f"{len(PLACE_BY_ID)} places in {len(CITIES)} cities, verified 2026-11-01", "attribution": "Tripzy curated dataset"})
-    rows.append({"name": "Claude (language understanding)", "purpose": "Parses free-text trip requests",
+    from .engines import providers as PV
+    st = PV.status()
+    rows.append(probe("Frankfurter currency", "https://api.frankfurter.dev/v1/latest?base=INR&symbols=USD",
+                      "Live reference exchange rates (fallback: open.er-api.com)", "European Central Bank via Frankfurter"))
+
+    def keyed(name, purpose, ok, detail_ok, detail_missing, attribution):
+        rows.append({"name": name, "purpose": purpose, "status": "ok" if ok else "not_configured", "latency_ms": None,
+                     "detail": detail_ok if ok else detail_missing, "attribution": attribution})
+
+    keyed("Gemini (AI Companion)", "Open questions and trip recaps, grounded in your trip", st["gemini"],
+          "Free tier key configured", "Not configured. Companion uses built-in rules.", "Google Gemini")
+    keyed("Geoapify places", "Nearby cafés, ATMs, pharmacies, veg food", st["geoapify"],
+          "Free tier (3,000 requests/day)", "Not configured. Curated catalogue only.", "Geoapify, © OpenStreetMap")
+    keyed("LiteAPI hotels", "Hotel comparison near your stay area", st["liteapi"],
+          "Sandbox key: test prices, labelled in the app" if st["liteapi_sandbox"] else "Live key",
+          "Not configured. Stay-area estimates only.", "LiteAPI")
+    keyed("Travelpayouts flights", "Cached fares + affiliate booking links", st["travelpayouts"],
+          "Configured (affiliate links disclosed)", "Not configured. No flight prices shown.", "Travelpayouts / Aviasales")
+    keyed("Tesseract OCR", "Reads photos of tickets on the server", st["tesseract"],
+          "Installed locally (open source)", "Not installed. PDF and text tickets still work.", "Tesseract (Apache-2.0)")
+    rows.append({"name": "Claude (language understanding)", "purpose": "Optional richer parsing of free-text trip requests",
                  "status": "ok" if os.getenv("ANTHROPIC_API_KEY") else "not_configured", "latency_ms": None,
-                 "detail": "ANTHROPIC_API_KEY set" if os.getenv("ANTHROPIC_API_KEY") else "Not configured. Rule-based parser in use.", "attribution": "Anthropic"})
+                 "detail": "ANTHROPIC_API_KEY set" if os.getenv("ANTHROPIC_API_KEY") else "Optional, paid. Not used: rule-based parser in use.", "attribution": "Anthropic"})
     rows.append({"name": "Indian Railways live status", "purpose": "Train running status for Ripple triggers", "status": "simulated", "latency_ms": None,
                  "detail": "No free official API. Deterministic simulated feed, labelled in the app.", "attribution": "—"})
     data = {"checked_at": datetime.now().isoformat(timespec="seconds"), "providers": rows}
@@ -676,39 +695,176 @@ def providers():
 
 @app.post("/api/bookings/parse-file")
 async def parse_ticket_file(city_key: str, file: UploadFile):
-    """Read a PDF / text ticket and pull PNR, number, date, time, station. Images need OCR (not in V1)."""
+    """Read a PDF, text or photo ticket (local Tesseract OCR) and pull PNR, number, date, time, station."""
     current_user(required=True)
     raw = await file.read()
     if len(raw) > 10 * 1024 * 1024:
         raise HTTPException(413, "File too large (max 10 MB)")
     name = (file.filename or "").lower()
-    text = ""
+    text, method = "", "text"
     if name.endswith(".pdf") or raw[:4] == b"%PDF":
         try:
             from io import BytesIO
             from pypdf import PdfReader
             text = "\n".join((pg.extract_text() or "") for pg in PdfReader(BytesIO(raw)).pages[:5])
+            method = "pdf"
         except Exception:
             raise HTTPException(422, "Couldn't read this PDF")
     elif name.endswith((".txt", ".eml")) or (file.content_type or "").startswith("text/"):
         text = raw.decode("utf-8", errors="ignore")
+    elif name.endswith((".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp")) or (file.content_type or "") in (
+            "image/png", "image/jpeg", "image/webp", "image/tiff", "image/bmp"):
+        from .engines.providers import ocr_image
+        ocr = ocr_image(raw, Path(name).suffix or ".png")
+        if ocr is None:
+            raise HTTPException(415, "Photo OCR needs Tesseract on the server (brew install tesseract). Upload the PDF instead.")
+        text, method = ocr, "ocr"
     else:
-        raise HTTPException(415, "Upload a PDF or text confirmation. Photos of tickets need OCR, which isn't in this version.")
+        raise HTTPException(415, "Upload a PDF, a text confirmation, or a photo (JPG/PNG) of the ticket.")
     if not text.strip():
-        raise HTTPException(422, "No readable text found in this file")
+        raise HTTPException(422, "No readable text found in this file" + (". Try a sharper, well-lit photo." if method == "ocr" else ""))
     fields = parse_ticket(ParseTicketIn(text=text, city_key=city_key))
-    return {"fields": fields, "chars": len(text)}
+    return {"fields": fields, "chars": len(text), "method": method}
 
 
-# ------------------------------------------------------------------ static frontend (single deploy)
+# ------------------------------------------------------------------ travel companion modules (free providers)
 
-DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-if DIST.exists():
-    app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
+from .engines import companion as CP  # noqa: E402
+from .engines import providers as PV  # noqa: E402
+from .engines import readiness as RD  # noqa: E402
 
-    @app.get("/{path:path}")
-    def spa(path: str):
-        f = DIST / path
-        if path and f.is_file() and DIST in f.resolve().parents:
-            return FileResponse(f)
-        return FileResponse(DIST / "index.html")
+
+@app.get("/api/fx")
+def fx(base: str = "INR"):
+    if not re.fullmatch(r"[A-Za-z]{3}", base):
+        raise HTTPException(400, "base must be a 3-letter currency code")
+    return PV.fx_rates(base)
+
+
+@app.get("/api/trips/{trip_id}/readiness")
+def readiness(trip_id: str, documents: int = 0):
+    return RD.build(_get(trip_id), documents)
+
+
+class TickIn(BaseModel):
+    done: bool
+
+
+@app.post("/api/trips/{trip_id}/readiness/{item_id}")
+def readiness_tick(trip_id: str, item_id: str, body: TickIn, documents: int = 0):
+    c = _get(trip_id, write=True)
+    if not re.fullmatch(r"[a-z_]{1,32}", item_id):
+        raise HTTPException(400, "bad item")
+    done = set(c.get("readiness_done", []))
+    (done.add if body.done else done.discard)(item_id)
+    c["readiness_done"] = sorted(done)
+    store.save(c)
+    return RD.build(c, documents)
+
+
+class CompanionIn(BaseModel):
+    message: str
+    day: Optional[int] = None
+    now: Optional[str] = None
+
+
+@app.post("/api/trips/{trip_id}/companion")
+def companion(trip_id: str, body: CompanionIn):
+    c = _get(trip_id)
+    msg = body.message.strip()[:500]
+    if not msg:
+        raise HTTPException(400, "empty message")
+    if body.now and not re.fullmatch(r"\d{1,2}:\d{2}", body.now):
+        raise HTTPException(400, "now must be HH:MM")
+    return CP.reply(c, msg, body.day, body.now)
+
+
+@app.get("/api/trips/{trip_id}/alerts")
+def trip_alerts(trip_id: str, documents: int = 0):
+    return {"alerts": CP.alerts(_get(trip_id), documents)}
+
+
+@app.get("/api/trips/{trip_id}/nearby")
+def trip_nearby(trip_id: str, kind: str = "cafe", day: int = 0, now: Optional[str] = None):
+    c = _get(trip_id)
+    if kind not in PV.PLACE_KINDS:
+        raise HTTPException(400, f"kind must be one of {sorted(PV.PLACE_KINDS)}")
+    day = max(0, min(day, len(c["days"]) - 1))
+    lat, lon = CP._position(c, day, to_min(now) if now else c["days"][day].get("start_t", 540))
+    return PV.nearby(lat, lon, kind)
+
+
+@app.get("/api/trips/{trip_id}/hotels")
+def trip_hotels(trip_id: str):
+    c = _get(trip_id)
+    lat, lon = (c["stay"]["lat"], c["stay"]["lon"]) if c.get("stay") else c["city"]["center"]
+    adults = max(1, len([t for t in c.get("travellers", []) if t.get("age") != "child"]))
+    return PV.hotels(c["city"]["name"], "IN", lat, lon, c["brief"].get("start_date") or "",
+                     max(1, len(c["days"]) - 1), adults)
+
+
+@app.get("/api/flights")
+def flight_search(origin: str, destination: str, date: str):
+    if not (re.fullmatch(r"[A-Za-z]{3}", origin) and re.fullmatch(r"[A-Za-z]{3}", destination)):
+        raise HTTPException(400, "Use 3-letter IATA codes")
+    return PV.flights(origin.upper(), destination.upper(), date)
+
+
+@app.get("/api/trips/{trip_id}/finance")
+def finance(trip_id: str):
+    """Full trip cost from the plan itself, per-person split and live conversions."""
+    c = _get(trip_id)
+    cats = {"tickets": 0, "food": 0, "transport": 0}
+    for d in c["days"]:
+        for b in d["blocks"]:
+            v = int(b.get("cost") or 0)
+            cats["transport" if b["kind"] == "leg" else "food" if b["kind"] == "meal" else "tickets"] += v
+    nights = max(1, len(c["days"]) - 1)
+    stay_rate = int(c.get("budget", {}).get("stay_estimate") or 0)
+    cats["stay"] = stay_rate * nights
+    total = sum(cats.values())
+    people = max(1, len(c.get("travellers", [])) or 1)
+    spent = int(c.get("budget", {}).get("spent_total") or 0)
+    fxr = PV.fx_rates("INR")
+    conv = {k: round(total * fxr["rates"][k], 2) for k in ("USD", "EUR", "GBP") if k in fxr.get("rates", {})}
+    by_day = [{"day": d["index"], "date": d["date"], "planned": int(d.get("cost") or 0),
+               "spent": sum(int(x["amount"]) for x in c.get("spent", []) if x.get("day") == d["index"])} for d in c["days"]]
+    return {
+        "currency": "INR", "categories": cats, "total": total, "people": people, "per_person": round(total / people),
+        "stay_rate": stay_rate, "nights": nights, "budget_total": c["brief"].get("budget_total"),
+        "spent": spent, "remaining": (c["brief"].get("budget_total") or total) - spent, "by_day": by_day,
+        "expenses": c.get("spent", []), "converted": conv, "fx": {"source": fxr.get("source"), "date": fxr.get("date")},
+        "note": "Estimates from Tripzy's verified catalogue (entry fees, typical meal and auto fares) and the stay area's "
+                "typical nightly rate. Not live prices.",
+    }
+
+
+@app.get("/api/trips/{trip_id}/recap")
+def recap(trip_id: str, story: bool = False):
+    """Trip memories: what you did, what you loved, how Tripzy adapted, what it learned."""
+    c = _get(trip_id)
+    places = [b for d in c["days"] for b in d["blocks"] if b["kind"] == "place"]
+    legs = [b for d in c["days"] for b in d["blocks"] if b["kind"] == "leg"]
+    fb = c.get("feedback", [])
+    loved = [f["place"] for f in fb if f.get("reaction") == "loved"]
+    out = {
+        "city": c["city"]["name"], "start_date": c["brief"].get("start_date"), "days": len(c["days"]),
+        "stops": len(places), "meals": sum(1 for d in c["days"] for b in d["blocks"] if b["kind"] == "meal"),
+        "km": round(sum(float(b.get("km") or 0) for b in legs), 1),
+        "travel_min": sum(int(b.get("minutes") or 0) for b in legs),
+        "highlights": [{"name": b["name"], "place_id": b.get("place_id"), "day": d["index"], "start": b["start"]}
+                       for d in c["days"] for b in d["blocks"] if b["kind"] == "place"][:12],
+        "loved": loved, "reactions": len(fb),
+        "adaptations": [{"headline": r["diff"].get("headline"), "day": r.get("day"), "auto": r.get("auto")}
+                        for r in c.get("ripple_log", []) if r.get("diff")],
+        "learned": [x["text"] for x in c.get("learned", [])],
+        "spent": c.get("budget", {}).get("spent_total", 0),
+        "story": None,
+    }
+    if story:
+        out["story"] = PV.gemini(
+            "Write a warm 4-sentence travel memory in second person from these facts only (no invented details):\n"
+            + json.dumps({k: out[k] for k in ("city", "days", "stops", "km", "highlights", "loved", "adaptations")}, default=str),
+            system="You write short, honest travel recaps. Use only the facts given.")
+        out["story_source"] = "gemini" if out["story"] else None
+    return out

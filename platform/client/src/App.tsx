@@ -11,6 +11,7 @@ import { usePluginStore } from './store/pluginStore'
 import LoginPage from './pages/LoginPage'
 import PlanPage from './pages/tripzy/PlanPage'
 import TripIntelPage from './pages/tripzy/TripIntelPage'
+import TripReadyPage from './pages/tripzy/TripReadyPage'
 import LivePage, { LiveRedirect } from './pages/tripzy/LivePage'
 import LabPage from './pages/tripzy/LabPage'
 import DnaPage from './pages/tripzy/DnaPage'
@@ -543,6 +544,7 @@ export default function App() {
           <Route path="/privacy" element={<PublicRoute><PrivacyPage /></PublicRoute>} />
           <Route path="/terms" element={<PublicRoute><TermsPage /></PublicRoute>} />
           <Route path="/trips/:id/intel" element={<ProtectedRoute><TripIntelPage /></ProtectedRoute>} />
+          <Route path="/trips/:id/ready" element={<ProtectedRoute><TripReadyPage /></ProtectedRoute>} />
           <Route path="/trips/:id/live" element={<ProtectedRoute><LivePage /></ProtectedRoute>} />
           <Route path="/live" element={<ProtectedRoute><LiveRedirect /></ProtectedRoute>} />
           <Route path="/dna" element={<ProtectedRoute><DnaPage /></ProtectedRoute>} />

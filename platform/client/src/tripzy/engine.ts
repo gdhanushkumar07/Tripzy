@@ -46,6 +46,38 @@ export type CapsuleSummary = {
 export type DiscoverItem = { place_id: string; name: string; city: string; city_key: string; cat: string; match: number; why: string; best?: [string, string, string]; desc: string }
 export type ProviderRow = { name: string; purpose: string; status: 'ok' | 'degraded' | 'down' | 'not_configured' | 'simulated'; latency_ms: number | null; detail: string; attribution: string }
 
+export type Fx = { base: string; date: string | null; rates: Record<string, number>; source: string | null; error?: string }
+export type CheckItem = { id: string; title: string; detail: string; auto: boolean; done: boolean; link?: string | null; when?: string | null }
+export type Readiness = {
+  countdown_days: number | null; start_date: string; score: number; complete: number; total: number
+  checklist: CheckItem[]; packing: { item: string; why: string; category: string }[]
+  guide: { city: string; reviewed: string; disclaimer: string; emergency: { label: string; number: string }[]
+    sections: { title: string; points: string[]; links: [string, string][] }[] }
+  sources: { name: string; url: string }[]
+}
+export type NearbyPlace = { name: string; address?: string; lat: number; lon: number; distance_m?: number; opening_hours?: string | null; categories: string[] }
+export type Hotel = { id: string; name: string; stars?: number; rating?: number; reviews?: number; address?: string; lat?: number; lon?: number; photo?: string; room?: string; board?: string; total: number; currency: string; refundable: boolean }
+export type HotelResult = { configured: boolean; sandbox?: boolean; checkin?: string; checkout?: string; items: Hotel[]; source?: string; detail?: string; error?: string }
+export type CompanionCard =
+  | { type: 'places'; items: NearbyPlace[]; source?: string }
+  | { type: 'hotels'; items: Hotel[]; source?: string; sandbox?: boolean }
+  | { type: 'emergency'; items: { label: string; number: string }[] }
+  | { type: 'packing'; items: string[] }
+export type CompanionAction = { type: 'ripple'; label: string; day: number; now: string; event: Record<string, unknown>; confirm: string }
+export type CompanionReply = { reply: string; cards: CompanionCard[]; action: CompanionAction | null; source: string }
+export type TripAlert = { level: 'warn' | 'info'; kind: string; text: string; day?: number }
+export type Finance = {
+  currency: string; categories: Record<'tickets' | 'food' | 'transport' | 'stay', number>; total: number; people: number; per_person: number
+  stay_rate: number; nights: number; budget_total: number | null; spent: number; remaining: number
+  by_day: { day: number; date: string; planned: number; spent: number }[]; expenses: { day: number; amount: number; label: string }[]
+  converted: Record<string, number>; fx: { source: string | null; date: string | null }; note: string
+}
+export type Recap = {
+  city: string; start_date: string; days: number; stops: number; meals: number; km: number; travel_min: number
+  highlights: { name: string; place_id?: string; day: number; start: string }[]; loved: string[]; reactions: number
+  adaptations: { headline: string; day: number; auto: boolean }[]; learned: string[]; spent: number; story: string | null; story_source?: string | null
+}
+
 export type DnaCard = { id: string; a: { label: string; emoji: string }; b: { label: string; emoji: string } }
 
 export const engine = {
@@ -84,8 +116,16 @@ export const engine = {
     fd.append('file', file)
     const r = await fetch(`${BASE}/bookings/parse-file?city_key=${encodeURIComponent(city_key)}`, { method: 'POST', body: fd, credentials: 'same-origin' })
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail ?? `Upload failed (${r.status})`)
-    return (await r.json()) as { fields: Record<string, string>; chars: number }
+    return (await r.json()) as { fields: Record<string, string>; chars: number; method?: 'pdf' | 'text' | 'ocr' }
   },
+  fx: (base = 'INR') => req<Fx>(`/fx?base=${base}`),
+  readiness: (id: string, documents = 0) => req<Readiness>(`/trips/${id}/readiness?documents=${documents}`),
+  tick: (id: string, item: string, done: boolean, documents = 0) => post<Readiness>(`/trips/${id}/readiness/${item}?documents=${documents}`, { done }),
+  companion: (id: string, message: string, day?: number, now?: string) => post<CompanionReply>(`/trips/${id}/companion`, { message, day, now }),
+  alerts: (id: string, documents = 0) => req<{ alerts: TripAlert[] }>(`/trips/${id}/alerts?documents=${documents}`),
+  hotels: (id: string) => req<HotelResult>(`/trips/${id}/hotels`),
+  finance: (id: string) => req<Finance>(`/trips/${id}/finance`),
+  recap: (id: string, story = false) => req<Recap>(`/trips/${id}/recap${story ? '?story=true' : ''}`),
   train: (number: string, date: string, station: string) =>
     req<{ number: string; name: string; status: string; delay_min: number; avg_delay_hist: number; source: string }>(
       `/live/train/${number}?date=${date}&station=${station}`),

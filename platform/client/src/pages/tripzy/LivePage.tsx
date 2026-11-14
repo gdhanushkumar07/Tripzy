@@ -7,6 +7,7 @@ import { engine, fmtMin, lastCapsule, mapsLink, rememberCapsule, rupees } from '
 import { resyncDays } from '../../tripzy/bridge'
 import IntelTimeline from '../../tripzy/IntelTimeline'
 import DiffSheet from '../../tripzy/DiffSheet'
+import Companion from '../../tripzy/Companion'
 import type { Block, CapsuleX, Proposal } from '../../tripzy/types'
 import { Button, Card, EnergyBar, Eyebrow, Pill, PlaceImage, ScoreRing, Toast } from '../../tripzy/ui'
 
@@ -250,6 +251,7 @@ export default function LivePage(): React.ReactElement {
         </section>
       </div>
       {prop && <DiffSheet p={prop} onAccept={accept} onReject={reject} busy={busy} simulated={demoClock} />}
+      <Companion capsuleId={c.id} tripId={tripId} day={day} now={fmtMin(now)} onCapsule={setC} />
       {toast && <Toast text={toast} onClose={() => setToast('')} />}
     </PageShell>
   )

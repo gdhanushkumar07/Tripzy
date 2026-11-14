@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { AlertTriangle, CalendarRange, CheckCircle2, Info, Loader2, MessageSquare, Radio, RefreshCw, Send, Sparkles, Ticket, Wand2 } from 'lucide-react'
+import { AlertTriangle, CalendarRange, ClipboardCheck, CheckCircle2, Info, Loader2, MessageSquare, Radio, RefreshCw, Send, Sparkles, Ticket, Wand2 } from 'lucide-react'
 import PageShell from '../../components/Layout/PageShell'
 import { filesApi } from '../../api/client'
 import { engine, rememberCapsule, rupees } from '../../tripzy/engine'
 import { readPlannerDay, resyncDays } from '../../tripzy/bridge'
 import IntelTimeline from '../../tripzy/IntelTimeline'
 import RouteMap from '../../tripzy/RouteMap'
+import Companion from '../../tripzy/Companion'
 import type { Block, Capsule, CapsuleX } from '../../tripzy/types'
 import { Button, Card, EnergyBar, Eyebrow, Pill, ScoreRing, Skeleton, Stat, Toast, usePlacePhoto } from '../../tripzy/ui'
 
@@ -123,6 +124,7 @@ export default function TripIntelPage(): React.ReactElement {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link to={`/trips/${tripId}`} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-4 text-body font-semibold backdrop-blur hover:bg-white/25"><CalendarRange className="h-4 w-4" />Open planner</Link>
+              <Link to={`/trips/${tripId}/ready`} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-4 text-body font-semibold backdrop-blur hover:bg-white/25"><ClipboardCheck className="h-4 w-4" />Readiness &amp; money</Link>
               <Link to={`/trips/${tripId}/live`} className="tz-coral-btn inline-flex h-10 items-center gap-2 rounded-xl px-4 text-body font-semibold"><Radio className="h-4 w-4" />Live Companion</Link>
             </div>
           </div>
@@ -227,6 +229,7 @@ export default function TripIntelPage(): React.ReactElement {
           onSave={(body) => (setShowBooking(false), apply('Anchoring booking', () => engine.booking(c.id, body), 'all', 'Booking anchored; the plan now protects this connection'))} />
       )}
       {toast && <Toast text={toast} onClose={() => setToast('')} />}
+      <Companion capsuleId={c.id} tripId={tripId} day={day} onCapsule={setC} />
     </PageShell>
   )
 }
@@ -244,7 +247,7 @@ function BookingSheet({ c, tripId, onClose, onSave }: { c: Capsule; tripId: numb
       // 2. extract the booking fields
       const r = await engine.parseTicketFile(file, c.city_key)
       setF((x) => ({ ...x, ...r.fields }))
-      setFileMsg(`Read ${Object.keys(r.fields).length} fields from ${file.name}. Saved to this trip's documents. Check them below.`)
+      setFileMsg(`Read ${Object.keys(r.fields).length} fields from ${file.name}${r.method === 'ocr' ? ' (photo, read on our server with Tesseract OCR)' : ''}. Saved to this trip's documents. Check them below.`)
     } catch (e) {
       setFileMsg((e as Error).message)
     }
@@ -258,8 +261,8 @@ function BookingSheet({ c, tripId, onClose, onSave }: { c: Capsule; tripId: numb
         <h3 className="text-subtitle font-bold text-content">Add a booking</h3>
         <p className="text-body text-content-muted">Fixed anchors the plan must respect. Paste a ticket confirmation to fill this in.</p>
         <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-edge p-4 text-body font-semibold text-content-secondary hover:border-[var(--accent)]">
-          <Ticket className="h-4 w-4" />Upload ticket (PDF or text)
-          <input type="file" accept=".pdf,.txt,.eml,application/pdf,text/plain" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+          <Ticket className="h-4 w-4" />Upload ticket (PDF, photo or text)
+          <input type="file" accept=".pdf,.txt,.eml,.png,.jpg,.jpeg,.webp,application/pdf,text/plain,image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
         </label>
         {fileMsg && <p className="mt-2 text-caption text-content-muted">{fileMsg}</p>}
         <div className="mt-3 text-center text-caption text-content-faint">or paste the confirmation text</div>

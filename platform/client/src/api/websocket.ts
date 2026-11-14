@@ -55,6 +55,10 @@ export function setPreReconnectHook(fn: (() => Promise<void>) | null): void {
 }
 
 function getWsUrl(wsToken: string): string {
+  // Static hosts (Vercel) cannot proxy websockets, so a build can point the
+  // socket straight at the API server, e.g. VITE_WS_ORIGIN=wss://api.example.com
+  const wsOrigin = (import.meta.env.VITE_WS_ORIGIN as string | undefined)?.replace(/\/$/, '')
+  if (wsOrigin) return `${wsOrigin}/ws?token=${wsToken}`
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
   return `${protocol}://${location.host}/ws?token=${wsToken}`
 }

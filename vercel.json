@@ -1,0 +1,44 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "client": {
+      "root": "platform/client",
+      "framework": "vite",
+      "buildCommand": "cd .. && npm run build --workspace=shared && npm run build --workspace=client",
+      "outputDirectory": "dist"
+    },
+    "server": {
+      "root": "platform/server",
+      "runtime": "nodejs",
+      "entrypoint": "dist/main.js",
+      "buildCommand": "cd .. && npm run build --workspace=shared && npm run build --workspace=server",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "engine",
+          "format": "url",
+          "env": "TRIPZY_ENGINE_URL"
+        }
+      ]
+    },
+    "engine": {
+      "root": "backend",
+      "runtime": "python",
+      "entrypoint": "app/main.py"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "server"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "client"
+      }
+    }
+  ]
+}

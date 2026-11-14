@@ -12,3 +12,4 @@ platform/node_modules/
 backend/data_store/links.json
 backend/data_store/profiles/
 backend/data_store/trips/
+api-keys.env

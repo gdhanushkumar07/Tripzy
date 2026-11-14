@@ -4,14 +4,14 @@ import { Landmark, Utensils, Coffee, Trees, ShoppingBag, Eye, Theater, Church } 
 
 export function Card({ children, className = '', ...rest }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`rounded-2xl border border-edge bg-surface-card shadow-card ${className}`} {...rest}>
+    <div className={`rounded-[22px] border border-edge bg-surface-card ${className}`} {...rest}>
       {children}
     </div>
   )
 }
 
 export function Eyebrow({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`text-[11px] font-semibold uppercase tracking-[0.08em] text-content-muted ${className}`}>{children}</div>
+  return <div className={`tz-kicker ${className}`}>{children}</div>
 }
 
 export function Pill({ children, tone = 'neutral', className = '' }: { children: React.ReactNode; tone?: 'neutral' | 'accent' | 'success' | 'warning' | 'danger' | 'coral'; className?: string }) {
@@ -35,7 +35,7 @@ export function Button({ variant = 'primary', className = '', children, ...rest 
     danger: 'bg-danger-soft text-danger hover:opacity-90',
   }
   return (
-    <button type="button" className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-body font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 ${v[variant]} ${className}`} {...rest}>
+    <button type="button" className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-body font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 ${v[variant]} ${className}`} {...rest}>
       {children}
     </button>
   )

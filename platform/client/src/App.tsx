@@ -18,7 +18,7 @@ import DnaPage from './pages/tripzy/DnaPage'
 import HomePage from './pages/tripzy/HomePage'
 import OnboardingPage from './pages/tripzy/OnboardingPage'
 import DashboardHome from './pages/tripzy/DashboardHome'
-import { PrivacyPage, StatusPage, TermsPage } from './pages/tripzy/InfoPages'
+import { CreditsPage, PrivacyPage, StatusPage, TermsPage } from './pages/tripzy/InfoPages'
 import { ToastContainer } from './components/shared/Toast'
 import SaveToCollectionModal from './components/Collections/SaveToCollectionModal'
 import MSaveToCollectionSheet from './components/Collections/MSaveToCollectionSheet'
@@ -541,6 +541,7 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
           <Route path="/status" element={<PublicRoute><StatusPage /></PublicRoute>} />
+          <Route path="/credits" element={<PublicRoute><CreditsPage /></PublicRoute>} />
           <Route path="/privacy" element={<PublicRoute><PrivacyPage /></PublicRoute>} />
           <Route path="/terms" element={<PublicRoute><TermsPage /></PublicRoute>} />
           <Route path="/trips/:id/intel" element={<ProtectedRoute><TripIntelPage /></ProtectedRoute>} />

@@ -12,7 +12,7 @@ FROM node:24-alpine AS shared-builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY shared/package.json ./shared/
-RUN npm ci --workspace=shared
+RUN npm install --workspace=shared
 COPY shared/ ./shared/
 RUN npm run build --workspace=shared
 
@@ -22,7 +22,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY shared/package.json ./shared/
 COPY client/package.json ./client/
-RUN npm ci --workspace=client
+RUN npm install --workspace=client
 COPY --from=shared-builder /app/shared/dist ./shared/dist
 COPY client/ ./client/
 # A prerelease build does not bump client/package.json, so the bundle takes its
@@ -38,7 +38,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY shared/package.json ./shared/
 COPY server/package.json ./server/
-RUN npm ci --workspace=server --ignore-scripts
+RUN npm install --workspace=server --ignore-scripts
 COPY --from=shared-builder /app/shared/dist ./shared/dist
 COPY server/ ./server/
 # tsc needs more than the 2 GB heap Node picks on a host with about 12 GB of RAM;

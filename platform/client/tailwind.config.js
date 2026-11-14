@@ -95,6 +95,8 @@ export default {
       fontFamily: {
         // Secondary "subtext" face of the mobile design (numbers, eyebrows).
         geist: ['Geist Sans', 'Poppins', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+        // Tripzy editorial serif (headings); body text stays on --font-system (Inter).
+        serif: ['Instrument Serif', 'Georgia', 'Times New Roman', 'serif'],
       },
       boxShadow: {
         'day-column': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',

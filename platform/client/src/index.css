@@ -689,9 +689,10 @@ input[type="number"], input[type="time"], input[type="date"], input[type="dateti
   --z-notice: 99998;  /* app-wide system and release notices */
   --z-toast: 100000;  /* toasts, tooltips, context menus */
 
-  --font-system: 'Poppins', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-system: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   /* Secondary "subtext"/caption tier renders in Geist; primary text + headings stay Poppins. */
-  --font-subtext: 'Geist Sans', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-subtext: 'Inter', 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -705,22 +706,22 @@ input[type="number"], input[type="time"], input[type="date"], input[type="dateti
   --shadow-elevated: 0 4px 16px rgba(0,0,0,0.1);
 
   /* Theme colors */
-  --bg-primary: #f7f6f2;   /* Tripzy: warm off-white canvas */
-  --bg-secondary: #f1efe9;
-  --bg-tertiary: #e9e7e0;
+  --bg-primary: #f7f5ef;   /* Tripzy: warm ivory canvas */
+  --bg-secondary: #efece4;
+  --bg-tertiary: #e6e2d8;
   --bg-elevated: rgba(250,250,250,0.82);
   --bg-card: #ffffff;
   --bg-input: #ffffff;
   --bg-hover: rgba(0,0,0,0.03);
-  --bg-selected: #e2e8f0;
-  --text-primary: #0f1a3d;  /* Tripzy deep navy */
-  --text-secondary: #33405e;
-  --text-muted: #6b7280;
-  --text-faint: #9ca3af;
-  --border-primary: #e5e7eb;
-  --border-secondary: #f3f4f6;
+  --bg-selected: #dce7de;
+  --text-primary: #18211f;  /* Tripzy deep ink */
+  --text-secondary: #3b4542;
+  --text-muted: #6c706a;
+  --text-faint: #a6a39b;   /* muted stone */
+  --border-primary: #e2ded3;
+  --border-secondary: #eeebe3;
   --border-faint: rgba(0,0,0,0.06);
-  --accent: #2f54eb;        /* Tripzy cobalt */
+  --accent: #315c4c;        /* Tripzy forest */
   --accent-text: #ffffff;
   --sidebar-bg: rgba(250,250,250,0.82);
   --sidebar-shadow: 0 4px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.06);
@@ -735,10 +736,15 @@ input[type="number"], input[type="time"], input[type="date"], input[type="dateti
      defining them is visually inert. Colored schemes override --accent* via
      [data-scheme]; status/shadow/inverse stay scheme-independent. */
   --accent-on: var(--accent);       /* accent as text/icon/border on a surface */
-  --accent-hover: #2443c9;          /* hover state of an accent fill */
-  --accent-subtle: #eef1fe;         /* faint accent-tinted surface (chips, selected) */
-  --tz-coral: #ff6b4a;              /* Tripzy warm accent */
-  --tz-coral-soft: #fff0eb;
+  --accent-hover: #274a3d;          /* hover state of an accent fill */
+  --accent-subtle: #dce7de;         /* soft sage (chips, selected) */
+  --tz-coral: #c97a46;              /* Tripzy restrained warm orange (#D98955, deepened for text contrast) */
+  --tz-coral-soft: #f6e8dc;
+  --tz-sun: #d98955;
+  --tz-ink: #18211f;
+  --tz-ivory: #f7f5ef;
+  --tz-sage: #dce7de;
+  --tz-stone: #a6a39b;
 
   /* Strength of a dayTintProvider plugin's colour in each region of a day card.
      Per-theme because the tones are fixed hexes: the default tone #4F46E5 is itself a
@@ -827,24 +833,24 @@ input[type="number"], input[type="time"], input[type="date"], input[type="dateti
 }
 
 .dark {
-  --bg-primary: #121215;
-  --bg-secondary: #1a1a1e;
-  --bg-tertiary: #1c1c21;
-  --bg-elevated: rgba(19,19,22,0.82);
-  --bg-card: #131316;
-  --bg-input: #1c1c21;
+  --bg-primary: #111513;
+  --bg-secondary: #181d1b;
+  --bg-tertiary: #1e2421;
+  --bg-elevated: rgba(17,21,19,0.84);
+  --bg-card: #161b19;
+  --bg-input: #1e2421;
   --bg-hover: rgba(255,255,255,0.06);
   --bg-selected: rgba(255,255,255,0.1);
-  --text-primary: #f4f4f5;
-  --text-secondary: #d4d4d8;
-  --text-muted: #a1a1aa;
-  --text-faint: #71717a;
-  --border-primary: #27272a;
-  --border-secondary: #1c1c21;
+  --text-primary: #f1eee6;
+  --text-secondary: #d3cfc5;
+  --text-muted: #a6a39b;
+  --text-faint: #77756e;
+  --border-primary: #2a312d;
+  --border-secondary: #1e2421;
   --border-faint: rgba(255,255,255,0.07);
-  --accent: #6b8cff;
-  --accent-text: #ffffff;
-  --sidebar-bg: rgba(19,19,22,0.82);
+  --accent: #86b49f;
+  --accent-text: #0f1a15;
+  --sidebar-bg: rgba(17,21,19,0.84);
   --sidebar-shadow: 0 4px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
   --tooltip-bg: rgba(19,19,22,0.96);
   --scrollbar-track: #131316;
@@ -853,10 +859,11 @@ input[type="number"], input[type="time"], input[type="date"], input[type="dateti
 
   /* Extended semantic tokens (dark) */
   --accent-on: var(--accent);
-  --accent-hover: #5577f5;
-  --accent-subtle: rgba(107, 140, 255, 0.14);
-  --tz-coral: #ff8566;
-  --tz-coral-soft: rgba(255, 133, 102, 0.14);
+  --accent-hover: #9cc5b1;
+  --accent-subtle: rgba(134, 180, 159, 0.16);
+  --tz-coral: #e3a274;
+  --tz-coral-soft: rgba(227, 162, 116, 0.14);
+  --tz-sun: #e3a274;
 
   --day-tint-badge: 24%;
   --day-tint-header: 13%;
@@ -1616,13 +1623,42 @@ img[alt="TREK"] {
 
 /* ── Tripzy accents ─────────────────────────────────────────────── */
 .tz-coral-pill { background: var(--tz-coral-soft); color: var(--tz-coral); }
-.tz-coral-btn { background: var(--tz-coral); color: #fff; }
+.tz-coral-btn { background: var(--tz-sun); color: #1b130c; }
 .tz-coral-btn:hover { filter: brightness(0.95); }
 .tz-coral-text { color: var(--tz-coral); }
 .tz-pin { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9999px; color: #fff;
-  font-weight: 700; font-size: 12px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(15,26,61,.35); }
+  font-weight: 700; font-size: 12px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(24,33,31,.35); }
 @keyframes tz-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .tz-rise { animation: tz-rise .28s ease-out both; }
-.tz-input { width: 100%; height: 40px; border-radius: 12px; border: 1px solid var(--border-primary); background: var(--bg-input);
+.tz-input { width: 100%; height: 44px; border-radius: 14px; border: 1px solid var(--border-primary); background: var(--bg-input);
   color: var(--text-primary); padding: 0 12px; font-size: 14px; outline: none; }
 .tz-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+
+/* ── Tripzy editorial system ────────────────────────────────────── */
+.tz-serif { font-family: var(--font-serif); font-weight: 400; letter-spacing: -0.01em; }
+.tz-display { font-family: var(--font-serif); font-weight: 400; line-height: 0.98; letter-spacing: -0.02em; font-size: clamp(44px, 7.4vw, 112px); }
+.tz-h1 { font-family: var(--font-serif); font-weight: 400; line-height: 1.02; letter-spacing: -0.015em; font-size: clamp(36px, 5vw, 72px); }
+.tz-h2 { font-family: var(--font-serif); font-weight: 400; line-height: 1.05; letter-spacing: -0.01em; font-size: clamp(30px, 3.6vw, 52px); }
+.tz-h3 { font-family: var(--font-serif); font-weight: 400; line-height: 1.1; font-size: clamp(24px, 2.2vw, 32px); }
+.tz-lede { font-size: clamp(17px, 1.4vw, 20px); line-height: 1.6; color: var(--text-secondary); }
+.tz-kicker { font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); }
+.tz-chapter { font-family: var(--font-serif); font-style: italic; color: var(--tz-coral); font-size: 18px; }
+.tz-rule { height: 1px; background: var(--border-primary); }
+.tz-grain::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .06; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+.tz-link { background-image: linear-gradient(currentColor, currentColor); background-size: 0 1px; background-position: 0 100%; background-repeat: no-repeat; transition: background-size .35s ease; }
+.tz-link:hover { background-size: 100% 1px; }
+.tz-photo { position: relative; overflow: hidden; background: var(--bg-tertiary); }
+.tz-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tz-credit { font-size: 10px; letter-spacing: .02em; color: rgba(255,255,255,.72); }
+@keyframes tz-dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.tz-typing span { display: inline-block; width: 6px; height: 6px; margin: 0 2px; border-radius: 9999px; background: currentColor; animation: tz-dot 1.2s infinite ease-in-out; }
+.tz-typing span:nth-child(2) { animation-delay: .15s; } .tz-typing span:nth-child(3) { animation-delay: .3s; }
+@media (prefers-reduced-motion: reduce) {
+  .tz-rise, .tz-typing span { animation: none !important; }
+  .tz-link { transition: none; }
+}
+
+/* Tripzy pages with scroll storytelling use ordinary document scrolling (see tripzy/motion.ts). */
+html.tz-doc { overflow: visible; height: auto; overscroll-behavior: none; }
+html.tz-doc body { height: auto; overflow: visible; overflow-x: clip; }

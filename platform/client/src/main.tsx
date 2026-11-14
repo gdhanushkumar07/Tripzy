@@ -4,6 +4,12 @@ import { BrowserRouter } from 'react-router'
 import App from './App'
 // Self-hosted Poppins (bundled, same-origin) so the app font can't be blocked by
 // ad/tracker blockers the way the Google Fonts CDN can.
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
+import '@fontsource/instrument-serif/400.css'
+import '@fontsource/instrument-serif/400-italic.css'
 import '@fontsource/poppins/300.css'
 import '@fontsource/poppins/400.css'
 import '@fontsource/poppins/500.css'

@@ -59,9 +59,9 @@ Deploying the frontend to Vercel: see **DEPLOY.md**.
    OIDC_SCOPE=openid email profile
    ```
 5. Restart. The login page then shows "Sign in with Google". The flow uses authorization code + PKCE (S256) + state cookie + nonce, verifies the ID token signature, audience, issuer and nonce, creates the account on first login, and links by verified email.
-Without these variables the Google button is hidden. Verified here: the redirect to Google carries PKCE, state and nonce, and Google accepts the client ID and callback (it shows its sign-in page). The final sign-in step needs a real Google account.
+Deployed: also add `<your Vercel URL>/api/auth/oidc/callback` to the OAuth client's authorised redirect URIs, otherwise Google answers `redirect_uri_mismatch`. Without these variables the Google button is hidden. Verified here: the redirect to Google carries PKCE, state and nonce, and Google accepts the client ID and callback (it shows its sign-in page). The final sign-in step needs a real Google account.
 
-Tests: `cd backend && .venv/bin/python -m pytest -q` (28 end-to-end API tests).
+Tests: `cd backend && .venv/bin/python -m pytest -q` (29 end-to-end API tests). Reset the demo trip with `.venv/bin/python scripts/seed_demo.py --reset`.
 Client checks: `cd platform/client && npx tsc --noEmit -p . && npx vite build`.
 
 ## Navigation

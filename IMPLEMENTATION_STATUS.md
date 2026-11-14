@@ -2,6 +2,60 @@
 
 ✅ = implemented and verified (browser walk-through and/or automated tests) · 🟡 = partial · ⏳ = not built
 
+## Round 4: cinematic UI/UX transformation (14 Nov 2026)
+Design system, motion and every main page redesigned; all features and data flows kept. Verified with Playwright in Chrome (desktop 1440, phones 390/375, tablet 768) and the test suites below.
+
+**Design system** ✅ Warm ivory / deep ink / forest / sage / restrained orange tokens (light + dark) applied app-wide through the existing semantic tokens. Instrument Serif headings + Inter body (self-hosted @fontsource). New sun-over-horizon mark and serif wordmark. Editorial utilities (`tz-display`, `tz-h1..h3`, `tz-kicker`, `tz-chapter`), pill buttons, quieter cards.
+
+**Motion** ✅ GSAP 3.13 + ScrollTrigger + `@gsap/react` (`tripzy/motion.ts`). Every animation is scoped with `useGSAP` and reverted on unmount. Reduced motion renders the final state; verified that 0 storytelling elements stay hidden. Found and fixed: the platform scrolls `<body>` on desktop, which ScrollTrigger cannot track, so Tripzy pages switch to document scrolling while mounted (`useDocumentScroll`) and restore it on exit (verified when navigating to the planner).
+
+**Homepage** ✅ Eight-chapter scroll story:
+1. Full-screen Amber Fort hero with image scale, line reveals and parallax.
+2. Fragmented-planning collage that converges into a Trip Capsule (one desktop pin; stacked on mobile).
+3. Capsule orbit with drawn spokes, plus real, freshly captured app screens.
+4. Example day map with a scroll-drawn route, markers, feasibility gauge and energy.
+5. Readiness with scroll-ticked checklist and a **live** ECB rate.
+6. Companion conversation with typing indicator and an animated Diff Card.
+7. Parallax memories collage with a drawn trail.
+8. Full-bleed invitation with the natural-language input.
+
+Example content is labelled as such. CTAs verified: "Plan your journey" → /plan, "Discover Tripzy" scrolls to the story, and the final input carries the sentence into the plan brief.
+
+**Photography** ✅ 13 Wikimedia Commons photos of Hyderabad and Jaipur, self-hosted as WebP (960/1920 px, 3.9 MB total), with author and licence recorded in `tripzy/photos.ts` and listed on the new `/credits` page.
+
+**Google sign-in** ✅ "Continue with Google" (Google G, official colours) is now the first action on the login and sign-up cards; the small link under the card was removed. Locally, the full redirect is verified. On the deployed site the backend is configured, but **Google rejects the callback with `redirect_uri_mismatch`**. Add `https://tripzy-five-ashen.vercel.app/api/auth/oidc/callback` to the OAuth client's authorised redirect URIs in Google Cloud Console.
+
+**Dashboard** ✅ Personal journal:
+- greeting with the real name
+- the next journey as a large photo with countdown, live readiness %, travellers, train and the next step from the readiness checklist
+- editorial "My journeys" list
+- Travel DNA portrait with trait sliders and weighted interests
+- three personalised picks
+- recent moments
+
+**Trip Intelligence** ✅ Full-bleed city hero, serif day navigation and the day at a glance. The timeline is one continuous journey line, with numbered stop markers, meal and rest markers, booking bands, quiet travel connectors, and inline Time-Truth flags, Plan B and meal decisions.
+
+**Companion** ✅ Tripzy mark as avatar, a greeting with trip context, typing indicator, GSAP panel entrance, and a bottom sheet with grab handle on phones. The confirm → Diff Card → accept → sync flow is unchanged.
+
+**Readiness, Money, Hotels, Memories** ✅ Four distinct compositions:
+- **Readiness:** countdown and progress workspace, and a dark "suitcase".
+- **Money:** big total, category bar, day-by-day bars and a converter.
+- **Hotels:** photo comparison with distance from the stay area and a lowest-price tag.
+- **Memories:** journal with lead photo, pull-quote story and masonry highlights.
+
+**Fixes found along the way**
+- **Ripple Engine:** "tired" / "stay longer" before the day's first stop inserted blocks out of time order. The engine now refuses them with a clear message (new test).
+- **Demo seed:** `seed_demo.py --reset` rebuilds the demo trip.
+
+**Mobile** ✅ No horizontal overflow on 13 routes at 390, 375 and 768 px (the Money tab overflowed at first and was fixed). No hover-only actions; safe-area padding on the Companion sheet.
+
+**Tests:**
+- Engine: 29/29.
+- Client: `tsc` 0 errors; production `vite build` passes.
+- Login page suites: 170/170. Three SSO tests were updated to the new button and still check the link, invite and remember flags and register mode.
+- Server: `tsc` 0 errors.
+- Browser acceptance: CTAs, reduced motion, scroll-mode cleanup, readiness tick persisting across reload, LiteAPI hotels (6), no uncaught page errors.
+
 ## Round 3: free-tier travel companion (14 Nov 2026)
 Verified in a real browser as the demo user and/or with automated tests:
 - **Companion** (floating "Ask Tripzy" panel) ✅ Answered "what's next", "will it rain" (Open-Meteo), and "find a pharmacy nearby" (two real pharmacies in Nampally via Geoapify). "We're running 30 min late" was auto-applied as a small change. "I'm tired" went confirm → Diff Card (feasibility 90 → 75) → accept → synced into platform Day 1 (Karachi Bakery rest stop added). An open question was answered by Gemini, grounded in the trip.

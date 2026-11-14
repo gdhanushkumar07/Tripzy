@@ -53,7 +53,7 @@ export function PublicNav({ overlay = false }: { overlay?: boolean }) {
     <header
       data-tz-nav
       className={`${overlay ? 'fixed inset-x-0' : 'sticky'} top-0 z-[500] transition-[background-color,border-color,backdrop-filter] duration-500 ${
-        onPhoto ? 'border-b border-transparent bg-transparent' : 'border-b border-edge bg-surface/85 backdrop-blur-md'
+        onPhoto ? 'border-b border-transparent bg-transparent' : 'tz-glass border-b border-edge'
       }`}
     >
       <div className="mx-auto flex h-[72px] max-w-[1400px] items-center justify-between gap-6 px-5 md:px-10">

@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Loader2, MapPin, Navigation, Phone, Send, Sparkles, Star, X } from 'lucide-react'
+import { AlertTriangle, MapPin, Navigation, Phone, Send, Star, X } from 'lucide-react'
 import { engine, mapsLink } from './engine'
 import type { CompanionAction, CompanionCard, TripAlert } from './engine'
 import { resyncDays } from './bridge'
 import DiffSheet from './DiffSheet'
 import type { CapsuleX, Proposal } from './types'
 import { Button, Pill } from './ui'
+import { Emblem } from './PublicLayout'
+import { gsap, prefersReducedMotion, useGSAP } from './motion'
 
 type Msg = { role: 'user' | 'tripzy'; text: string; cards?: CompanionCard[]; action?: CompanionAction | null; source?: string }
 
@@ -16,8 +18,8 @@ const SUGGESTIONS = ["What's next?", "We're running 30 min late", 'Find a pharma
  * the real plan, and any change it suggests goes through confirmation and the
  * Ripple Diff Card before it is saved and synced to the platform trip.
  */
-export default function Companion({ capsuleId, tripId, day, now, onCapsule }: {
-  capsuleId: string; tripId: number; day: number; now?: string; onCapsule?: (c: CapsuleX) => void
+export default function Companion({ capsuleId, tripId, day, now, onCapsule, city }: {
+  capsuleId: string; tripId: number; day: number; now?: string; onCapsule?: (c: CapsuleX) => void; city?: string
 }): React.ReactElement {
   const [open, setOpen] = useState(false)
   const [msgs, setMsgs] = useState<Msg[]>([])
@@ -26,6 +28,11 @@ export default function Companion({ capsuleId, tripId, day, now, onCapsule }: {
   const [alerts, setAlerts] = useState<TripAlert[]>([])
   const [prop, setProp] = useState<Proposal | null>(null)
   const end = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+  useGSAP(() => {
+    if (!open || !panel.current || prefersReducedMotion()) return
+    gsap.fromTo(panel.current, { opacity: 0, y: 24, scale: 0.97, transformOrigin: '100% 100%' }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: 'power3.out' })
+  }, { dependencies: [open] })
 
   useEffect(() => {
     engine.alerts(capsuleId).then((r) => setAlerts(r.alerts)).catch(() => setAlerts([]))
@@ -94,24 +101,25 @@ export default function Companion({ capsuleId, tripId, day, now, onCapsule }: {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="tz-coral-btn fixed bottom-24 right-4 z-[2500] flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-modal md:bottom-6 md:right-6"
+          className="fixed bottom-[calc(var(--bottom-nav-h,0px)+16px)] end-4 z-[2500] flex items-center gap-2.5 rounded-full bg-[#18211F] py-2 pe-5 ps-2 text-[14px] font-semibold text-[#F7F5EF] shadow-[0_18px_40px_-12px_rgba(24,33,31,.55)] transition hover:-translate-y-0.5 md:bottom-6 md:end-6"
           aria-label="Open Tripzy Companion"
         >
-          <Sparkles className="h-4 w-4" /> Ask Tripzy
-          {warn > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-[11px] font-bold text-[#ff6b4a]">{warn}</span>}
+          <Emblem className="h-8 w-8" light /> Ask Tripzy
+          {warn > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#D98955] px-1 text-[11px] font-bold text-[#18211F]">{warn}</span>}
         </button>
       )}
       {open && (
-        <div className="tz-rise fixed inset-x-2 bottom-2 z-[2600] flex max-h-[80vh] flex-col overflow-hidden rounded-3xl border border-edge bg-surface-card shadow-modal sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[400px]" role="dialog" aria-label="Tripzy Companion">
-          <div className="flex items-center justify-between border-b border-edge px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="tz-coral-pill grid h-8 w-8 place-items-center rounded-full"><Sparkles className="h-4 w-4" /></span>
+        <div ref={panel} className="fixed inset-x-0 bottom-0 z-[2600] flex max-h-[88svh] flex-col overflow-hidden rounded-t-[28px] border border-edge bg-[var(--bg-primary)] pb-[env(safe-area-inset-bottom)] shadow-[0_30px_90px_-20px_rgba(24,33,31,.45)] sm:inset-x-auto sm:bottom-6 sm:end-6 sm:max-h-[78vh] sm:w-[420px] sm:rounded-[28px] sm:pb-0" role="dialog" aria-label="Tripzy Companion">
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border-primary)] sm:hidden" aria-hidden />
+          <div className="flex items-center justify-between px-5 pb-3 pt-3 sm:pt-4">
+            <div className="flex items-center gap-3">
+              <Emblem className="h-10 w-10" />
               <div>
-                <div className="text-sm font-bold text-content">Tripzy Companion</div>
-                <div className="text-[11px] text-content-faint">Knows this trip · changes need your OK</div>
+                <div className="font-serif text-[22px] leading-none text-content">Tripzy</div>
+                <div className="mt-1 text-[12px] text-content-muted">Travelling with you{city ? ` · ${city}` : ''} · Day {day + 1}</div>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="rounded-full p-1.5 text-content-muted hover:bg-surface-hover" aria-label="Close"><X className="h-4 w-4" /></button>
+            <button onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-full text-content-muted hover:bg-surface-hover" aria-label="Close"><X className="h-4 w-4" /></button>
           </div>
 
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
@@ -125,15 +133,17 @@ export default function Companion({ capsuleId, tripId, day, now, onCapsule }: {
               </div>
             )}
             {msgs.length === 0 && (
-              <p className="text-sm text-content-muted">Ask about your plan, or tell me what's happening and I'll re-plan with you.</p>
+              <div className="max-w-[88%] rounded-[20px] rounded-bl-md bg-surface-card px-4 py-3 text-[15px] leading-relaxed text-content">
+                Hi! I know this trip inside out. Ask me what's next, or tell me what's happening and I'll suggest a new plan. Nothing changes until you say yes.
+              </div>
             )}
             {msgs.map((m, i) => (
               <div key={i} className={m.role === 'user' ? 'flex justify-end' : ''}>
-                <div className={`max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm ${m.role === 'user' ? 'bg-accent text-accent-text' : 'bg-surface-secondary text-content'}`}>
+                <div className={`tz-rise max-w-[90%] px-4 py-2.5 text-[15px] leading-relaxed ${m.role === 'user' ? 'rounded-[20px] rounded-br-md bg-accent text-accent-text' : 'rounded-[20px] rounded-bl-md bg-surface-card text-content'}`}>
                   <p className="whitespace-pre-wrap">{m.text}</p>
                   {m.cards?.map((c, j) => <CardView key={j} c={c} />)}
                   {m.action && (
-                    <div className="mt-2.5 rounded-xl border border-edge bg-surface-card p-2.5">
+                    <div className="mt-3 rounded-2xl border border-edge bg-[var(--bg-primary)] p-3">
                       <p className="text-xs text-content-muted">{m.action.confirm}</p>
                       <Button className="mt-2 w-full" variant="coral" disabled={busy} onClick={() => run(m.action!)}>{m.action.label}</Button>
                     </div>
@@ -142,14 +152,14 @@ export default function Companion({ capsuleId, tripId, day, now, onCapsule }: {
                 </div>
               </div>
             ))}
-            {busy && <Loader2 className="h-4 w-4 animate-spin text-accent-on" />}
+            {busy && <div className="tz-typing w-fit rounded-[20px] rounded-bl-md bg-surface-card px-4 py-3 text-content-faint" role="status" aria-label="Tripzy is thinking"><span /><span /><span /></div>}
             <div ref={end} />
           </div>
 
-          <div className="border-t border-edge p-3">
+          <div className="border-t border-edge bg-surface-card p-3">
             <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
               {SUGGESTIONS.map((s) => (
-                <button key={s} onClick={() => say(s)} className="shrink-0 rounded-full border border-edge px-2.5 py-1 text-xs text-content-secondary hover:bg-surface-hover">{s}</button>
+                <button key={s} onClick={() => say(s)} className="shrink-0 rounded-full border border-edge px-3 py-1.5 text-[12px] text-content-secondary hover:border-[var(--accent)] hover:text-accent-on">{s}</button>
               ))}
             </div>
             <form onSubmit={(e) => { e.preventDefault(); say(text) }} className="flex gap-2">

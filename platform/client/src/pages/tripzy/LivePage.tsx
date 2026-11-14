@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useDocumentScroll } from '../../tripzy/motion'
 import { Link, Navigate, useParams } from 'react-router'
 import { BatteryLow, CloudRain, Heart, Loader2, LocateFixed, Navigation, Plus, SkipForward, Store, ThumbsDown, ThumbsUp, Timer, Train, Wallet } from 'lucide-react'
 import PageShell from '../../components/Layout/PageShell'
@@ -36,6 +37,7 @@ export default function LivePage(): React.ReactElement {
   const [toast, setToast] = useState('')
   const [amt, setAmt] = useState('')
   const [cat, setCat] = useState('Food')
+  useDocumentScroll()
   const [loc, setLoc] = useState<string>('')
 
   useEffect(() => {
@@ -251,7 +253,7 @@ export default function LivePage(): React.ReactElement {
         </section>
       </div>
       {prop && <DiffSheet p={prop} onAccept={accept} onReject={reject} busy={busy} simulated={demoClock} />}
-      <Companion capsuleId={c.id} tripId={tripId} day={day} now={fmtMin(now)} onCapsule={setC} />
+      <Companion capsuleId={c.id} tripId={tripId} day={day} now={fmtMin(now)} onCapsule={setC} city={c.city.name} />
       {toast && <Toast text={toast} onClose={() => setToast('')} />}
     </PageShell>
   )

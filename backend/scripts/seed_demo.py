@@ -12,12 +12,18 @@ from __future__ import annotations
 import argparse
 import sys
 
+import json
+from pathlib import Path
+
 import httpx
 
 EMAIL, PASSWORD, NAME = "demo@tripzy.app", "Tripzy@2026", "Demo Traveller"
 CATEGORY = {"heritage": "Attraction", "museum": "Attraction", "religious": "Attraction", "show": "Activity",
             "entertainment": "Activity", "market": "Shopping", "nature": "Nature", "viewpoint": "Attraction",
             "food": "Restaurant", "cafe": "Bar/Cafe"}
+
+
+RESET = '--reset' in sys.argv
 
 
 def main(base: str) -> None:
@@ -37,8 +43,21 @@ def main(base: str) -> None:
         "budget_style": "mid", "budget_per_day": 2500, "skipped": []}).raise_for_status()
 
     trips = s.get("/api/trips").json().get("trips", [])
-    if any(t["title"].startswith("[Demo]") for t in trips):
-        print("demo trip already present, nothing to do")
+    demo_trips = [t for t in trips if t["title"].startswith("[Demo]")]
+    if demo_trips and RESET:
+        # --reset: remove only the demo user's [Demo] trips and the capsules linked to them
+        links_path = Path(__file__).resolve().parents[1] / "data_store" / "links.json"
+        links = json.loads(links_path.read_text()) if links_path.exists() else {}
+        for t in demo_trips:
+            s.delete(f"/api/trips/{t['id']}").raise_for_status()
+            rec = links.pop(str(t["id"]), None)
+            cap = rec and (rec.get("capsule_id") if isinstance(rec, dict) else rec)
+            if cap:
+                (links_path.parent / "trips" / f"{cap}.json").unlink(missing_ok=True)
+            print("removed demo trip", t["id"])
+        links_path.write_text(json.dumps(links, indent=1))
+    elif demo_trips:
+        print("demo trip already present, nothing to do (use --reset to rebuild it)")
         return
 
     cid = s.post("/api/tripzy/demo/seed").json()["capsule_id"]
@@ -90,6 +109,7 @@ def main(base: str) -> None:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://localhost:3001")
+    ap.add_argument("--reset", action="store_true", help="delete the demo user's [Demo] trips and rebuild them")
     try:
         main(ap.parse_args().base)
     except httpx.HTTPError as e:

@@ -46,7 +46,7 @@ function Photo({ id, className = '', imgClassName = '', eager = false, sizes = '
         loading={eager ? 'eager' : 'lazy'} decoding="async" {...(eager ? { fetchPriority: 'high' as const } : {})}
         className={imgClassName}
       />
-      {showCredit && <figcaption className="tz-credit pointer-events-none absolute bottom-2 right-3 max-w-[80%] truncate text-right drop-shadow">{PHOTOS[id].place} · {PHOTOS[id].author} · {PHOTOS[id].license}</figcaption>}
+      {showCredit && <figcaption className="tz-credit pointer-events-none absolute bottom-2 right-3 hidden sm:block max-w-[80%] truncate text-right drop-shadow">{PHOTOS[id].place} · {PHOTOS[id].author} · {PHOTOS[id].license}</figcaption>}
     </figure>
   )
 }
@@ -414,7 +414,7 @@ function PlanYourWay() {
                   </g>
                 ))}
               </svg>
-              <div className="absolute left-4 top-4 rounded-full bg-surface-card/90 px-3 py-1 text-[11px] font-medium text-content-muted backdrop-blur">Example day · Hyderabad</div>
+              <div className="absolute left-4 top-4 rounded-full bg-surface-card px-3 py-1 text-[11px] font-medium text-content-muted">Example day · Hyderabad</div>
             </div>
             <ol data-stops className="mt-8">
               {STOPS.map((s, i) => (
@@ -452,7 +452,7 @@ function BeReady() {
     const list = q('[data-checks]')[0]
     gsap.timeline({ scrollTrigger: { trigger: list, start: 'top 75%', end: 'bottom 55%', scrub: 0.6 } })
       .fromTo(q('[data-tick]'), { strokeDashoffset: 1 }, { strokeDashoffset: 0, stagger: 0.3 })
-      .fromTo(q('[data-tick-label]'), { color: 'var(--text-primary)' }, { color: 'var(--text-muted)', stagger: 0.3 }, 0)
+      .fromTo(q('[data-tick-label]'), { opacity: 1 }, { opacity: 0.55, stagger: 0.3 }, 0)
     gsap.fromTo(q('[data-pack]'), { scaleX: 0 }, { scaleX: 1, transformOrigin: '0 50%', ease: 'none', scrollTrigger: { trigger: list, start: 'top 70%', end: 'bottom 50%', scrub: 0.6 } })
     gsap.to(q('[data-ready-photo] img'), { yPercent: -8, ease: 'none', scrollTrigger: { trigger: root.current, start: 'top bottom', end: 'bottom top', scrub: true } })
   }, { scope: root })
@@ -517,6 +517,7 @@ function Companion() {
     tl.from(q('[data-msg-user]'), { opacity: 0, y: 16, duration: 0.5, ease: 'power3.out' })
       .fromTo(q('[data-typing]'), { opacity: 0, height: 0 }, { opacity: 1, height: 'auto', duration: 0.3 }, '+=0.3')
       .to(q('[data-typing]'), { opacity: 0, height: 0, duration: 0.25 }, '+=1.1')
+      .set(q('[data-typing]'), { display: 'none' })
       .from(q('[data-msg-bot]'), { opacity: 0, y: 16, duration: 0.5, ease: 'power3.out' })
       .from(q('[data-diff]'), { opacity: 0, y: 40, scale: 0.96, duration: 0.7, ease: 'power3.out' }, '+=0.2')
       .from(q('[data-diff-row]'), { opacity: 0, x: -12, stagger: 0.12, duration: 0.4 }, '-=0.3')
@@ -586,7 +587,7 @@ function Memories() {
     const q = gsap.utils.selector(root)
     q('[data-speed]').forEach((el: Element) => {
       const s = Number((el as HTMLElement).dataset.speed)
-      gsap.fromTo(el, { yPercent: s * 6 }, { yPercent: -s * 6, ease: 'none', scrollTrigger: { trigger: root.current, start: 'top bottom', end: 'bottom top', scrub: true } })
+      gsap.fromTo(el, { yPercent: s * 2.5 }, { yPercent: -s * 2.5, ease: 'none', scrollTrigger: { trigger: root.current, start: 'top bottom', end: 'bottom top', scrub: true } })
     })
     gsap.fromTo(q('[data-trail]'), { strokeDashoffset: 1 }, { strokeDashoffset: 0, ease: 'none', scrollTrigger: { trigger: q('[data-trail]')[0], start: 'top 85%', end: 'bottom 45%', scrub: 0.8 } })
   }, { scope: root })
@@ -613,8 +614,8 @@ function Memories() {
             </div>
             <svg viewBox="0 0 200 120" className="mt-6 hidden w-full md:block" aria-hidden><path data-trail d="M10 100 C 40 20, 80 120, 110 60 S 170 10, 190 30" pathLength={1} strokeDasharray="1" strokeDashoffset="0" stroke="var(--accent)" strokeWidth="1.6" fill="none" strokeLinecap="round" /><circle cx="10" cy="100" r="4" fill="var(--tz-sun)" /><circle cx="190" cy="30" r="4" fill="var(--accent)" /></svg>
           </div>
-          <div data-speed="-2" className="col-span-6 md:col-span-4 md:col-start-2 md:-mt-10"><div data-reveal="mask" className="overflow-hidden rounded-[22px]"><Photo id="golconda" sizes="33vw" className="aspect-[4/3]" /></div></div>
-          <div data-speed="1" className="col-span-6 mt-10 md:col-span-5 md:col-start-7 md:mt-6"><div data-reveal="mask" className="overflow-hidden rounded-[22px]"><Photo id="jantar-mantar-jaipur" sizes="40vw" className="aspect-[16/10]" /></div></div>
+          <div data-speed="-2" className="col-span-6 md:col-span-4 md:col-start-2 md:mt-6"><div data-reveal="mask" className="overflow-hidden rounded-[22px]"><Photo id="golconda" sizes="33vw" className="aspect-[4/3]" /></div></div>
+          <div data-speed="1" className="col-span-6 mt-10 md:col-span-5 md:col-start-7 md:mt-16"><div data-reveal="mask" className="overflow-hidden rounded-[22px]"><Photo id="jantar-mantar-jaipur" sizes="40vw" className="aspect-[16/10]" /></div></div>
         </div>
       </div>
     </section>

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import React from 'react';
 import ToggleSwitch from '../components/Settings/ToggleSwitch';
+import GoogleContinue from '../tripzy/GoogleContinue';
 import { SUPPORTED_LANGUAGES, useTranslation } from '../i18n';
 import { IDP_LOGIN_URL, useLogin } from './login/useLogin';
 import LoginWorld from './login/LoginWorld';
@@ -89,6 +90,10 @@ export default function LoginPage(): React.ReactElement {
   } = useLogin();
 
   const oidcButtonShown = !!(appConfig?.oidc_configured && appConfig?.oidc_login && !oidcOnly);
+  const ssoHref = `/api/auth/oidc/login${inviteToken ? '?invite=' + encodeURIComponent(inviteToken) : ''}${
+    // The remember-me toggle only renders in login mode; in register mode the server default applies.
+    mode === 'login' ? (inviteToken ? '&' : '?') + 'remember=' + (rememberMe ? '1' : '0') : ''
+  }`;
   const passkeyAvailable = !!(
     appConfig?.passkey_login &&
     appConfig?.passkey_configured &&
@@ -377,7 +382,9 @@ export default function LoginPage(): React.ReactElement {
         {/* Coastlines as a dot map, with routes lighting up between cities across
             it. The geometry is TREK's own Atlas bundle, baked in at build time
             because this screen is unauthenticated. */}
-        <LoginWorld />
+        {/* Tripzy: an editorial photograph instead of the dot map (credit on /credits). */}
+        <img src="/stories/jal-mahal.webp" alt="" aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(24,33,31,.35) 0%, rgba(24,33,31,.55) 55%, rgba(24,33,31,.85) 100%)' }} />
 
         {/* No max-width: the tagline stays on one line, so the block is allowed to
             use the whole panel rather than wrapping inside it. */}
@@ -401,12 +408,11 @@ export default function LoginPage(): React.ReactElement {
               margin: 0,
               // Scales with the panel so it stays on one line in every language.
               fontSize: 'calc(clamp(32px, 2.95vw, 46px) * var(--fs-scale-title, 1))',
-              fontWeight: 700,
+              fontWeight: 400,
               color: 'white',
-              lineHeight: 1.15,
-              letterSpacing: '-0.02em',
-              fontFamily: "'MuseoModerno', sans-serif",
-              textTransform: 'lowercase',
+              lineHeight: 1.1,
+              letterSpacing: '-0.01em',
+              fontFamily: "'Instrument Serif', Georgia, serif",
               whiteSpace: 'nowrap',
               textShadow: '0 2px 10px rgba(4,8,20,0.55), 0 0 34px rgba(4,8,20,0.5)',
             }}
@@ -597,6 +603,10 @@ export default function LoginPage(): React.ReactElement {
                           : t('login.createAccountHint')
                         : t('login.subtitle')}
                 </p>
+
+                {oidcButtonShown && !passwordChangeStep && !mfaStep && (
+                  <GoogleContinue href={ssoHref} onClick={handleSsoClick} name={appConfig?.oidc_display_name} />
+                )}
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {error && (
@@ -1074,65 +1084,10 @@ export default function LoginPage(): React.ReactElement {
             )}
           </div>
 
-          {/* OIDC / SSO login button (only when OIDC is configured, oidc_login enabled, not in oidc-only mode) */}
-          {appConfig?.oidc_configured && appConfig?.oidc_login && !oidcOnly && (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
-                <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
-                <span style={{ fontSize: 'calc(12px * var(--fs-scale-body, 1))', color: '#9ca3af' }}>
-                  {t('common.or')}
-                </span>
-                <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
-              </div>
-              <a
-                onClick={handleSsoClick}
-                href={`/api/auth/oidc/login${
-                  inviteToken ? '?invite=' + encodeURIComponent(inviteToken) : ''
-                }${
-                  // The remember-me toggle only renders in login mode; in
-                  // register mode omit the param so the server default applies.
-                  mode === 'login' ? (inviteToken ? '&' : '?') + 'remember=' + (rememberMe ? '1' : '0') : ''
-                }`}
-                style={{
-                  marginTop: 12,
-                  width: '100%',
-                  padding: '12px',
-                  background: 'white',
-                  color: '#374151',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 12,
-                  fontSize: 'calc(14px * var(--fs-scale-body, 1))',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  textDecoration: 'none',
-                  transition:
-                    'background 180ms cubic-bezier(0.23,1,0.32,1), border-color 180ms cubic-bezier(0.23,1,0.32,1)',
-                  boxSizing: 'border-box',
-                }}
-                onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                  e.currentTarget.style.background = '#f9fafb';
-                  e.currentTarget.style.borderColor = '#9ca3af';
-                }}
-                onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.borderColor = '#d1d5db';
-                }}
-              >
-                <Shield size={16} />
-                {t('login.oidcSignIn', { name: appConfig.oidc_display_name })}
-              </a>
-            </>
-          )}
-
           {/* Passkey login button (instance toggle on + a usable RP ID resolves) */}
           {passkeyAvailable && (
             <>
-              {!oidcButtonShown && (
+              {(
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
                   <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
                   <span style={{ fontSize: 'calc(12px * var(--fs-scale-body, 1))', color: '#9ca3af' }}>

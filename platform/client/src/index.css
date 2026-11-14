@@ -1662,3 +1662,4 @@ img[alt="TREK"] {
 /* Tripzy pages with scroll storytelling use ordinary document scrolling (see tripzy/motion.ts). */
 html.tz-doc { overflow: visible; height: auto; overscroll-behavior: none; }
 html.tz-doc body { height: auto; overflow: visible; overflow-x: clip; }
+.tz-glass { background: color-mix(in srgb, var(--bg-primary) 86%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); }

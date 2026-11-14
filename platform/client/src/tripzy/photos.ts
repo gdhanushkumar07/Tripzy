@@ -25,3 +25,7 @@ export type PhotoId = keyof typeof PHOTOS
 export const photoSrc = (id: PhotoId, small = false) => `/stories/${id}${small ? '-sm' : ''}.webp`
 export const photoSrcSet = (id: PhotoId) => `/stories/${id}-sm.webp 960w, /stories/${id}.webp 1920w`
 export const credit = (id: PhotoId) => `${PHOTOS[id].place} · ${PHOTOS[id].author} · ${PHOTOS[id].license}`
+
+/** Art-directed hero photo for each supported city (falls back to Wikipedia elsewhere). */
+export const CITY_PHOTO: Record<string, PhotoId> = { hyderabad: 'charminar', jaipur: 'hawa-mahal' }
+export const ALT_CITY_PHOTO: Record<string, PhotoId> = { hyderabad: 'qutb-shahi-tombs', jaipur: 'amber-fort' }

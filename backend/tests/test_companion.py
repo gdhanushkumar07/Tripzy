@@ -116,3 +116,11 @@ def test_photo_ticket_uses_ocr(monkeypatch):
 
 def test_fx_rejects_bad_base():
     assert client.get("/api/fx?base=../x").status_code == 400
+
+
+def test_tired_before_the_day_starts_is_refused():
+    cid, c = seed()
+    first = next(b for b in c["days"][0]["blocks"] if b["kind"] != "leg")
+    early = f"{max(0, first['s'] - 60) // 60:02d}:{max(0, first['s'] - 60) % 60:02d}"
+    r = client.post(f"/api/trips/{cid}/ripple", json={"day": 0, "now": early, "event": {"type": "tired"}})
+    assert r.status_code == 400 and "hasn't started" in r.json()["detail"]

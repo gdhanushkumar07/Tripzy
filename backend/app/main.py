@@ -318,6 +318,9 @@ def ripple(trip_id: str, body: RippleIn):
     c = _get(trip_id, write=True)
     if not (0 <= body.day < len(c["days"])):
         raise HTTPException(400, "bad day")
+    first = next((b for b in c["days"][body.day]["blocks"] if b["kind"] != "leg"), None)
+    if body.event.get("type") in ("tired", "extend") and first and to_min(body.now) < first["s"]:
+        raise HTTPException(400, f"Day {body.day + 1} hasn't started yet (first stop at {first['start']}), so there's nothing to re-plan.")
     prop = R.propose(c, body.day, to_min(body.now), body.event)
     c["pending"] = prop
     c["status"] = "live"

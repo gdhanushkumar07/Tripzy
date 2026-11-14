@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { useDocumentScroll } from '../../tripzy/motion'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AlertTriangle, CalendarRange, ClipboardCheck, CheckCircle2, Info, Loader2, MessageSquare, Radio, RefreshCw, Send, Sparkles, Ticket, Wand2 } from 'lucide-react'
 import PageShell from '../../components/Layout/PageShell'
@@ -8,6 +9,7 @@ import { readPlannerDay, resyncDays } from '../../tripzy/bridge'
 import IntelTimeline from '../../tripzy/IntelTimeline'
 import RouteMap from '../../tripzy/RouteMap'
 import Companion from '../../tripzy/Companion'
+import { CITY_PHOTO, photoSrc } from '../../tripzy/photos'
 import type { Block, Capsule, CapsuleX } from '../../tripzy/types'
 import { Button, Card, EnergyBar, Eyebrow, Pill, ScoreRing, Skeleton, Stat, Toast, usePlacePhoto } from '../../tripzy/ui'
 
@@ -23,7 +25,9 @@ export default function TripIntelPage(): React.ReactElement {
   const [toast, setToast] = useState('')
   const [edit, setEdit] = useState('')
   const [showBooking, setShowBooking] = useState(false)
+  useDocumentScroll()
   const hero = usePlacePhoto(c ? `city:${c.city_key}` : null)
+  const cityPhoto = c && CITY_PHOTO[c.city_key] ? photoSrc(CITY_PHOTO[c.city_key]) : null
 
   useEffect(() => {
     engine.getLink(tripId)
@@ -106,44 +110,44 @@ export default function TripIntelPage(): React.ReactElement {
 
   return (
     <PageShell background="var(--bg-primary)">
-      <div className="mx-auto max-w-6xl px-4 pb-28 pt-5">
+      <div className="mx-auto max-w-[1280px] px-4 pb-32 pt-6 sm:px-6 md:px-10">
         {/* hero */}
-        <div className="relative overflow-hidden rounded-3xl border border-edge bg-surface-tertiary">
-          {hero && <img src={hero} alt="" className="absolute inset-0 h-full w-full object-cover" />}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0f1a3d]/90 via-[#0f1a3d]/60 to-transparent" />
-          <div className="relative flex flex-wrap items-end justify-between gap-4 p-6 text-white sm:p-8">
+        <header className="relative -mx-4 overflow-hidden bg-[#18211F] text-white sm:mx-0 sm:rounded-[30px]">
+          {(cityPhoto || hero) && <img src={cityPhoto ?? hero!} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#18211F] via-[#18211F]/45 to-[#18211F]/10" />
+          <div className="relative flex min-h-[380px] flex-col justify-end gap-6 p-6 sm:p-10 md:min-h-[440px]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">Trip Capsule{c.demo ? ' · demo' : ''}</div>
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70">Trip Capsule · Tripzy intelligence{c.demo ? ' · demo' : ''}</div>
-              <h1 className="mt-1 text-[32px] font-bold leading-tight">{c.city.name}, {c.brief.days} days</h1>
-              <p className="mt-1 text-white/80">{c.days[0].date} → {c.days[c.days.length - 1].date} · {c.travellers.map((t) => t.label).join(', ')} · stay {c.stay.name}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {c.dna_summary.map((x) => <span key={x} className="rounded-full bg-white/15 px-2.5 py-0.5 text-caption backdrop-blur">{x}</span>)}
-                {c.constraints.diet !== 'any' && <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-caption">{c.constraints.diet}</span>}
-                {c.constraints.no_stairs && <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-caption">no steep climbs</span>}
+              <h1 className="font-serif text-[52px] leading-[0.95] md:text-[84px]">{c.city.name}</h1>
+              <p className="mt-3 text-[16px] text-white/85">{c.brief.days} days · {c.days[0].date} → {c.days[c.days.length - 1].date} · {c.travellers.map((t) => t.label).join(', ')} · staying in {c.stay.name}</p>
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {c.dna_summary.map((x) => <span key={x} className="rounded-full border border-white/25 px-3 py-1 text-[12px] text-white/90">{x}</span>)}
+                {c.constraints.diet !== 'any' && <span className="rounded-full border border-white/25 px-3 py-1 text-[12px] text-white/90">{c.constraints.diet}</span>}
+                {c.constraints.no_stairs && <span className="rounded-full border border-white/25 px-3 py-1 text-[12px] text-white/90">no steep climbs</span>}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link to={`/trips/${tripId}`} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-4 text-body font-semibold backdrop-blur hover:bg-white/25"><CalendarRange className="h-4 w-4" />Open planner</Link>
-              <Link to={`/trips/${tripId}/ready`} className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/15 px-4 text-body font-semibold backdrop-blur hover:bg-white/25"><ClipboardCheck className="h-4 w-4" />Readiness &amp; money</Link>
-              <Link to={`/trips/${tripId}/live`} className="tz-coral-btn inline-flex h-10 items-center gap-2 rounded-xl px-4 text-body font-semibold"><Radio className="h-4 w-4" />Live Companion</Link>
+              <Link to={`/trips/${tripId}/live`} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#F7F5EF] px-5 text-[14px] font-semibold text-[#18211F] hover:bg-white"><Radio className="h-4 w-4" />Live Companion</Link>
+              <Link to={`/trips/${tripId}/ready`} className="inline-flex h-11 items-center gap-2 rounded-full border border-white/30 px-5 text-[14px] font-semibold hover:bg-white/10"><ClipboardCheck className="h-4 w-4" />Readiness &amp; money</Link>
+              <Link to={`/trips/${tripId}`} className="inline-flex h-11 items-center gap-2 rounded-full border border-white/30 px-5 text-[14px] font-semibold hover:bg-white/10"><CalendarRange className="h-4 w-4" />Open planner</Link>
             </div>
           </div>
-        </div>
+        </header>
 
         {c.notes.length > 0 && <div className="mt-4 rounded-2xl bg-warning-soft p-3 text-body text-warning">{c.notes.map((n) => <div key={n}>{n}</div>)}</div>}
 
         {/* stay decision card */}
-        <section className="mt-6">
-          <Eyebrow className="mb-2">Decision card · where to stay</Eyebrow>
+        <section className="mt-14">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-2"><div><div className="tz-kicker">Decision · where to stay</div><h2 className="tz-h3 mt-2 text-content">Base yourself well</h2></div></div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {c.stay_options.map((o) => {
               const active = o.id === c.stay.id
               return (
                 <button key={o.id} type="button" disabled={!!busy || active}
                   onClick={() => apply('Re-planning around ' + o.name, () => engine.stay(c.id, o.id), 'all', `All days re-planned around ${o.name}`)}
-                  className={`rounded-2xl border p-4 text-left transition ${active ? 'border-[var(--accent)] bg-accent-subtle' : 'border-edge bg-surface-card hover:border-[var(--accent)]'}`}>
+                  className={`rounded-[22px] border p-5 text-start transition ${active ? 'border-[var(--accent)] bg-accent-subtle' : 'border-edge bg-surface-card hover:border-[var(--accent)]'}`}>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-content">{o.name}</span>
+                    <span className="font-serif text-[22px] leading-tight text-content">{o.name}</span>
                     {o.pick && <Pill tone="coral">Tripzy pick</Pill>}
                   </div>
                   <div className="mt-0.5 text-caption text-content-muted">{o.price} · {o.vibe}</div>
@@ -155,32 +159,34 @@ export default function TripIntelPage(): React.ReactElement {
           </div>
         </section>
 
-        {/* day tabs */}
-        <nav className="mt-6 flex gap-2 overflow-x-auto pb-1" aria-label="Days">
-          {c.days.map((x) => (
-            <button key={x.index} type="button" onClick={() => setDay(x.index)}
-              className={`shrink-0 rounded-2xl border px-4 py-2.5 text-left transition ${x.index === day ? 'border-[var(--accent)] bg-accent text-accent-text' : 'border-edge bg-surface-card text-content hover:border-[var(--accent)]'}`}>
-              <div className="text-body font-semibold">Day {x.index + 1}</div>
-              <div className={`text-caption ${x.index === day ? 'opacity-80' : 'text-content-muted'}`}>{x.weekday} {x.date.slice(5)} · {x.verify.score}/100</div>
-            </button>
-          ))}
-        </nav>
+        {/* day navigation + the day at a glance */}
+        <div className="mt-16 border-t border-edge pt-8">
+          <div className="tz-kicker">The journey</div>
+          <nav className="mt-4 flex gap-8 overflow-x-auto pb-2" aria-label="Days">
+            {c.days.map((x) => (
+              <button key={x.index} type="button" onClick={() => setDay(x.index)} aria-current={x.index === day ? 'true' : undefined}
+                className={`shrink-0 border-b-2 pb-2 text-start transition ${x.index === day ? 'border-[var(--accent)] text-content' : 'border-transparent text-content-muted hover:text-content'}`}>
+                <div className="font-serif text-[30px] leading-none">Day {x.index + 1}</div>
+                <div className="mt-1 text-[12px]">{x.weekday} {x.date.slice(5)} · {x.verify.score}/100</div>
+              </button>
+            ))}
+          </nav>
+          <div className="mt-6 flex flex-wrap items-center gap-x-10 gap-y-5">
+            <ScoreRing score={v.score} label="feasibility" />
+            <div className="min-w-[220px] flex-1"><EnergyBar pct={v.energy.pct} sub={`budget ${v.energy.budget} units · set by ${d.limiter}`} /></div>
+            <Stat label="Day cost" value={rupees(d.cost)} />
+            <Stat label="In transit" value={`${v.travel_share}%`} sub={`${v.travel_min} min`} />
+            {d.weather && <Stat label="Weather" value={`${Math.round(d.weather.tmax)}°C · ${d.weather.rain_prob}% rain`} sub={d.weather.source} />}
+            {busy && <span className="inline-flex items-center gap-2 text-body text-content-muted"><Loader2 className="h-4 w-4 animate-spin" />{busy}…</span>}
+          </div>
+        </div>
 
-        <Card className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-4 p-5">
-          <ScoreRing score={v.score} label="feasibility" />
-          <EnergyBar pct={v.energy.pct} sub={`budget ${v.energy.budget} units · set by ${d.limiter}`} />
-          <Stat label="Day cost" value={rupees(d.cost)} />
-          <Stat label="In transit" value={`${v.travel_share}%`} sub={`${v.travel_min} min`} />
-          {d.weather && <Stat label="Weather" value={`${Math.round(d.weather.tmax)}°C · ${d.weather.rain_prob}% rain`} sub={d.weather.source} />}
-          {busy && <span className="ml-auto inline-flex items-center gap-2 text-body text-content-muted"><Loader2 className="h-4 w-4 animate-spin" />{busy}…</span>}
-        </Card>
-
-        <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_400px]">
           <section aria-label={`Day ${day + 1} timeline`}>
             <IntelTimeline day={d} onChoose={busy ? undefined : onChoose} onRemove={busy ? undefined : onRemove} onSelect={(b) => setSel(b.id)} selected={sel} />
           </section>
           <aside className="space-y-4 lg:sticky lg:top-[calc(var(--nav-h)+16px)] lg:h-fit">
-            <RouteMap capsule={c} day={d} highlight={sel} className="h-[340px]" />
+            <RouteMap capsule={c} day={d} highlight={sel} className="h-[360px] overflow-hidden rounded-[22px]" />
             <Card className="p-5">
               <Eyebrow className="mb-3">Time-Truth checks</Eyebrow>
               <ul className="space-y-2 text-body">
@@ -229,7 +235,7 @@ export default function TripIntelPage(): React.ReactElement {
           onSave={(body) => (setShowBooking(false), apply('Anchoring booking', () => engine.booking(c.id, body), 'all', 'Booking anchored; the plan now protects this connection'))} />
       )}
       {toast && <Toast text={toast} onClose={() => setToast('')} />}
-      <Companion capsuleId={c.id} tripId={tripId} day={day} onCapsule={setC} />
+      <Companion capsuleId={c.id} tripId={tripId} day={day} onCapsule={setC} city={c.city.name} />
     </PageShell>
   )
 }

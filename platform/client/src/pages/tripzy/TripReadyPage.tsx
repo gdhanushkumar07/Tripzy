@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, BedDouble, Check, CheckCircle2, Circle, ExternalLink, Heart, Loader2, Luggage, Phone, Repeat, ShieldCheck, Sparkles, Star, Wallet } from 'lucide-react'
+import { ArrowLeft, Check, ExternalLink, Loader2, Luggage, MapPin, Phone, Repeat, Sparkles, Star } from 'lucide-react'
 import PageShell from '../../components/Layout/PageShell'
 import { filesApi, packingApi } from '../../api/client'
-import { engine, rupees } from '../../tripzy/engine'
-import type { Finance, Fx, HotelResult, Readiness, Recap } from '../../tripzy/engine'
+import { engine, mapsLink, rupees } from '../../tripzy/engine'
+import type { Finance, Fx, Hotel, HotelResult, Readiness, Recap } from '../../tripzy/engine'
 import Companion from '../../tripzy/Companion'
 import type { CapsuleX } from '../../tripzy/types'
-import { Button, Card, Eyebrow, Pill, PlaceImage, ScoreRing, Segmented, Skeleton, Stat, Toast } from '../../tripzy/ui'
+import { Button, PlaceImage, Skeleton, Toast } from '../../tripzy/ui'
+import { CITY_PHOTO, photoSrc } from '../../tripzy/photos'
+import { gsap, prefersReducedMotion, useDocumentScroll, useGSAP } from '../../tripzy/motion'
 
 type Tab = 'ready' | 'money' | 'stays' | 'recap'
+const TABS: [Tab, string][] = [['ready', 'Readiness'], ['money', 'Money'], ['stays', 'Hotels'], ['recap', 'Memories']]
 
 /** Travel Readiness Centre, trip money, hotel comparison and memories for one trip. */
 export default function TripReadyPage(): React.ReactElement {
@@ -21,6 +24,7 @@ export default function TripReadyPage(): React.ReactElement {
   const [err, setErr] = useState('')
   const [docs, setDocs] = useState(0)
   const [toast, setToast] = useState('')
+  useDocumentScroll()
 
   useEffect(() => {
     let off = false
@@ -31,22 +35,27 @@ export default function TripReadyPage(): React.ReactElement {
 
   if (err) return <PageShell background="var(--bg-primary)"><div className="mx-auto max-w-md px-4 py-20 text-center text-content-muted">{err} <Link className="text-accent-on underline" to="/plan">Plan one</Link></div></PageShell>
   if (!c) return <PageShell background="var(--bg-primary)"><div className="grid h-[60vh] place-items-center"><Loader2 className="h-8 w-8 animate-spin text-accent-on" /></div></PageShell>
+  const cover = CITY_PHOTO[c.city_key] ? photoSrc(CITY_PHOTO[c.city_key]) : null
 
   return (
     <PageShell background="var(--bg-primary)">
-      <div className="mx-auto max-w-5xl px-4 pb-32 pt-5">
-        <Link to={`/trips/${tripId}/intel`} className="inline-flex items-center gap-1.5 text-body text-content-muted hover:text-content"><ArrowLeft className="h-4 w-4" />Trip Intelligence</Link>
-        <h1 className="mt-2 text-[28px] font-bold leading-tight text-content">{c.city.name} · get ready</h1>
-        <p className="text-body text-content-muted">{c.days[0].date} → {c.days[c.days.length - 1].date} · {c.travellers.length} traveller{c.travellers.length > 1 ? 's' : ''}</p>
-        <div className="mt-4 overflow-x-auto">
-          <Segmented<Tab> value={tab} onChange={(v) => setSp({ tab: v }, { replace: true })} options={[
-            { value: 'ready', label: <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" />Readiness</span> },
-            { value: 'money', label: <span className="inline-flex items-center gap-1.5"><Wallet className="h-4 w-4" />Money</span> },
-            { value: 'stays', label: <span className="inline-flex items-center gap-1.5"><BedDouble className="h-4 w-4" />Hotels</span> },
-            { value: 'recap', label: <span className="inline-flex items-center gap-1.5"><Heart className="h-4 w-4" />Memories</span> },
-          ]} />
-        </div>
-        <div className="mt-5">
+      <div className="mx-auto max-w-[1280px] px-5 pb-32 pt-8 md:px-10">
+        <Link to={`/trips/${tripId}/intel`} className="inline-flex items-center gap-1.5 text-[14px] text-content-muted hover:text-content"><ArrowLeft className="h-4 w-4" />Back to the journey</Link>
+        <header className="mt-6 grid items-end gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
+          <div>
+            <div className="tz-chapter">Before you go, and after you're back</div>
+            <h1 className="tz-h1 mt-2 text-content">{c.city.name}</h1>
+            <p className="mt-2 text-[15px] text-content-muted">{c.days[0].date} → {c.days[c.days.length - 1].date} · {c.travellers.length} traveller{c.travellers.length > 1 ? 's' : ''} · staying in {c.stay.name}</p>
+          </div>
+          {cover && <img src={cover} alt="" className="hidden h-24 w-40 rounded-2xl object-cover md:block" />}
+        </header>
+        <nav className="mt-8 flex gap-8 overflow-x-auto border-b border-edge" aria-label="Sections">
+          {TABS.map(([v, label]) => (
+            <button key={v} type="button" onClick={() => setSp({ tab: v }, { replace: true })} aria-current={tab === v ? 'page' : undefined}
+              className={`-mb-px shrink-0 border-b-2 pb-3 font-serif text-[24px] transition ${tab === v ? 'border-[var(--accent)] text-content' : 'border-transparent text-content-muted hover:text-content'}`}>{label}</button>
+          ))}
+        </nav>
+        <div className="mt-10" key={tab}>
           {tab === 'ready' && <ReadyTab c={c} tripId={tripId} docs={docs} onToast={setToast} />}
           {tab === 'money' && <MoneyTab c={c} tripId={tripId} />}
           {tab === 'stays' && <StaysTab c={c} />}
@@ -54,20 +63,32 @@ export default function TripReadyPage(): React.ReactElement {
         </div>
       </div>
       {toast && <Toast text={toast} onClose={() => setToast('')} />}
-      <Companion capsuleId={c.id} tripId={tripId} day={0} onCapsule={setC} />
+      <Companion capsuleId={c.id} tripId={tripId} day={0} onCapsule={setC} city={c.city.name} />
     </PageShell>
   )
 }
 
+/** Fade a tab's sections in once it mounts. */
+function useTabIntro(ref: React.RefObject<HTMLDivElement | null>, ready: boolean) {
+  useGSAP(() => {
+    if (!ready || !ref.current || prefersReducedMotion()) return
+    gsap.fromTo(ref.current.querySelectorAll('[data-in]'), { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.07, ease: 'power3.out' })
+  }, { scope: ref, dependencies: [ready] })
+}
+
+// ---------------------------------------------------------------- readiness: a preparation workspace
+
 function ReadyTab({ c, tripId, docs, onToast }: { c: CapsuleX; tripId: number; docs: number; onToast: (s: string) => void }) {
   const [r, setR] = useState<Readiness | null>(null)
   const [adding, setAdding] = useState(false)
+  const ref = React.useRef<HTMLDivElement>(null)
+  useTabIntro(ref, !!r)
   useEffect(() => {
     let off = false
     engine.readiness(c.id, docs).then((x) => !off && setR(x)).catch((e) => onToast((e as Error).message))
     return () => { off = true }
   }, [c.id, docs, onToast])
-  if (!r) return <Skeleton className="h-64" />
+  if (!r) return <Skeleton className="h-96 rounded-[28px]" />
   const tick = async (item: string, done: boolean) => setR(await engine.tick(c.id, item, done, docs))
   const addPacking = async () => {
     setAdding(true)
@@ -80,72 +101,86 @@ function ReadyTab({ c, tripId, docs, onToast }: { c: CapsuleX; tripId: number; d
       setAdding(false)
     }
   }
+  const byCat = r.packing.reduce<Record<string, typeof r.packing>>((a, p) => ((a[p.category] ??= []).push(p), a), {})
+  const days = r.countdown_days
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <Card className="p-5">
-        <div className="flex items-center gap-4">
-          <ScoreRing score={r.score} label="ready" />
+    <div ref={ref} className="grid gap-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-20">
+      <div>
+        <div data-in className="flex flex-wrap items-end gap-x-10 gap-y-4">
           <div>
-            <div className="text-subtitle font-bold text-content">{r.complete} of {r.total} done</div>
-            <div className="text-body text-content-muted">{r.countdown_days == null ? '' : r.countdown_days > 0 ? `${r.countdown_days} days to go` : r.countdown_days === 0 ? 'You leave today' : 'Trip has started'}</div>
+            <div className="tz-kicker">Departure</div>
+            <div className="mt-1 font-serif text-[88px] leading-[0.85] text-content">{days == null ? '–' : days > 0 ? days : days === 0 ? 'Today' : 'Now'}{days != null && days > 0 && <span className="ms-2 text-[28px] text-content-muted">day{days === 1 ? '' : 's'}</span>}</div>
+          </div>
+          <div className="min-w-[200px] flex-1 pb-3">
+            <div className="flex justify-between text-[13px] text-content-muted"><span>{r.complete} of {r.total} done</span><span>{r.score}% ready</span></div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-tertiary"><div className="h-full rounded-full bg-accent transition-[width] duration-700" style={{ width: `${r.score}%` }} /></div>
           </div>
         </div>
-        <ul className="mt-4 space-y-2">
+        <ul data-in className="mt-10 border-t border-edge">
           {r.checklist.map((i) => (
-            <li key={i.id} className="flex gap-3 rounded-xl border border-edge p-3">
-              <button disabled={i.auto} onClick={() => tick(i.id, !i.done)} aria-label={i.done ? 'Mark not done' : 'Mark done'} className="mt-0.5 shrink-0 disabled:cursor-default">
-                {i.done ? <CheckCircle2 className="h-5 w-5 text-success" /> : <Circle className="h-5 w-5 text-content-faint" />}
+            <li key={i.id} className="flex gap-4 border-b border-edge py-5">
+              <button disabled={i.auto} onClick={() => tick(i.id, !i.done)} aria-pressed={i.done} aria-label={i.done ? `Mark ${i.title} not done` : `Mark ${i.title} done`}
+                className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full border transition ${i.done ? 'border-[var(--accent)] bg-accent text-accent-text' : 'border-edge hover:border-[var(--accent)]'} disabled:cursor-default`}>
+                {i.done && <Check className="h-4 w-4" />}
               </button>
-              <div className="min-w-0">
-                <div className={`text-body font-semibold ${i.done ? 'text-content-muted line-through' : 'text-content'}`}>{i.title}</div>
-                <div className="text-caption text-content-muted">{i.detail}</div>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {i.auto && <Pill tone="accent">checked automatically</Pill>}
-                  {i.when && <Pill>{i.when}</Pill>}
-                  {i.link && <a href={i.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-caption text-accent-on underline">Official source<ExternalLink className="h-3 w-3" /></a>}
+              <div className="min-w-0 flex-1">
+                <div className={`text-[17px] ${i.done ? 'text-content-muted line-through decoration-[var(--tz-stone)]' : 'text-content'}`}>{i.title}</div>
+                <div className="mt-1 text-[14px] text-content-muted">{i.detail}</div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+                  {i.auto && <span className="text-accent-on">Checked automatically</span>}
+                  {i.when && <span className="text-content-faint">{i.when}</span>}
+                  {i.link && <a href={i.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-content-muted underline underline-offset-2 hover:text-content">Official source<ExternalLink className="h-3 w-3" /></a>}
                 </div>
               </div>
             </li>
           ))}
         </ul>
-      </Card>
+      </div>
 
-      <div className="space-y-4">
-        <Card className="p-5">
-          <div className="flex items-center justify-between gap-2">
-            <Eyebrow>Smart packing list</Eyebrow>
-            <Button variant="secondary" disabled={adding} onClick={addPacking}><Luggage className="h-4 w-4" />{adding ? 'Adding…' : 'Add to packing list'}</Button>
+      <div className="space-y-12">
+        <section data-in className="rounded-[28px] bg-[#18211F] p-7 text-[#F7F5EF]">
+          <div className="flex items-start justify-between gap-3">
+            <div><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A6A39B]">The suitcase</div><div className="mt-1 font-serif text-[30px] leading-none">{r.packing.length} things to pack</div></div>
+            <Luggage className="h-6 w-6 text-[#D98955]" />
           </div>
-          <ul className="mt-3 space-y-1.5">
-            {r.packing.map((p) => (
-              <li key={p.item} className="flex items-start gap-2 text-body"><Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-on" /><span><b className="text-content">{p.item}</b> <span className="text-content-muted">· {p.why}</span></span></li>
+          <div className="mt-6 space-y-5">
+            {Object.entries(byCat).map(([cat, items]) => (
+              <div key={cat}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A6A39B]">{cat}</div>
+                <ul className="mt-2 space-y-1.5">{items.map((p) => <li key={p.item} className="text-[15px]">{p.item} <span className="text-[13px] text-white/50">· {p.why}</span></li>)}</ul>
+              </div>
             ))}
-          </ul>
-          <p className="mt-3 text-caption text-content-faint">Built from your forecast, stops, travellers and bookings.</p>
-        </Card>
+          </div>
+          <button type="button" disabled={adding} onClick={addPacking} className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#F7F5EF] text-[14px] font-semibold text-[#18211F] disabled:opacity-60">{adding ? 'Adding…' : 'Add all to my packing list'}</button>
+          <p className="mt-3 text-center text-[12px] text-white/50">Built from your forecast, stops, travellers and bookings.</p>
+        </section>
 
-        <Card className="p-5">
-          <Eyebrow>{r.guide.city} guide</Eyebrow>
-          <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <section data-in>
+          <div className="tz-kicker">City guide</div>
+          <h3 className="tz-h3 mt-2 text-content">{r.guide.city}, at a glance</h3>
+          <div className="mt-5 grid grid-cols-2 gap-2">
             {r.guide.emergency.map((e) => (
-              <a key={e.label} href={`tel:${e.number}`} className="flex items-center gap-1.5 rounded-lg bg-danger-soft px-2.5 py-2 text-caption text-danger"><Phone className="h-3.5 w-3.5" /><span className="truncate">{e.label}</span><b className="ml-auto">{e.number}</b></a>
+              <a key={e.label} href={`tel:${e.number}`} className="flex items-center gap-2 rounded-2xl border border-edge px-3 py-2.5 text-[13px] text-content-secondary hover:border-[var(--danger)]"><Phone className="h-3.5 w-3.5 text-danger" /><span className="truncate">{e.label}</span><b className="ms-auto text-content">{e.number}</b></a>
             ))}
           </div>
           {r.guide.sections.map((s) => (
-            <div key={s.title} className="mt-4">
-              <div className="text-body font-semibold text-content">{s.title}</div>
-              <ul className="mt-1 list-disc space-y-0.5 ps-5 text-body text-content-secondary">{s.points.map((p) => <li key={p}>{p}</li>)}</ul>
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{s.links.map(([n, u]) => <a key={u} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-caption text-accent-on underline">{n}<ExternalLink className="h-3 w-3" /></a>)}</div>
+            <div key={s.title} className="mt-6 border-t border-edge pt-5">
+              <div className="font-serif text-[21px] text-content">{s.title}</div>
+              <ul className="mt-2 space-y-1.5 text-[14px] text-content-secondary">{s.points.map((p) => <li key={p}>{p}</li>)}</ul>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">{s.links.map(([n, u]) => <a key={u} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12px] text-accent-on underline underline-offset-2">{n}<ExternalLink className="h-3 w-3" /></a>)}</div>
             </div>
           ))}
-          <p className="mt-4 rounded-xl bg-surface-secondary p-3 text-caption text-content-muted">{r.guide.disclaimer} Last reviewed {r.guide.reviewed}.</p>
-        </Card>
+          <p className="mt-6 text-[12px] text-content-faint">{r.guide.disclaimer} Last reviewed {r.guide.reviewed}.</p>
+        </section>
       </div>
     </div>
   )
 }
 
+// ---------------------------------------------------------------- money: a calm ledger
+
 const CODES = ['USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD', 'CAD', 'JPY']
+const CAT_COLOR: Record<string, string> = { stay: '#315C4C', food: '#D98955', tickets: '#7FA392', transport: '#A6A39B' }
 
 function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
   const [f, setF] = useState<Finance | null>(null)
@@ -153,167 +188,221 @@ function MoneyTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
   const [amt, setAmt] = useState('1000')
   const [code, setCode] = useState('USD')
   const [toInr, setToInr] = useState(false)
+  const ref = React.useRef<HTMLDivElement>(null)
+  useTabIntro(ref, !!f)
   useEffect(() => {
     let off = false
     engine.finance(c.id).then((x) => !off && setF(x)).catch(() => undefined)
     engine.fx('INR').then((x) => !off && setFx(x)).catch(() => undefined)
     return () => { off = true }
   }, [c.id])
-  if (!f) return <Skeleton className="h-64" />
+  if (!f) return <Skeleton className="h-96 rounded-[28px]" />
   const rate = fx?.rates?.[code]
   const n = Number(amt) || 0
   const converted = rate ? (toInr ? n / rate : n * rate) : null
-  const max = Math.max(1, ...Object.values(f.categories))
+  const cats = Object.entries(f.categories) as [string, number][]
+  const maxDay = Math.max(1, ...f.by_day.map((d) => Math.max(d.planned, d.spent)))
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <Card className="p-5">
-        <Eyebrow>Full trip cost (estimate)</Eyebrow>
-        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Total" value={rupees(f.total)} />
-          <Stat label="Per person" value={rupees(f.per_person)} sub={`${f.people} traveller${f.people > 1 ? 's' : ''}`} />
-          <Stat label="Spent" value={rupees(f.spent)} />
-          <Stat label={f.budget_total ? 'Budget left' : 'Left of estimate'} value={rupees(f.remaining)} />
-        </div>
-        <div className="mt-5 space-y-2.5">
-          {(Object.entries(f.categories) as [string, number][]).map(([k, v]) => (
-            <div key={k}>
-              <div className="flex justify-between text-body"><span className="capitalize text-content">{k}{k === 'stay' ? ` · ${f.nights} night${f.nights > 1 ? 's' : ''} × ${rupees(f.stay_rate)}` : ''}</span><b className="text-content">{rupees(v)}</b></div>
-              <div className="mt-1 h-2 rounded-full bg-surface-secondary"><div className="h-2 rounded-full bg-accent" style={{ width: `${(v / max) * 100}%` }} /></div>
-            </div>
-          ))}
-        </div>
-        {Object.keys(f.converted).length > 0 && (
-          <p className="mt-4 text-body text-content-muted">≈ {Object.entries(f.converted).map(([k, v]) => `${k} ${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`).join(' · ')} <span className="text-caption text-content-faint">({f.fx.source}, {f.fx.date})</span></p>
-        )}
-        <div className="mt-5">
-          <Eyebrow>By day</Eyebrow>
-          <div className="mt-2 space-y-1.5">
-            {f.by_day.map((d) => (
-              <div key={d.day} className="flex justify-between rounded-xl bg-surface-secondary px-3 py-2 text-body"><span className="text-content">Day {d.day + 1} · {d.date}</span><span className="text-content-muted">planned <b className="text-content">{rupees(d.planned)}</b> · spent <b className="text-content">{rupees(d.spent)}</b></span></div>
-            ))}
+    <div ref={ref}>
+      <section data-in className="grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <div>
+          <div className="tz-kicker">The whole trip, before you go</div>
+          <div className="mt-3 font-serif text-[64px] leading-none text-content md:text-[88px]">{rupees(f.total)}</div>
+          <div className="mt-3 text-[15px] text-content-muted">{rupees(f.per_person)} each for {f.people} traveller{f.people > 1 ? 's' : ''}{Object.keys(f.converted).length ? ` · ≈ ${Object.entries(f.converted).map(([k, v]) => `${k} ${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`).join(' · ')}` : ''}</div>
+          <div className="mt-8 flex h-3 overflow-hidden rounded-full" role="img" aria-label="Cost by category">
+            {cats.map(([k, v]) => <span key={k} style={{ width: `${(v / Math.max(1, f.total)) * 100}%`, background: CAT_COLOR[k] }} />)}
           </div>
+          <dl className="mt-5 grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+            {cats.map(([k, v]) => (
+              <div key={k}>
+                <dt className="flex items-center gap-2 text-[13px] capitalize text-content-muted"><span className="h-2 w-2 rounded-full" style={{ background: CAT_COLOR[k] }} />{k}</dt>
+                <dd className="mt-0.5 text-[17px] font-semibold text-content">{rupees(v)}</dd>
+                {k === 'stay' && <dd className="text-[12px] text-content-faint">{f.nights} night{f.nights > 1 ? 's' : ''} × {rupees(f.stay_rate)}</dd>}
+              </div>
+            ))}
+          </dl>
         </div>
-        <p className="mt-4 text-caption text-content-faint">{f.note}</p>
-      </Card>
-
-      <div className="space-y-4">
-        <Card className="p-5">
-          <Eyebrow>Currency converter</Eyebrow>
-          <div className="mt-3 flex gap-2">
-            <input className="tz-input !w-auto min-w-0 flex-1" inputMode="decimal" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^\d.]/g, ''))} aria-label="Amount" />
+        <div className="rounded-[28px] border border-edge bg-surface-card p-7">
+          <div className="tz-kicker">Convert</div>
+          <div className="mt-4 flex gap-2">
+            <input className="tz-input !w-auto min-w-0 flex-1 !text-[18px]" inputMode="decimal" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^\d.]/g, ''))} aria-label="Amount" />
             <select className="tz-input !w-24 shrink-0" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Currency">{CODES.map((x) => <option key={x}>{x}</option>)}</select>
             <Button variant="secondary" onClick={() => setToInr(!toInr)} aria-label="Swap direction"><Repeat className="h-4 w-4" /></Button>
           </div>
-          <div className="mt-3 text-[26px] font-bold text-content">
-            {converted == null ? '—' : toInr ? `${code} ${n.toLocaleString()} = ${rupees(converted)}` : `${rupees(n)} = ${code} ${converted.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+          <div className="mt-5 font-serif text-[34px] leading-tight text-content">
+            {converted == null ? '—' : toInr ? <>{code} {n.toLocaleString()} <span className="text-content-muted">=</span> {rupees(converted)}</> : <>{rupees(n)} <span className="text-content-muted">=</span> {code} {converted.toLocaleString(undefined, { maximumFractionDigits: 2 })}</>}
           </div>
-          <p className="mt-1 text-caption text-content-faint">{fx?.source ? `${fx.source} · ${fx.date}` : fx?.error ?? 'Loading live rates…'}</p>
-        </Card>
-        <Card className="p-5">
-          <Eyebrow>Group expenses</Eyebrow>
-          <p className="mt-1 text-body text-content-muted">Log expenses in Live, then split them between travellers and settle up in the trip budget. It shows who owes whom.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <p className="mt-2 text-[12px] text-content-faint">{fx?.source ? `${fx.source} · ${fx.date}` : fx?.error ?? 'Loading live rates…'}</p>
+        </div>
+      </section>
+
+      <section data-in className="mt-16 grid gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <div>
+          <div className="flex items-end justify-between"><div><div className="tz-kicker">Planned and spent</div><h3 className="tz-h3 mt-2 text-content">Day by day</h3></div><div className="text-[13px] text-content-muted">spent <b className="text-content">{rupees(f.spent)}</b> · {f.budget_total ? 'budget' : 'estimate'} left <b className="text-content">{rupees(f.remaining)}</b></div></div>
+          <div className="mt-6 space-y-5">
+            {f.by_day.map((d) => (
+              <div key={d.day} className="grid grid-cols-[88px_minmax(0,1fr)] items-center gap-4">
+                <div><div className="font-serif text-[20px] leading-none text-content">Day {d.day + 1}</div><div className="mt-1 text-[11px] text-content-faint">{d.date}</div></div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-3"><div className="h-2 rounded-full bg-[var(--tz-sage)]" style={{ width: `${(d.planned / maxDay) * 100}%` }} /><span className="shrink-0 text-[12px] text-content-muted">planned {rupees(d.planned)}</span></div>
+                  <div className="flex items-center gap-3"><div className="h-2 rounded-full bg-accent" style={{ width: `${Math.max(0.5, (d.spent / maxDay) * 100)}%` }} /><span className="shrink-0 text-[12px] text-content-muted">spent {rupees(d.spent)}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 text-[12px] text-content-faint">{f.note}</p>
+        </div>
+        <div>
+          <div className="tz-kicker">Travelling together</div>
+          <h3 className="tz-h3 mt-2 text-content">Split it fairly</h3>
+          <p className="mt-3 text-[15px] text-content-muted">Log expenses as you go in Live, then split them between travellers and settle up in the trip budget. It shows who owes whom.</p>
+          <div className="mt-5 flex flex-wrap gap-2">
             <Link to={`/trips/${tripId}/live`}><Button variant="secondary">Log an expense</Button></Link>
             <Link to={`/trips/${tripId}?tab=finanzplan`}><Button>Split &amp; settle</Button></Link>
           </div>
           {f.expenses.length > 0 && (
-            <ul className="mt-3 space-y-1 text-body">{f.expenses.slice(-5).reverse().map((e, i) => <li key={i} className="flex justify-between"><span className="text-content-secondary">{e.label}</span><b className="text-content">{rupees(e.amount)}</b></li>)}</ul>
+            <ul className="mt-6 border-t border-edge">{f.expenses.slice(-5).reverse().map((e, i) => <li key={i} className="flex justify-between border-b border-edge py-3 text-[14px]"><span className="text-content-secondary">{e.label}</span><b className="text-content">{rupees(e.amount)}</b></li>)}</ul>
           )}
-        </Card>
-      </div>
+        </div>
+      </section>
     </div>
   )
 }
 
+// ---------------------------------------------------------------- hotels: a comparison with photographs and location
+
+const km = (a: [number, number], b: [number, number]) => {
+  const R = 6371, r = Math.PI / 180
+  const dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
 function StaysTab({ c }: { c: CapsuleX }) {
   const [h, setH] = useState<HotelResult | null>(null)
+  const ref = React.useRef<HTMLDivElement>(null)
+  useTabIntro(ref, !!h)
   useEffect(() => {
     let off = false
     engine.hotels(c.id).then((x) => !off && setH(x)).catch((e) => !off && setH({ configured: true, items: [], error: (e as Error).message }))
     return () => { off = true }
   }, [c.id])
+  const base: [number, number] = [c.stay.lat, c.stay.lon]
+  const fit = (x: Hotel) => (x.lat && x.lon ? km(base, [x.lat, x.lon]) : null)
+  const cheapest = h?.items.length ? Math.min(...h.items.map((x) => x.total)) : 0
   return (
-    <div>
-      <Card className="p-5">
-        <Eyebrow>Tripzy's stay pick</Eyebrow>
-        <div className="mt-1 text-subtitle font-bold text-content">{c.stay.name}</div>
-        <p className="text-body text-content-muted">{c.stay.tradeoff} · about {c.stay.avg_minutes} min to your stops · typical {c.stay.price}</p>
-      </Card>
-      <div className="mt-4 flex items-center justify-between">
-        <Eyebrow>Hotels near {c.stay.name}</Eyebrow>
-        {h?.sandbox && <Pill tone="warning">Sandbox · test prices, not bookable</Pill>}
-      </div>
-      {!h && <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"><Skeleton className="h-28" /><Skeleton className="h-28" /></div>}
-      {h && !h.items.length && <Card className="mt-3 p-5 text-body text-content-muted">{h.detail ?? h.error ?? 'No rooms returned for these dates.'}</Card>}
+    <div ref={ref}>
+      <section data-in className="grid items-end gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <div className="tz-kicker">Tripzy's stay pick</div>
+          <h3 className="tz-h2 mt-2 text-content">{c.stay.name}</h3>
+          <p className="mt-2 max-w-xl text-[15px] text-content-muted">{c.stay.tradeoff}. About {c.stay.avg_minutes} minutes to your stops, typically {c.stay.price}.</p>
+        </div>
+        {h?.sandbox && <span className="w-fit rounded-full bg-warning-soft px-3 py-1.5 text-[12px] font-medium text-warning">Sandbox · test prices, not bookable</span>}
+      </section>
+      {!h && <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-80 rounded-[22px]" />)}</div>}
+      {h && !h.items.length && <p className="mt-10 rounded-[22px] border border-dashed border-edge p-8 text-[15px] text-content-muted">{h.detail ?? h.error ?? 'No rooms returned for these dates.'}</p>}
       {h && h.items.length > 0 && (
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {h.items.map((x) => (
-            <Card key={x.id} className="flex gap-3 overflow-hidden p-3">
-              {x.photo ? <img src={x.photo} alt="" loading="lazy" className="h-24 w-28 shrink-0 rounded-xl object-cover" /> : <div className="h-24 w-28 shrink-0 rounded-xl bg-surface-secondary" />}
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-body font-bold text-content">{x.name}</div>
-                <div className="text-caption text-content-muted">{x.stars ? `${x.stars}★` : ''}{x.rating ? <> · <Star className="inline h-3 w-3" /> {x.rating}/10{x.reviews ? ` (${x.reviews})` : ''}</> : ''}</div>
-                <div className="truncate text-caption text-content-muted">{x.room}{x.board ? ` · ${x.board}` : ''}</div>
-                <div className="mt-1 flex items-center justify-between">
-                  <b className="text-content">{rupees(x.total)}</b>
-                  <Pill tone={x.refundable ? 'success' : 'neutral'}>{x.refundable ? 'Free cancellation' : 'Non-refundable'}</Pill>
+        <div className="mt-10 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          {h.items.map((x) => {
+            const d = fit(x)
+            return (
+              <article data-in key={x.id} className="group">
+                <div className="relative overflow-hidden rounded-[22px] bg-surface-tertiary">
+                  {x.photo ? <img src={x.photo} alt={x.name} loading="lazy" className="aspect-[4/3] w-full object-cover transition duration-700 group-hover:scale-[1.03]" /> : <div className="aspect-[4/3]" />}
+                  {x.total === cheapest && <span className="absolute start-3 top-3 rounded-full bg-[#F7F5EF] px-2.5 py-1 text-[11px] font-semibold text-[#18211F]">Lowest price</span>}
                 </div>
-              </div>
-            </Card>
-          ))}
+                <div className="mt-4 flex items-start justify-between gap-3">
+                  <h4 className="font-serif text-[22px] leading-tight text-content">{x.name}</h4>
+                  <div className="shrink-0 text-end"><div className="text-[18px] font-semibold text-content">{rupees(x.total)}</div><div className="text-[11px] text-content-faint">total stay</div></div>
+                </div>
+                <div className="mt-1 text-[13px] text-content-muted">{x.stars ? `${x.stars}★` : ''}{x.rating ? <> · <Star className="inline h-3 w-3" /> {x.rating}/10{x.reviews ? ` (${x.reviews})` : ''}</> : ''}{x.room ? ` · ${x.room}` : ''}</div>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
+                  {d !== null && <a href={mapsLink(x.lat, x.lon, x.name)} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-1 ${d <= 2 ? 'text-success' : d <= 5 ? 'text-content-secondary' : 'text-warning'}`}><MapPin className="h-3.5 w-3.5" />{d.toFixed(1)} km from {c.stay.name}</a>}
+                  <span className={x.refundable ? 'text-success' : 'text-content-muted'}>{x.refundable ? 'Free cancellation' : 'Non-refundable'}</span>
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
-      {h?.source && <p className="mt-3 text-caption text-content-faint">{h.source} · {h.checkin} → {h.checkout} · total for the stay. Tripzy never shows invented prices.</p>}
+      {h?.source && <p className="mt-10 text-[12px] text-content-faint">{h.source} · {h.checkin} → {h.checkout} · prices are totals for the stay. Tripzy never shows invented prices.</p>}
     </div>
   )
 }
 
+// ---------------------------------------------------------------- memories: an editorial travel journal
+
 function RecapTab({ c, tripId }: { c: CapsuleX; tripId: number }) {
   const [r, setR] = useState<Recap | null>(null)
   const [busy, setBusy] = useState(false)
+  const ref = React.useRef<HTMLDivElement>(null)
+  useTabIntro(ref, !!r)
   useEffect(() => {
     let off = false
     engine.recap(c.id).then((x) => !off && setR(x)).catch(() => undefined)
     return () => { off = true }
   }, [c.id])
-  if (!r) return <Skeleton className="h-64" />
+  if (!r) return <Skeleton className="h-96 rounded-[28px]" />
   const story = async () => {
     setBusy(true)
     try { setR(await engine.recap(c.id, true)) } finally { setBusy(false) }
   }
+  const [lead, ...rest] = r.highlights
   return (
-    <div className="space-y-4">
-      <Card className="p-5">
-        <Eyebrow className="tz-coral-text">Trip memories</Eyebrow>
-        <h2 className="mt-1 text-title font-bold text-content">{r.city}, {r.days} days</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Places" value={r.stops} />
-          <Stat label="Meals" value={r.meals} />
-          <Stat label="Travelled" value={`${r.km} km`} sub={`${Math.round(r.travel_min / 60 * 10) / 10} h on the road`} />
-          <Stat label="Spent" value={rupees(r.spent)} />
+    <div ref={ref}>
+      <section data-in className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
+        {lead && <div className="overflow-hidden rounded-[28px]"><PlaceImage id={lead.place_id} alt={lead.name} className="aspect-[16/10] w-full" /></div>}
+        <div>
+          <div className="tz-chapter">A journal of {r.city}</div>
+          <p className="mt-3 font-serif text-[34px] leading-[1.15] text-content">{r.days} days, {r.stops} places, {r.km} km of road and {r.meals} meals.</p>
+          <p className="mt-3 text-[14px] text-content-muted">{Math.round((r.travel_min / 60) * 10) / 10} hours on the move · {rupees(r.spent)} spent{r.loved.length ? ` · you loved ${r.loved.join(', ')}` : ''}</p>
         </div>
+      </section>
+
+      <section data-in className="mt-14 border-y border-edge py-10">
         {r.story ? (
-          <p className="mt-4 rounded-2xl bg-surface-secondary p-4 text-body leading-relaxed text-content">{r.story}<span className="mt-2 block text-caption text-content-faint">Written by Gemini from your trip facts only</span></p>
+          <figure className="mx-auto max-w-3xl">
+            <blockquote className="font-serif text-[26px] italic leading-[1.45] text-content md:text-[32px]">“{r.story}”</blockquote>
+            <figcaption className="mt-4 text-[12px] text-content-faint">Written by Gemini from your trip's facts only</figcaption>
+          </figure>
         ) : (
-          <Button variant="coral" className="mt-4" disabled={busy} onClick={story}><Sparkles className="h-4 w-4" />{busy ? 'Writing…' : 'Write my trip story'}</Button>
+          <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+            <p className="font-serif text-[26px] italic text-content-muted">Every journey has a story. Want Tripzy to write yours?</p>
+            <Button variant="coral" className="mt-5" disabled={busy} onClick={story}><Sparkles className="h-4 w-4" />{busy ? 'Writing… (about 30 seconds)' : 'Write my trip story'}</Button>
+            {r.story === null && r.story_source === null && <p className="mt-3 text-[12px] text-content-faint">Story writing needs the optional free Gemini key.</p>}
+          </div>
         )}
-        {r.story === null && r.story_source === null && <p className="mt-2 text-caption text-content-faint">Story writing needs the optional free Gemini key.</p>}
-      </Card>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {r.highlights.map((h) => (
-          <Card key={h.name + h.day} className="overflow-hidden">
-            <PlaceImage id={h.place_id} alt={h.name} className="h-28 w-full" />
-            <div className="p-2.5"><div className="truncate text-body font-semibold text-content">{h.name}</div><div className="text-caption text-content-muted">Day {h.day + 1} · {h.start}{r.loved.includes(h.name) ? ' · ❤️ loved' : ''}</div></div>
-          </Card>
-        ))}
-      </div>
-      {(r.adaptations.length > 0 || r.learned.length > 0) && (
-        <Card className="p-5">
-          {r.adaptations.length > 0 && <><Eyebrow>How Tripzy adapted</Eyebrow><ul className="mt-2 space-y-1 text-body text-content-secondary">{r.adaptations.map((a, i) => <li key={i}>Day {a.day + 1}: {a.headline}</li>)}</ul></>}
-          {r.learned.length > 0 && <><Eyebrow className="mt-4">What Tripzy learned about you</Eyebrow><div className="mt-2 flex flex-wrap gap-1.5">{r.learned.map((x) => <Pill key={x} tone="accent">{x}</Pill>)}</div></>}
-        </Card>
+      </section>
+
+      {rest.length > 0 && (
+        <section data-in className="mt-14 columns-2 gap-4 md:columns-3 [&>figure]:mb-4">
+          {rest.map((h, i) => (
+            <figure key={h.name + h.day} className="break-inside-avoid">
+              <div className="overflow-hidden rounded-[20px]"><PlaceImage id={h.place_id} alt={h.name} className={`${i % 3 === 0 ? 'aspect-[3/4]' : i % 3 === 1 ? 'aspect-square' : 'aspect-[4/3]'} w-full`} /></div>
+              <figcaption className="mt-2 flex items-baseline justify-between gap-2"><span className="font-serif text-[18px] text-content">{h.name}</span><span className="shrink-0 text-[11px] text-content-faint">Day {h.day + 1} · {h.start}{r.loved.includes(h.name) ? ' · ♥' : ''}</span></figcaption>
+            </figure>
+          ))}
+        </section>
       )}
-      <Link to="/journey" className="inline-flex items-center gap-1.5 text-body text-accent-on underline">Add photos and notes in your journal (trip {tripId})</Link>
+
+      {(r.adaptations.length > 0 || r.learned.length > 0) && (
+        <section data-in className="mt-14 grid gap-12 md:grid-cols-2">
+          {r.adaptations.length > 0 && (
+            <div>
+              <div className="tz-kicker">When plans changed</div>
+              <ol className="mt-4 border-s border-edge ps-6">{r.adaptations.map((a, i) => <li key={i} className="relative pb-5 text-[15px] text-content-secondary"><span className="absolute -start-[29px] top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--tz-sun)]" />Day {a.day + 1}: {a.headline}</li>)}</ol>
+            </div>
+          )}
+          {r.learned.length > 0 && (
+            <div>
+              <div className="tz-kicker">What Tripzy learned about you</div>
+              <ul className="mt-4 space-y-2">{r.learned.map((x) => <li key={x} className="font-serif text-[20px] text-content">{x}</li>)}</ul>
+            </div>
+          )}
+        </section>
+      )}
+      <Link to="/journey" className="tz-link mt-14 inline-block text-[14px] font-semibold text-accent-on">Add your own photos and notes in the journal (trip {tripId})</Link>
     </div>
   )
 }

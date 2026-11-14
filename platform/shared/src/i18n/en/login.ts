@@ -2,8 +2,8 @@ import type { TranslationStrings } from '../types';
 
 const login: TranslationStrings = {
   'login.error': 'Login failed. Please check your credentials.',
-  'login.tagline': 'Travel,\norchestrated.',
-  'login.description': 'Plans the trip, protects the travel, improves the experience.',
+  'login.tagline': 'Every journey\nhas a story.',
+  'login.description': "Let's make every moment along the way count.",
   'login.title': 'Sign In',
   'login.subtitle': 'Welcome back',
   'login.signingIn': 'Signing in…',

@@ -1,0 +1,90 @@
+{
+  "_note": "Sample data — estimates. Self-generated Hyderabad commute graph for the demo. Distances, times and fares are rounded estimates, not live data. Replace this file with real data (GTFS / OSM / fare tables) using the same shape.",
+  "peakWindows": [["08:00", "11:00"], ["17:00", "21:00"]],
+  "private": {
+    "auto": { "base": 30, "perKm": 16, "wait": 5, "speed": 1.1, "peakShare": 1, "maxKm": 25, "capacity": 3 },
+    "bike": { "base": 20, "perKm": 8, "wait": 4, "speed": 0.9, "peakShare": 0.7, "maxKm": 15, "capacity": 1 },
+    "cab": { "base": 60, "perKm": 20, "wait": 7, "speed": 1.0, "peakShare": 1, "maxKm": 30, "capacity": 4 }
+  },
+  "walk": { "kmh": 4.5, "maxKm": 2 },
+  "nodes": [
+    { "id": "kokapet", "name": "Kokapet", "kind": "place", "lat": 17.3953, "lon": 78.3366 },
+    { "id": "cbit", "name": "CBIT College, Gandipet", "kind": "place", "lat": 17.3919, "lon": 78.3194 },
+    { "id": "raidurg", "name": "Raidurg Metro", "kind": "metro", "lat": 17.4429, "lon": 78.3772 },
+    { "id": "ameerpet", "name": "Ameerpet Metro (interchange)", "kind": "metro", "lat": 17.4375, "lon": 78.4482 },
+    { "id": "parade", "name": "Parade Ground Metro", "kind": "metro", "lat": 17.4446, "lon": 78.4993 },
+    { "id": "uppal_m", "name": "Uppal Metro", "kind": "metro", "lat": 17.4011, "lon": 78.5596 },
+    { "id": "mgbs_m", "name": "MGBS Metro", "kind": "metro", "lat": 17.3784, "lon": 78.4847 },
+    { "id": "dsnr_m", "name": "Dilsukhnagar Metro", "kind": "metro", "lat": 17.3688, "lon": 78.5253 },
+    { "id": "lbnagar_m", "name": "LB Nagar Metro", "kind": "metro", "lat": 17.3492, "lon": 78.5487 },
+    { "id": "mgbs", "name": "MGBS Bus Station", "kind": "bus", "lat": 17.3784, "lon": 78.4828 },
+    { "id": "uppal", "name": "Uppal Bus Stand", "kind": "bus", "lat": 17.3984, "lon": 78.559 },
+    { "id": "sc", "name": "Secunderabad Railway Station", "kind": "rail", "lat": 17.4337, "lon": 78.5016 },
+    { "id": "dsnr", "name": "Dilsukhnagar", "kind": "place", "lat": 17.3687, "lon": 78.5247 },
+    { "id": "lbnagar", "name": "LB Nagar", "kind": "place", "lat": 17.3457, "lon": 78.5522 },
+    { "id": "wgl", "name": "Warangal Bus Station", "kind": "bus", "lat": 17.975, "lon": 79.6 },
+    { "id": "wgl_rail", "name": "Warangal Railway Station", "kind": "rail", "lat": 17.9667, "lon": 79.6033 },
+    { "id": "hnk", "name": "Hanamkonda", "kind": "place", "lat": 18.0072, "lon": 79.5584 }
+  ],
+  "roads": [
+    { "a": "kokapet", "b": "raidurg", "km": 7, "min": 15, "peak": 1.6 },
+    { "a": "kokapet", "b": "mgbs", "km": 21, "min": 40, "peak": 1.8 },
+    { "a": "kokapet", "b": "ameerpet", "km": 16, "min": 35, "peak": 1.7 },
+    { "a": "cbit", "b": "kokapet", "km": 6, "min": 12, "peak": 1.4 },
+    { "a": "cbit", "b": "raidurg", "km": 12, "min": 22, "peak": 1.5 },
+    { "a": "raidurg", "b": "ameerpet", "km": 10, "min": 25, "peak": 1.8 },
+    { "a": "ameerpet", "b": "sc", "km": 7, "min": 20, "peak": 1.8 },
+    { "a": "sc", "b": "uppal", "km": 9, "min": 22, "peak": 1.9 },
+    { "a": "mgbs", "b": "uppal", "km": 12, "min": 25, "peak": 3.0 },
+    { "a": "mgbs", "b": "dsnr", "km": 6, "min": 15, "peak": 1.9 },
+    { "a": "dsnr", "b": "lbnagar", "km": 3, "min": 8, "peak": 1.6 },
+    { "a": "uppal", "b": "lbnagar", "km": 8, "min": 18, "peak": 1.8 },
+    { "a": "wgl", "b": "hnk", "km": 7, "min": 15, "peak": 1.2 },
+    { "a": "wgl_rail", "b": "hnk", "km": 6, "min": 14, "peak": 1.2 },
+    { "a": "wgl_rail", "b": "wgl", "km": 1.5, "min": 6, "peak": 1.2 }
+  ],
+  "transfers": [
+    { "a": "uppal_m", "b": "uppal", "km": 0.5, "min": 7 },
+    { "a": "mgbs_m", "b": "mgbs", "km": 0.4, "min": 6 },
+    { "a": "parade", "b": "sc", "km": 0.6, "min": 8 },
+    { "a": "dsnr_m", "b": "dsnr", "km": 0.3, "min": 4 },
+    { "a": "lbnagar_m", "b": "lbnagar", "km": 0.4, "min": 5 }
+  ],
+  "lines": [
+    {
+      "id": "metro-blue", "mode": "metro", "name": "Metro Blue Line", "headway": 7,
+      "stops": ["raidurg", "ameerpet", "parade", "uppal_m"],
+      "segments": [{ "km": 9, "min": 16, "fare": 35 }, { "km": 7, "min": 12, "fare": 17 }, { "km": 9, "min": 12, "fare": 17 }]
+    },
+    {
+      "id": "metro-red", "mode": "metro", "name": "Metro Red Line", "headway": 7,
+      "stops": ["ameerpet", "mgbs_m", "dsnr_m", "lbnagar_m"],
+      "segments": [{ "km": 6, "min": 12, "fare": 25 }, { "km": 5, "min": 9, "fare": 15 }, { "km": 3, "min": 5, "fare": 10 }]
+    },
+    {
+      "id": "bus-216", "mode": "citybus", "name": "City bus 216 (Kokapet – MGBS)", "headway": 20,
+      "stops": ["kokapet", "mgbs"],
+      "segments": [{ "km": 21, "min": 55, "fare": 40, "peak": 1.8 }]
+    },
+    {
+      "id": "bus-wgl", "mode": "citybus", "name": "City bus Warangal – Hanamkonda", "headway": 10,
+      "stops": ["wgl", "hnk"],
+      "segments": [{ "km": 7, "min": 20, "fare": 15, "peak": 1.2 }]
+    },
+    {
+      "id": "tgsrtc-wgl", "mode": "ibus", "name": "Intercity bus MGBS – Uppal – Warangal", "headway": 15,
+      "stops": ["mgbs", "uppal", "wgl"],
+      "segments": [{ "km": 12, "min": 25, "fare": 30, "peak": 3.0 }, { "km": 140, "min": 165, "fare": 220, "peak": 1.2 }]
+    },
+    {
+      "id": "train-wgl", "mode": "train", "name": "Train Secunderabad – Warangal",
+      "stops": ["sc", "wgl_rail"],
+      "segments": [{ "km": 140, "min": 150, "fare": 120 }],
+      "departures": { "forward": ["06:10", "17:30", "21:30"], "reverse": ["05:30", "14:00", "18:15"] }
+    }
+  ],
+  "presets": [
+    { "name": "Kokapet → Warangal (evening peak)", "from": "kokapet", "to": "wgl", "time": "18:00" },
+    { "name": "College → home (CBIT → Dilsukhnagar)", "from": "cbit", "to": "dsnr", "time": "16:30" }
+  ]
+}

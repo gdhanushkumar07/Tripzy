@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isUser(uid) { return signedIn() && request.auth.uid == uid; }
+    function shortString(v, max) { return v is string && v.size() > 0 && v.size() <= max; }
+    function smallDoc() { return request.resource.data.keys().size() <= 40; }
+
+    // ------------------------------------------------------------ users/{uid}/**
+    match /users/{uid} {
+      allow read, delete: if isUser(uid);
+      allow create, update: if isUser(uid) && validUser(request.resource.data);
+
+      function validUser(d) {
+        return (!('name' in d) || shortString(d.name, 40))
+          && (!('prefs' in d) || validPrefs(d.prefs));
+      }
+      function validPrefs(p) {
+        return p is map
+          && p.modes is list && p.modes.size() <= 8
+          && p.modes.hasOnly(['walk', 'auto', 'bike', 'cab', 'citybus', 'metro', 'ibus', 'train'])
+          && (p.budget == null || (p.budget is number && p.budget >= 0 && p.budget <= 100000))
+          && (p.maxTransfers == null || (p.maxTransfers is int && p.maxTransfers >= 0 && p.maxTransfers <= 5));
+      }
+
+      match /drafts/{key} {
+        allow read, delete: if isUser(uid);
+        allow write: if isUser(uid) && key in ['commute', 'tour']
+          && request.resource.data.updatedAt is number && request.resource.data.value is map;
+      }
+      match /routes/{id} {
+        allow read, delete: if isUser(uid);
+        allow write: if isUser(uid) && smallDoc()
+          && shortString(request.resource.data.from, 40) && shortString(request.resource.data.to, 40)
+          && shortString(request.resource.data.time, 5);
+      }
+      match /trips/{id} {
+        allow read, delete: if isUser(uid);
+        allow write: if isUser(uid) && smallDoc() && shortString(request.resource.data.title, 80);
+      }
+      // anything else under the user stays private to that user
+      match /{other=**} {
+        allow read, write: if isUser(uid);
+      }
+    }
+
+    // ------------------------------------------------------------ groups/{code}
+    match /groups/{code} {
+      function me() { return request.auth.uid; }
+      function before() { return resource.data; }
+      function after() { return request.resource.data; }
+      function changed() { return after().diff(before()).affectedKeys(); }
+      function membersChanged() { return after().members.diff(before().members).affectedKeys(); }
+      function validMember(m) {
+        return m is map && shortString(m.name, 40) && m.ready is bool
+          && (!('destination' in m) || m.destination is string && m.destination.size() <= 40)
+          && (!('answers' in m) || m.answers is map);
+      }
+
+      allow read: if signedIn() && me() in resource.data.memberUids;
+
+      allow create: if signedIn()
+        && code.matches('^[A-HJ-NP-Z2-9]{6}$')
+        && after().type in ['commute', 'tour']
+        && after().ownerUid == me()
+        && after().memberUids == [me()]
+        && after().members.keys().hasOnly([me()])
+        && validMember(after().members[me()]);
+
+      allow update: if signedIn() && after().ownerUid == before().ownerUid && after().type == before().type && (
+        // join: a signed-in user may add only themselves
+        (!(me() in before().memberUids)
+          && after().memberUids.toSet() == before().memberUids.toSet().union([me()].toSet())
+          && after().memberUids.size() <= 12
+          && changed().hasOnly(['memberUids', 'members', 'updatedAt'])
+          && membersChanged().hasOnly([me()])
+          && validMember(after().members[me()]))
+        ||
+        // a member edits their own entry or the shared result (live itinerary edits)
+        (me() in before().memberUids && me() != before().ownerUid
+          && after().memberUids == before().memberUids
+          && changed().hasOnly(['members', 'result', 'updatedAt'])
+          && membersChanged().hasOnly([me()])
+          && (!(me() in after().members) || validMember(after().members[me()])))
+        ||
+        // the owner manages settings, the result and removes members (never adds others)
+        (me() == before().ownerUid
+          && after().memberUids.toSet().difference(before().memberUids.toSet()).size() == 0
+          && me() in after().memberUids)
+      );
+
+      allow delete: if signedIn() && me() == resource.data.ownerUid;
+    }
+  }
+}

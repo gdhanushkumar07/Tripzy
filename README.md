@@ -20,6 +20,8 @@ Other apps plan in one mode and pick the nearest hub greedily, one leg at a time
 
 ## Features
 
+- **The Tripzy look** — the original design is kept: ivory and forest theme with light/dark mode, Instrument Serif headings, the photo-led intro page at `/` for visitors (GSAP scroll chapters, including one on the Kokapet → Warangal story), the split-screen login, the glass navbar with the tab pill, and Wikimedia photography (credits at `/credits`).
+
 - **Accounts** — register, log in, log out, password reset (Firebase Auth). The session survives refresh and browser restarts. Each user sees only their own data.
 - **Dashboard** — welcome by name, two big module cards, saved routes and saved trips (one tap to reopen, delete with confirmation), "Continue where you left off" when a draft exists, and default preferences (modes, budget, max transfers).
 - **Daily Traveller** (`/commute`) — form and results on one page. Mode chips (walk, auto, bike taxi, cab, city bus, metro, intercity bus, train) are preselected from your preferences. Optional budget and max transfers. Up to three distinct routes (one route can carry two labels). Each has legs, time, fare, distance, changes and a "Why this route" line. Tap a card for the leg-by-leg timeline and a Leaflet/OpenStreetMap map (no API key). "Save route" for one-tap reuse. If nothing is found, it says which mode filter blocks the route and offers "Try with auto added"-style buttons.
@@ -31,7 +33,7 @@ Other apps plan in one mode and pick the nearest hub greedily, one leg at a time
 
 ## Architecture (in a few lines)
 
-- **React 19 + TypeScript + Vite + Tailwind + react-router**, one small app at the repo root, with **Firebase Auth + Firestore** as the only backend. Firestore offline persistence is on.
+- **React 19 + TypeScript + Vite + Tailwind + react-router + GSAP + lucide icons**, one small app at the repo root, with **Firebase Auth + Firestore** as the only backend. Firestore offline persistence is on.
 - `src/commute/engine.ts` — pure routing engine, no UI. The graph is one JSON file. Unselected modes are removed, then a time-dependent, label-setting Dijkstra runs. A state is (node, arrival time, current vehicle), and the Pareto labels cover time, fare, changes and the distance on the current vehicle. Road legs get a peak multiplier from 08:00–11:00 and 17:00–21:00; metro and train legs don't. The search runs once for each objective, and `planGroup()` picks the split node.
 - `src/tour/generate.ts` — pure rule-based planner ("Basic plan"), ported from the old Python engine. It respects opening hours, weekly closures, fixed show slots, meals, diet, effort and budget. `questions.ts` holds the 12 questions and the group merge.
 - Shared mechanisms, each built once: `RequireAuth` (`lib/auth.tsx`), `useDraft(key)` (`lib/useDraft.ts`), `request(fn)` (`lib/request.ts`: timeout, 2 retries with backoff, de-duplication, plain-language errors), and one status module (`lib/status.tsx`: banner, save status, toasts, skeletons, confirm dialog, `useAction` for submit buttons).
@@ -43,7 +45,8 @@ src/
   lib/                 firebase, auth guard, useDraft, request, status, db, validate, useGroup
   commute/             engine.ts (+ tests), CommutePage, RouteView, RouteMap
   tour/                questions.ts, generate.ts (+ tests), TourPage, TripPage
-  pages/               LoginPage, Dashboard, JoinPage
+  pages/               HomePage (intro), LoginPage, Dashboard, JoinPage, CreditsPage
+  ui/                  original Tripzy UI kit, motion (GSAP), photos, public layout, app shell
   data/                hyderabad-graph.json, places.json   ← sample data
 ```
 
@@ -128,7 +131,7 @@ Everything in `src/data/` is **self-generated sample data, and the UI labels it 
 
 ## 5-minute demo script
 
-1. **Register (0:30).** Open http://localhost:5173. Show a wrong password first, which gives a clear message next to the form. Then go to *Register* → name, email, password → you land on the dashboard ("Welcome, <name>").
+1. **Intro + register (0:45).** Open http://localhost:5173 and scroll the intro page (chapter 04 tells the Kokapet → Warangal story). Press *Get started*. Show a wrong password first, which gives a clear message next to the form. Then go to *Register* → name, email, password → you land on the dashboard ("Welcome, <name>").
 2. **Dashboard (0:30).** Two cards, empty saved lists, and preferences. Toggle a mode and press *Save preferences*; the commute form preselects these.
 3. **Solo commute at 18:00 (1:15).** *Daily Traveller* → tap **"Kokapet → Warangal (evening peak)"**. Point at the blue note: the nearest-hub plan via MGBS takes 5 h 53 min. Open **Fastest**: bike taxi → Raidurg metro → Uppal → bus, 4 h 39 min, *"Skips 50 min of peak traffic between MGBS and Uppal"*, plus the seat-risk note and the map. Press **Save route**. Untick *Metro* and press *Find routes*: the Fastest now goes via MGBS. Untick everything except Metro for CBIT → Dilsukhnagar to show "No route found" → tap *Try with auto added*. Refresh the page: the same results come back.
 4. **Group commute with a split (1:00).** Toggle **Group** and copy the invite link. Open it in a private window, register a second user, and pick *Hanamkonda*; a third user picks *Uppal Bus Stand*. The organiser picks *Warangal* and presses **Plan for the group**. Everyone gets "Group plan ready — split at Uppal Bus Stand" and sees the shared legs, the ✂ marker and their own onward legs. Remove a member to show the confirm dialog.

@@ -12,8 +12,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/geist-sans": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@gsap/react": "^2.1.2",
     "firebase": "^13.3.0",
+    "gsap": "^3.15.1",
     "leaflet": "^1.9.4",
+    "lucide-react": "^0.577.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^7.18.5"

@@ -70,9 +70,10 @@ Rule: keep only what is on the target screen list or directly improves what a us
 | TREK login/register/signup/forgot/reset pages | **MERGE** | One `/login` page on Firebase Auth |
 | TREK `/join/:token` | **MERGE** | `/join/:code` for commute and tour groups |
 | Gemini call (companion) | **MERGE** | Optional AI planner endpoint behind `request()`, with Retry / Basic plan |
-| `ui.tsx` toasts, status, loaders | **MERGE** | One `Status` module (banner, save status, toasts, skeletons, confirm) |
+| `ui.tsx` toasts, status, loaders | **MERGE** | One `Status` module (banner, save status, toasts, skeletons, confirm), styled with the original tokens |
 | Companion chat, DiffSheet, Live, Lab, Ripple, Shadow/Plan B, Readiness, packing, hotels, flights, FX, OCR, weather, trip story, train feed | **CUT** | Not on the target screens |
-| Marketing HomePage, InfoPages, PublicLayout, motion.ts (GSAP), photos.ts | **CUT** | Decoration, not a target screen |
+| Marketing HomePage (intro page), PublicLayout, motion.ts (GSAP), photos.ts + `public/stories` photos, ui.tsx kit, theme tokens and fonts, credits page | **KEEP** (restored in a follow-up) | This is the product's UI. First pass wrongly cut it; it is back in `src/ui/`, `src/pages/HomePage.tsx`, `src/index.css` |
+| InfoPages status/privacy/terms | **CUT** | Pointed at the removed engine; only `/credits` is kept (photo licences need it) |
 | TREK features: atlas, journey, collections, vacay, files, budget, bookings, packing, todo, roadtrip, tours, ferratas, notifications, admin, plugins, help, settings, OAuth server, MCP, websockets, PDF, studio | **CUT** | Outside scope |
 | `platform/server` (Express + SQLite) and `platform/shared` | **CUT** | Replaced by Firebase Auth + Firestore as required |
 | `platform/client/android`, `ios`, `fastlane`, Capacitor | **CUT** | Web app only |

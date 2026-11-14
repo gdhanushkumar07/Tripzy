@@ -1,4 +1,7 @@
 import { setDoc } from 'firebase/firestore'
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { Card, Eyebrow } from '../ui/kit'
+import { photoSrc, type PhotoId } from '../ui/photos'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useAuth } from '../lib/auth'
@@ -116,11 +119,12 @@ export default function TourPage() {
   const mode: 'solo' | 'group' = groupCode ? 'group' : 'solo'
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-4xl space-y-6 px-5 pb-24 pt-10 md:px-10">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Tourist Planner</h1>
-          <p className="text-sm text-slate-600">12 quick questions, then a day-by-day plan you can edit. <span className="sample">Sample data</span></p>
+          <div className="tz-chapter">Not another generic itinerary.</div>
+          <h1 className="tz-h1 mt-2 text-content">Tourist Planner</h1>
+          <p className="mt-3 max-w-xl text-[16px] text-content-muted">12 quick questions, then a day-by-day plan you can edit. <span className="sample">Sample data</span></p>
         </div>
         <div className="flex items-center gap-3">
           <SaveStatus status={draft.status} onRetry={() => void draft.retry()} />
@@ -143,7 +147,7 @@ export default function TourPage() {
         </ErrorBox>
       ) : (
         <GroupPanel code={groupCode} group={group} type="tour">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-content-muted">
             {role === 'member'
               ? `${group?.members[group.ownerUid]?.name ?? 'The organiser'} chooses the destination and dates. You answer ${qs.length} personal questions.`
               : 'You answer the trip questions. Everyone answers the personal ones from the invite link. Budget = lowest, pace = slowest, diet = strictest, interests by votes.'}
@@ -167,13 +171,13 @@ export default function TourPage() {
         />
       ) : (
         <section className="card space-y-4" aria-label="Review answers">
-          <h2 className="text-lg font-semibold">Your answers</h2>
-          <ul className="divide-y divide-slate-100">
+          <div className="tz-kicker">Review</div><h2 className="font-serif text-[32px] leading-tight text-content">Your answers</h2>
+          <ul className="divide-y divide-edge">
             {qs.map((q, i) => (
               <li key={q.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                <span className="text-slate-600">{i + 1}. {q.title}</span>
+                <span className="text-content-muted">{i + 1}. {q.title}</span>
                 <span className="flex items-center gap-2 text-right font-medium">
-                  {display(q, a) || <span className="text-red-700">Not answered</span>}
+                  {display(q, a) || <span className="text-danger">Not answered</span>}
                   <button className="btn-link" onClick={() => go(i)}>Edit</button>
                 </span>
               </li>
@@ -188,7 +192,7 @@ export default function TourPage() {
           {generate.busy && <Skeleton lines={3} />}
           {role === 'member' ? (
             group?.members[user!.uid]?.ready ? (
-              <p className="rounded-xl bg-brand-50 p-3 text-sm text-brand-800">
+              <p className="rounded-xl bg-accent-subtle p-3 text-sm text-accent-on">
                 Answers sent. You'll see a notification when the organiser creates the plan. You can still edit and resend.
               </p>
             ) : null
@@ -212,7 +216,7 @@ export default function TourPage() {
           </div>
           {sendAnswers.error && <ErrorBox message={sendAnswers.error} onRetry={() => void sendAnswers.retry()} />}
           {role === 'owner' && group && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-content-muted">
               {group.memberUids.filter((u) => u === user?.uid || group.members[u]?.ready).length} of {group.memberUids.length} people's answers will be used. Members who haven't sent theirs are left out.
             </p>
           )}
@@ -230,6 +234,8 @@ function display(q: Question, a: Answers): string {
   return q.options?.find((o) => o.value === v)?.label ?? String(v)
 }
 
+const CITY_TILE: Record<string, PhotoId> = { hyderabad: 'charminar', jaipur: 'hawa-mahal' }
+
 function QuestionCard({ q, index, total, answers, onAnswer, onBack, onNext }: {
   q: Question; index: number; total: number; answers: Answers
   onAnswer: (v: unknown, advance: boolean) => void; onBack: () => void; onNext: () => void
@@ -237,44 +243,56 @@ function QuestionCard({ q, index, total, answers, onAnswer, onBack, onNext }: {
   const v = answers[q.id]
   const today = new Date().toISOString().slice(0, 10)
   const answered = isAnswered(answers, q.id)
+  const many = q.kind === 'multi' || (q.options?.length ?? 0) > 3
   return (
-    <section className="card" aria-labelledby="q-title">
-      <div className="mb-2 flex items-center justify-between text-sm text-slate-500">
-        <span>{index + 1} of {total}</span>
-        <span>{q.scope === 'trip' ? 'Trip question' : 'About you'}</span>
+    <Card className="flex min-h-[460px] flex-col p-6 sm:p-8" aria-labelledby="q-title" role="region">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Eyebrow className="tz-coral-text">{q.scope === 'trip' ? 'Trip question' : 'About you'} · Travel DNA</Eyebrow>
+          <h2 id="q-title" className="mt-2 font-serif text-[34px] leading-[1.05] text-content sm:text-[40px]">{q.title}</h2>
+          {q.help && <p className="mt-2 text-body text-content-muted">{q.help}</p>}
+        </div>
+        <span className="shrink-0 text-body font-semibold tabular-nums text-content-muted">{index + 1} of {total}</span>
       </div>
-      <div className="mb-5 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={index}>
-        <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${(index / total) * 100}%` }} />
+      <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-surface-tertiary" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={index} aria-label="Questions answered">
+        <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(index / total) * 100}%` }} />
       </div>
-      <h2 id="q-title" className="text-xl font-semibold">{q.title}</h2>
-      {q.help && <p className="mt-1 text-sm text-slate-600">{q.help}</p>}
 
-      <div className="mt-4">
+      <div key={q.id} className="tz-rise mt-8 flex-1">
         {q.kind === 'date' ? (
-          <div>
+          <div className="max-w-xs">
             <label htmlFor="date" className="label">Start date</label>
-            <input id="date" type="date" min={today} className="input max-w-xs" value={(v as string) ?? ''} onChange={(e) => onAnswer(e.target.value, false)} />
+            <input id="date" type="date" min={today} className="tz-input" value={(v as string) ?? ''} onChange={(e) => onAnswer(e.target.value, false)} />
             {typeof v === 'string' && v < today && <p className="field-error">Pick today or a later date.</p>}
           </div>
         ) : (
-          <div className={`grid gap-3 ${q.kind === 'multi' || (q.options?.length ?? 0) > 3 ? 'grid-cols-2 sm:grid-cols-3' : (q.options?.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2')}`} role={q.kind === 'multi' ? 'group' : 'radiogroup'} aria-labelledby="q-title">
+          <div className={`grid gap-3 sm:gap-4 ${many ? 'grid-cols-2 sm:grid-cols-3' : q.options?.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`} role={q.kind === 'multi' ? 'group' : 'radiogroup'} aria-labelledby="q-title">
             {q.options!.map((o) => {
               const on = q.kind === 'multi' ? ((v as string[]) ?? []).includes(o.value as string) : v === o.value
+              const photo = q.id === 'city' ? CITY_TILE[String(o.value)] : undefined
+              const pick = () => {
+                if (q.kind === 'multi') {
+                  const cur = (v as string[]) ?? []
+                  onAnswer(on ? cur.filter((x) => x !== o.value) : [...cur, o.value], false)
+                } else onAnswer(o.value, true)
+              }
+              if (photo) {
+                return (
+                  <button key={String(o.value)} type="button" role="radio" aria-checked={on} onClick={pick}
+                    className={`group relative min-h-[220px] overflow-hidden rounded-[24px] border-2 text-start transition ${on ? 'border-[var(--accent)]' : 'border-transparent hover:-translate-y-0.5'}`}>
+                    <img src={photoSrc(photo, true)} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]" />
+                    <span className="absolute inset-0 bg-gradient-to-t from-[#18211F]/85 via-[#18211F]/20 to-transparent" />
+                    {on && <span className="absolute end-3 top-3 grid h-7 w-7 place-items-center rounded-full bg-accent text-accent-text"><Check className="h-4 w-4" /></span>}
+                    <span className="absolute bottom-4 left-5 font-serif text-[32px] leading-none text-white">{o.label}</span>
+                  </button>
+                )
+              }
               return (
-                <button
-                  key={String(o.value)}
-                  role={q.kind === 'multi' ? 'checkbox' : 'radio'}
-                  aria-checked={on}
-                  onClick={() => {
-                    if (q.kind === 'multi') {
-                      const cur = (v as string[]) ?? []
-                      onAnswer(on ? cur.filter((x) => x !== o.value) : [...cur, o.value], false)
-                    } else onAnswer(o.value, true)
-                  }}
-                  className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 p-3 text-center text-sm font-semibold transition ${on ? 'border-brand-700 bg-brand-50' : 'border-slate-200 bg-white hover:border-brand-600'}`}
-                >
-                  <span className="text-2xl" aria-hidden>{o.emoji}</span>
-                  {o.label}
+                <button key={String(o.value)} type="button" role={q.kind === 'multi' ? 'checkbox' : 'radio'} aria-checked={on} onClick={pick}
+                  className={`group relative flex flex-col items-center justify-center gap-2.5 rounded-[24px] border-2 p-4 text-center transition ${many ? 'min-h-[120px]' : 'min-h-[170px] sm:min-h-[200px]'} ${on ? 'border-[var(--accent)] bg-accent-subtle' : 'border-edge bg-surface-secondary hover:-translate-y-0.5 hover:border-[var(--accent)]'}`}>
+                  {on && <span className="absolute end-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-accent text-accent-text"><Check className="h-3.5 w-3.5" /></span>}
+                  <span className={`${many ? 'text-[36px]' : 'text-[48px] sm:text-[54px]'} transition group-hover:scale-110`} aria-hidden>{o.emoji}</span>
+                  <span className="text-[15px] font-semibold text-content sm:text-[16px]">{o.label}</span>
                 </button>
               )
             })}
@@ -282,12 +300,12 @@ function QuestionCard({ q, index, total, answers, onAnswer, onBack, onNext }: {
         )}
       </div>
 
-      <div className="mt-6 flex justify-between">
-        <button className="btn-secondary" onClick={onBack} disabled={index === 0}>← Back</button>
-        <button className="btn" onClick={onNext} disabled={!answered || (q.kind === 'date' && (v as string) < today)}>
-          {index === total - 1 ? 'Review →' : 'Next →'}
+      <div className="mt-8 flex items-center justify-between">
+        <button type="button" onClick={onBack} disabled={index === 0} className="inline-flex items-center gap-1 text-body text-content-muted hover:text-content disabled:opacity-30"><ArrowLeft className="h-4 w-4" />Back</button>
+        <button type="button" className="btn" onClick={onNext} disabled={!answered || (q.kind === 'date' && (v as string) < today)}>
+          {index === total - 1 ? 'Review' : 'Next'}<ArrowRight className="h-4 w-4" />
         </button>
       </div>
-    </section>
+    </Card>
   )
 }

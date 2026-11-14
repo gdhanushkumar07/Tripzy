@@ -153,11 +153,12 @@ export default function CommutePage() {
   const groupLocked = mode === 'group' && !isOwner // members share the organiser's origin and time
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-[1280px] space-y-6 px-5 pb-24 pt-10 md:px-10">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Daily Traveller</h1>
-          <p className="text-sm text-slate-600">Door-to-door routes that mix the modes you're comfortable with. <span className="sample">Sample data — estimates</span></p>
+          <div className="tz-chapter">The nearest bus stand is not always the fastest way out.</div>
+          <h1 className="tz-h1 mt-2 text-content">Daily Traveller</h1>
+          <p className="mt-3 max-w-2xl text-[16px] text-content-muted">Door-to-door routes that mix the modes you're comfortable with. <span className="sample">Sample data — estimates</span></p>
         </div>
         <div className="flex items-center gap-3">
           <SaveStatus status={draft.status} onRetry={() => void draft.retry()} />
@@ -177,7 +178,7 @@ export default function CommutePage() {
       <form onSubmit={submit} className="card space-y-4" noValidate>
         {!result && !groupCode && (
           <div className="flex flex-wrap gap-2 text-sm">
-            <span className="text-slate-500">Try:</span>
+            <span className="text-content-muted">Try:</span>
             {PRESETS.map((p) => (
               <button type="button" key={p.name} className="btn-link" onClick={() => setParams(new URLSearchParams(commuteUrl({ ...p, modes: f.modes.length ? f.modes : profile.prefs.modes }).split('?')[1]))}>
                 {p.name}
@@ -272,7 +273,7 @@ export default function CommutePage() {
             </ErrorBox>
           ) : (
             <GroupPanel code={groupCode} group={group} type="commute">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-content-muted">
                 Everyone leaves together from <strong>{nodeName(settings?.from ?? f.from)}</strong> at <strong>{settings?.time ?? f.time}</strong>. Each member picks their own destination above.
               </p>
               {isOwner ? (
@@ -280,7 +281,7 @@ export default function CommutePage() {
                   {planForGroup.busy ? 'Planning…' : group?.result ? 'Re-plan for the group' : 'Plan for the group'}
                 </button>
               ) : (
-                <p className="text-sm text-slate-500">The organiser will plan the trip. You'll get a notification here when it's ready.</p>
+                <p className="text-sm text-content-muted">The organiser will plan the trip. You'll get a notification here when it's ready.</p>
               )}
               {planForGroup.error && <ErrorBox message={planForGroup.error.includes('valid') ? 'Ask members to set their destination first.' : planForGroup.error} onRetry={() => void planForGroup.retry()} />}
             </GroupPanel>
@@ -299,8 +300,8 @@ function SoloResults({ result, open, setOpen, onSave, saving, onAddMode }: {
   if (!result.routes.length) {
     return (
       <section className="card" role="alert">
-        <h2 className="text-lg font-semibold">No route found</h2>
-        <p className="mt-1 text-sm text-slate-700">{result.message}</p>
+        <h2 className="font-serif text-[28px] leading-tight text-content">No route found</h2>
+        <p className="mt-1 text-sm text-content-secondary">{result.message}</p>
         {!!result.suggestions.length && (
           <div className="mt-3 flex flex-wrap gap-2">
             {result.suggestions.map((s) => (
@@ -316,7 +317,7 @@ function SoloResults({ result, open, setOpen, onSave, saving, onAddMode }: {
   return (
     <section aria-label="Routes" className="space-y-3">
       {result.baseline && (
-        <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
+        <p className="rounded-xl bg-accent-subtle p-4 text-body text-content-secondary">
           The usual plan — go to the nearest hub, <strong>{result.baseline.hubName}</strong>, and take the bus from there — takes{' '}
           <strong>{fmtDur(result.baseline.totalMin)}</strong>. The nearest bus stand is not always the fastest way out of the city.
         </p>
@@ -338,32 +339,32 @@ function GroupResultView({ r, myUid }: { r: GroupResult; myUid: string }) {
   return (
     <section className="card space-y-4" aria-label="Group plan">
       <div>
-        <h2 className="text-lg font-semibold">Group plan</h2>
-        <p className="text-sm text-slate-600">
+        <div className="tz-kicker">Together, then apart</div><h2 className="font-serif text-[32px] leading-tight text-content">Group plan</h2>
+        <p className="text-sm text-content-muted">
           Leave {nodeName(r.from)} at {r.time}. Shared part ₹{r.sharedPerPerson} per person (auto and cab fares split across the group).
         </p>
       </div>
       {r.shared ? (
         <div>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Together</h3>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-content-muted">Together</h3>
           <LegList legs={r.shared.legs} who="Group" />
         </div>
       ) : (
         <p className="text-sm">Everyone sets off separately from the start.</p>
       )}
       <div className="flex items-center gap-2" role="note">
-        <span className="h-px flex-1 bg-brand-600" />
-        <span className="rounded-full bg-brand-700 px-3 py-1 text-sm font-bold text-white">✂ Split at {r.splitName}{r.shared ? ` · ${fmtTime(r.shared.arrive)}` : ''}</span>
-        <span className="h-px flex-1 bg-brand-600" />
+        <span className="h-px flex-1 bg-accent" />
+        <span className="rounded-full bg-accent px-3 py-1 text-sm font-bold text-accent-text">✂ Split at {r.splitName}{r.shared ? ` · ${fmtTime(r.shared.arrive)}` : ''}</span>
+        <span className="h-px flex-1 bg-accent" />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {r.members.map((m) => (
-          <div key={m.id} className={`rounded-xl border p-3 ${m.id === myUid ? 'border-brand-600 bg-brand-50' : 'border-slate-200'}`}>
+          <div key={m.id} className={`rounded-xl border p-3 ${m.id === myUid ? 'border-[var(--accent)] bg-accent-subtle' : 'border-edge'}`}>
             <p className="mb-2 font-semibold">
               {m.name}{m.id === myUid ? ' (you)' : ''} → {nodeName(m.to)}
-              <span className="ml-2 text-sm font-normal text-slate-600">₹{m.perPerson} total{m.route ? ` · arrive ${fmtTime(m.route.arrive)}` : ''}</span>
+              <span className="ml-2 text-sm font-normal text-content-muted">₹{m.perPerson} total{m.route ? ` · arrive ${fmtTime(m.route.arrive)}` : ''}</span>
             </p>
-            {m.route ? <LegList legs={m.route.legs} who={m.name} /> : <p className="text-sm text-slate-600">Arrives at the split point — no onward travel.</p>}
+            {m.route ? <LegList legs={m.route.legs} who={m.name} /> : <p className="text-sm text-content-muted">Arrives at the split point — no onward travel.</p>}
           </div>
         ))}
       </div>

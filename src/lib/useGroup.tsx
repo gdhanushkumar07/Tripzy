@@ -1,3 +1,4 @@
+import { User, Users } from 'lucide-react'
 import { onSnapshot } from 'firebase/firestore'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from './auth'
@@ -71,28 +72,28 @@ export function GroupPanel({ code, group, type, children }: { code: string; grou
   }
 
   return (
-    <section className="card space-y-3" aria-label="Group">
+    <section className="card space-y-4" aria-label="Group">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm text-slate-600">
-          Group code <strong className="font-mono text-base text-slate-900">{code}</strong>
+        <p className="text-sm text-content-muted">
+          Group code <strong className="font-mono text-base text-content">{code}</strong>
         </p>
         <button className="btn-secondary min-h-9 px-3 py-1" onClick={() => void copy()}>Share invite link</button>
-        <span className="text-xs text-slate-500 break-all">{link}</span>
+        <span className="text-xs text-content-muted break-all">{link}</span>
       </div>
       {!group ? (
-        <div className="h-10 animate-pulse rounded-lg bg-slate-200" />
+        <div className="h-10 animate-pulse rounded-lg bg-surface-tertiary" />
       ) : (
-        <ul className="divide-y divide-slate-100" aria-label="Members">
+        <ul className="divide-y divide-edge" aria-label="Members">
           {group.memberUids.map((uid) => {
             const m = group.members[uid]
             if (!m) return null
             return (
               <li key={uid} className="flex items-center gap-2 py-2 text-sm">
-                <span className={`h-2.5 w-2.5 rounded-full ${m.ready ? 'bg-brand-600' : 'bg-slate-300'}`} aria-hidden />
+                <span className={`h-2.5 w-2.5 rounded-full ${m.ready ? 'bg-accent' : 'bg-surface-tertiary'}`} aria-hidden />
                 <span className="font-medium">{m.name}{uid === user?.uid ? ' (you)' : ''}{uid === group.ownerUid ? ' · organiser' : ''}</span>
-                <span className="text-slate-500">{m.ready ? (type === 'commute' ? 'destination set' : 'answers in') : 'waiting…'}</span>
+                <span className="text-content-muted">{m.ready ? (type === 'commute' ? 'destination set' : 'answers in') : 'waiting…'}</span>
                 {isOwner && uid !== user?.uid && (
-                  <button className="ml-auto text-xs font-semibold text-red-700 underline" onClick={() => void remove(uid, m.name)}>
+                  <button className="ml-auto text-xs font-semibold text-danger underline" onClick={() => void remove(uid, m.name)}>
                     Remove
                   </button>
                 )}
@@ -108,7 +109,7 @@ export function GroupPanel({ code, group, type, children }: { code: string; grou
 
 export function ModeToggle({ value, onChange, disabled }: { value: 'solo' | 'group'; onChange: (v: 'solo' | 'group') => void; disabled?: boolean }) {
   return (
-    <div className="inline-flex rounded-xl bg-slate-200 p-1" role="radiogroup" aria-label="Solo or group">
+    <div className="inline-flex gap-1 rounded-xl bg-surface-secondary p-1" role="radiogroup" aria-label="Solo or group">
       {(['solo', 'group'] as const).map((v) => (
         <button
           key={v}
@@ -116,9 +117,9 @@ export function ModeToggle({ value, onChange, disabled }: { value: 'solo' | 'gro
           aria-checked={value === v}
           disabled={disabled}
           onClick={() => onChange(v)}
-          className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${value === v ? 'bg-white shadow-sm' : 'text-slate-600'}`}
+          className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-body font-medium transition-colors ${value === v ? 'bg-surface-card text-content shadow-sm' : 'text-content-muted hover:text-content'}`}
         >
-          {v === 'solo' ? '🧍 Solo' : '👥 Group'}
+          {v === 'solo' ? <><User className="h-4 w-4" />Solo</> : <><Users className="h-4 w-4" />Group</>}
         </button>
       ))}
     </div>

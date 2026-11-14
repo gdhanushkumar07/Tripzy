@@ -46,18 +46,18 @@ export function StatusProvider({ children }: { children: ReactNode }) {
   return (
     <StatusCtx.Provider value={{ toast, confirm }}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[1000] flex flex-col items-center gap-2 px-4" aria-live="polite">
+      <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[3000] flex flex-col items-center gap-2 px-4" aria-live="polite">
         {toasts.map((t) => (
           <div
             key={t.id}
             role={t.kind === 'error' ? 'alert' : 'status'}
-            className={`pointer-events-auto flex max-w-md items-center gap-3 rounded-xl px-4 py-3 text-sm text-white shadow-lg ${
-              t.kind === 'error' ? 'bg-red-700' : t.kind === 'success' ? 'bg-brand-700' : 'bg-slate-800'
+            className={`tz-rise pointer-events-auto flex max-w-lg items-center gap-3 rounded-2xl bg-inverse px-4 py-3 text-body text-inverse-text shadow-modal ${
+              t.kind === 'error' ? 'ring-2 ring-[var(--danger)]' : t.kind === 'success' ? 'ring-2 ring-[var(--accent)]' : ''
             }`}
           >
             <span>{t.text}</span>
             {t.action && (
-              <button className="font-semibold underline" onClick={t.action.run}>
+              <button className="font-semibold text-[var(--tz-sun)] underline underline-offset-2" onClick={t.action.run}>
                 {t.action.label}
               </button>
             )}
@@ -65,12 +65,12 @@ export function StatusProvider({ children }: { children: ReactNode }) {
         ))}
       </div>
       {ask && (
-        <div className="fixed inset-0 z-[1001] grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-text">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <p id="confirm-text" className="text-base text-slate-800">{ask.text}</p>
+        <div className="fixed inset-0 z-[3001] grid place-items-center bg-[var(--overlay)] p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-text">
+          <div className="tz-rise w-full max-w-sm rounded-[22px] border border-edge bg-surface-card p-6 shadow-modal">
+            <p id="confirm-text" className="font-serif text-[24px] leading-tight text-content">{ask.text}</p>
             <div className="mt-5 flex justify-end gap-2">
               <button className="btn-secondary" onClick={() => close(false)} autoFocus>Cancel</button>
-              <button className="btn bg-red-700 hover:bg-red-800" onClick={() => close(true)}>{ask.confirmLabel}</button>
+              <button className="btn !bg-[var(--danger)] !text-white hover:opacity-90" onClick={() => close(true)}>{ask.confirmLabel}</button>
             </div>
           </div>
         </div>
@@ -98,7 +98,7 @@ export function OfflineBanner() {
   const online = useOnline()
   if (online) return null
   return (
-    <div role="status" className="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">
+    <div role="status" className="bg-warning-soft px-4 py-2 text-center text-caption font-medium text-warning">
       You're offline. Everything you type is kept on this device and will sync when you're back online.
     </div>
   )
@@ -117,11 +117,11 @@ export function SaveStatus({ status, onRetry }: { status: SaveState; onRetry?: (
     : ''
   if (!text) return null
   return (
-    <span className="inline-flex items-center gap-2 text-xs text-slate-500" role="status">
-      <span className={`h-2 w-2 rounded-full ${status.state === 'saved' ? 'bg-brand-600' : status.state === 'saving' ? 'bg-slate-400' : 'bg-amber-500'}`} />
+    <span className="inline-flex items-center gap-2 text-caption text-content-muted" role="status">
+      <span className={`h-2 w-2 rounded-full ${status.state === 'saved' ? 'bg-[var(--success)]' : status.state === 'saving' ? 'bg-[var(--text-faint)]' : 'bg-[var(--warning)]'}`} />
       {text}
       {(status.state === 'error' || status.state === 'local') && onRetry && navigator.onLine && (
-        <button className="underline" onClick={onRetry}>Retry</button>
+        <button className="font-semibold text-accent-on underline underline-offset-2" onClick={onRetry}>Retry</button>
       )}
     </span>
   )
@@ -131,7 +131,7 @@ export function Skeleton({ lines = 3, className = '' }: { lines?: number; classN
   return (
     <div className={`space-y-3 ${className}`} aria-busy="true" aria-label="Loading">
       {Array.from({ length: lines }, (_, i) => (
-        <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-200" />
+        <div key={i} className="h-16 animate-pulse rounded-2xl bg-surface-tertiary motion-reduce:animate-none" />
       ))}
     </div>
   )
@@ -139,7 +139,7 @@ export function Skeleton({ lines = 3, className = '' }: { lines?: number; classN
 
 export function ErrorBox({ message, onRetry, children }: { message: string; onRetry?: () => void; children?: ReactNode }) {
   return (
-    <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+    <div role="alert" className="rounded-2xl bg-danger-soft p-4 text-body text-danger">
       <p>{message}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {onRetry && <button className="btn" onClick={onRetry}>Retry</button>}

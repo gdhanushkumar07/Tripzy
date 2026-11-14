@@ -32,14 +32,15 @@ export default function JoinPage() {
         : join.error
 
   return (
-    <div className="mx-auto max-w-md space-y-3">
-      <h1 className="text-2xl font-bold">Joining group {valid ? upper : ''}</h1>
+    <div className="mx-auto max-w-md space-y-4 px-5 pb-24 pt-16">
+      <div className="tz-kicker">Invitation</div>
+      <h1 className="tz-h2 text-content">Joining group {valid ? upper : ''}</h1>
       {message ? (
         <ErrorBox message={message} onRetry={valid ? () => void join.retry() : undefined}>
           <Link className="btn-secondary" to="/">Go to dashboard</Link>
         </ErrorBox>
       ) : (
-        <p className="text-slate-600" role="status">Adding you to the group…</p>
+        <p className="text-content-muted" role="status">Adding you to the group…</p>
       )}
     </div>
   )

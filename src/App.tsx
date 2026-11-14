@@ -1,53 +1,30 @@
-import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes } from 'react-router'
+import type { ReactNode } from 'react'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import CommutePage from './commute/CommutePage'
 import { AuthProvider, RequireAuth, useAuth } from './lib/auth'
-import { OfflineBanner, StatusProvider } from './lib/status'
+import { Skeleton, StatusProvider } from './lib/status'
+import CreditsPage from './pages/CreditsPage'
 import Dashboard from './pages/Dashboard'
+import HomePage from './pages/HomePage'
 import JoinPage from './pages/JoinPage'
 import LoginPage from './pages/LoginPage'
 import TourPage from './tour/TourPage'
 import TripPage from './tour/TripPage'
+import AppShell from './ui/AppShell'
 
-function Header() {
-  const { user, profile, logout } = useAuth()
-  const link = ({ isActive }: { isActive: boolean }) =>
-    `rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-brand-50 text-brand-800' : 'text-slate-600 hover:text-slate-900'}`
-  return (
-    <header className="sticky top-0 z-[500] border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center gap-1 px-3 py-2">
-        <NavLink to="/" className="mr-2 flex items-center gap-1 text-lg font-bold text-brand-800" aria-label="Tripzy home">
-          <span aria-hidden>🧭</span> Tripzy
-        </NavLink>
-        {user && (
-          <nav className="flex flex-1 items-center gap-1 overflow-x-auto" aria-label="Main">
-            <NavLink to="/commute" className={link}><span className="sm:hidden">Commute</span><span className="hidden sm:inline">Daily Traveller</span></NavLink>
-            <NavLink to="/tour" className={link} end={false}><span className="sm:hidden">Tour</span><span className="hidden sm:inline">Tourist Planner</span></NavLink>
-          </nav>
-        )}
-        {user && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="hidden text-sm text-slate-600 sm:inline">{profile.name}</span>
-            <button className="btn-secondary min-h-9 px-3 py-1" onClick={() => void logout()}>Log out</button>
-          </div>
-        )}
-      </div>
-      <OfflineBanner />
-    </header>
-  )
+/** Signed-in page: auth guard + the Tripzy navbar. */
+const app = (el: ReactNode) => (
+  <RequireAuth>
+    <AppShell>{el}</AppShell>
+  </RequireAuth>
+)
+
+/** "/" is the intro page for visitors and the dashboard once signed in. */
+function Home() {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="mx-auto max-w-3xl p-6"><Skeleton lines={4} /></div>
+  return user ? <AppShell><Dashboard /></AppShell> : <HomePage />
 }
-
-function Layout() {
-  return (
-    <div className="min-h-screen pb-16">
-      <Header />
-      <main className="mx-auto max-w-5xl px-4 py-5">
-        <Outlet />
-      </main>
-    </div>
-  )
-}
-
-const guard = (el: React.ReactNode) => <RequireAuth>{el}</RequireAuth>
 
 export default function App() {
   return (
@@ -55,15 +32,14 @@ export default function App() {
       <AuthProvider>
         <StatusProvider>
           <Routes>
-            <Route element={<Layout />}>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/" element={guard(<Dashboard />)} />
-              <Route path="/commute" element={guard(<CommutePage />)} />
-              <Route path="/tour" element={guard(<TourPage />)} />
-              <Route path="/tour/:tripId" element={guard(<TripPage />)} />
-              <Route path="/join/:code" element={guard(<JoinPage />)} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/credits" element={<CreditsPage />} />
+            <Route path="/commute" element={app(<CommutePage />)} />
+            <Route path="/tour" element={app(<TourPage />)} />
+            <Route path="/tour/:tripId" element={app(<TripPage />)} />
+            <Route path="/join/:code" element={app(<JoinPage />)} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </StatusProvider>
       </AuthProvider>

@@ -1,15 +1,50 @@
+# Dependencies & Environments
 node_modules/
-dist/
-.venv/
-__pycache__/
-backend/data_store/trips/
-backend/data_store/dwell_stats.json
-.env
-platform/server/.env
-platform/server/data/
 platform/node_modules/
-.trash/
-backend/data_store/links.json
-backend/data_store/profiles/
-backend/data_store/trips/
+platform/client/node_modules/
+platform/server/node_modules/
+platform/shared/node_modules/
+.venv/
+backend/.venv/
+
+# Build artifacts & Caches
+dist/
+build/
+.cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.tsbuildinfo
+
+# Sensitive credentials & Environment files
+.env
+*.env
+*.env.local
+*.env.*.local
 api-keys.env
+platform/server/.env
+backend/.env
+platform/client/.env
+!.env.example
+!.env.example.*
+
+# Local Databases, Uploads & Storage
+*.db
+*.sqlite
+*.sqlite3
+platform/server/data/
+platform/server/uploads/
+backend/data_store/trips/
+backend/data_store/profiles/
+backend/data_store/links.json
+backend/data_store/dwell_stats.json
+
+# Temporary & System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.trash/
+Thumbs.db

@@ -40,8 +40,7 @@ export default function App() {
             <Route path="/tour" element={app(<TourPage />)} />
             <Route path="/tour/:tripId" element={app(<TripPage />)} />
             <Route path="/join/:code" element={app(<JoinPage />)} />
-            <Route path="/ai" element={app(<AiPage />)} />
-            <Route path="/ai/:chatId" element={app(<AiPage />)} />
+            <Route path="/ai/:chatId?" element={app(<AiPage />)} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </StatusProvider>

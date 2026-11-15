@@ -474,18 +474,8 @@ export async function chat(history: ChatMsg[], ctx: ChatContext, state: ChatStat
   const last = history.filter((m) => m.role === 'user').pop()?.text ?? ''
   const memory: Doc[] = (ctx.memory ?? []).slice(0, 40).map((m, i) => ({ id: `mem${i}`, title: m.title, text: m.text, source: 'your Tripzy data' }))
   const passages = retrieve(last, memory, 4)
-  // ask preferences once, before the first trip (deterministic: the same in both engines)
-  const intent = parseIntent(last, state)
   // preferences just chosen in the picker: plan the trip that was waiting, right away
   if (/^my preferences:/i.test(last) && state.pending) return withRules(history, ctx, state, passages)
-  if (!ctx.prefsKnown && (intent.kind === 'route' || intent.kind === 'tour')) {
-    const pending = intent.kind === 'route' ? intent.args : undefined
-    return {
-      reply: 'Before I plan, tell me once how you like to travel — I will remember it and use it in Daily Traveller and the Tourist Planner too.',
-      cards: [{ type: 'prefs', reason: 'Your travel preferences (asked once)', current: ctx.prefs ?? {} }], actions: [], state: { ...state, pending: pending ?? state.pending },
-      tools: ['ask_preferences'], engine: 'rules', sources: [],
-    }
-  }
   if (env('GEMINI_API_KEY')) {
     try {
       // answer within ~25 s: if the model is overloaded, the rule-based planner answers instead

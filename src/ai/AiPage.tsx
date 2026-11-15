@@ -349,7 +349,7 @@ export default function AiPage() {
       </aside>
 
       {/* conversation */}
-      <section className="flex min-w-0 flex-1 flex-col" aria-label="Tripzy AI chat">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="Tripzy AI chat">
         <div className="flex items-center gap-2 border-b border-edge px-4 py-2">
           <button type="button" className="btn-secondary !h-9 !w-9 !p-0 md:hidden" aria-label="Show chats" onClick={() => setSide(true)}><Menu className="h-4 w-4" /></button>
           <Sparkles className="h-4 w-4 text-[var(--tz-sun)]" />
@@ -363,7 +363,7 @@ export default function AiPage() {
           </span>
         </div>
 
-        <div className="flex-1 overflow-y-auto" aria-live="polite">
+        <div className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
           <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6">
             {!messages.length && (
               <div className="pt-6 text-center">

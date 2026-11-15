@@ -1,3 +1,4 @@
+import { applyTravelWorkspace } from './nest/platform/travel-workspace';
 import { readEnv } from './app-config';
 import { nestLogLevels } from './app-config/nest-log-levels';
 import { applyGlobalMiddleware, routingCspOrigins } from './middleware/globalMiddleware';
@@ -152,6 +153,7 @@ export async function buildApp(): Promise<INestApplication> {
   // mount is an Express pattern mount that strips the matched prefix from
   // req.url before the middleware runs.
   instance.use(app.get<RequestHandler>(MCP_METADATA_MIDDLEWARE));
+  applyTravelWorkspace(instance);
   applyPlatformStatic(instance);
   // Pin the request-body ceiling explicitly. The Express shell used to set
   // '100kb' and stopped doing it when the Nest instance took over parsing, which

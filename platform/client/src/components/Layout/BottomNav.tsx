@@ -25,7 +25,7 @@ export default function BottomNav() {
   const darkMode = useSettingsStore(s => s.settings.dark_mode)
   const dark = darkMode === true || darkMode === 'dark' || (darkMode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const addons = useAddonStore(s => s.addons)
-  const globalAddons = addons.filter(a => a.type === 'global' && a.enabled)
+  const globalAddons = addons.filter(a => a.type === 'global' && a.enabled && !['lab', 'test-lab'].includes(a.id))
   // Page plugins are reachable from the mobile tab bar too, mirroring the desktop
   // nav pill (Navbar) — otherwise they were only reachable by typing /plugins/:id.
   const pagePlugins = usePluginStore(s => s.plugins).filter(p => p.type === 'page')
@@ -35,6 +35,7 @@ export default function BottomNav() {
 
   const items: NavItem[] = [
     { to: '/dashboard', label: t('nav.myTrips'), icon: LayoutGrid },
+    { to: '/travel/', label: 'Traveller', icon: Compass },
     ...globalAddons.flatMap(addon => {
       const nav = ADDON_NAV[addon.id]
       return nav ? [{ to: `/${addon.id}`, label: t(nav.labelKey), icon: nav.icon }] : []
@@ -55,7 +56,7 @@ export default function BottomNav() {
     return (
       <button type="button"
         key={to}
-        onClick={() => navigate(to)}
+        onClick={() => to === '/travel/' ? window.location.assign(to) : navigate(to)}
         className="flex flex-col items-center gap-1 py-1 px-1 min-w-0"
         style={{ color: active ? (dark ? '#fff' : 'oklch(0.22 0 0)') : (dark ? 'oklch(0.6 0 0)' : 'oklch(0.62 0.01 65)') }}
       >

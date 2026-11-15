@@ -22,3 +22,7 @@ backend/data_store/links.json
 backend/data_store/dwell_stats.json
 backend/tests
 *.log
+
+travel/.gtfs-cache
+travel/server/data/cache
+travel/server-dist

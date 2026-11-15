@@ -1,4 +1,5 @@
 import swc from 'unplugin-swc';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -221,6 +222,7 @@ export default defineConfig({
         'src/nest/trip-membership/**/*.ts': { statements: 99, branches: 86, functions: 99, lines: 99 },
         'src/nest/trip-members/**/*.ts': { statements: 95, branches: 91, functions: 99, lines: 95 },
         'src/nest/trip-read-model/**/*.ts': { statements: 97, branches: 96, functions: 99, lines: 97 },
+        'src/nest/tripzy/**/*.ts': { statements: 80, branches: 80, functions: 80, lines: 80 },
         'src/nest/trips/**/*.ts': { statements: 95, branches: 86, functions: 95, lines: 96 },
         'src/nest/unsplash/**/*.ts': { statements: 99, branches: 88, functions: 99, lines: 99 },
         'src/nest/vacay/**/*.ts': { statements: 82, branches: 66, functions: 90, lines: 86 },
@@ -271,22 +273,22 @@ export default defineConfig({
       // MCP SDK's exports map uses extension-less wildcard targets that neither
       // Node nor Vite can resolve. Point directly at the CJS dist files.
       // Paths are relative to the monorepo root (packages are hoisted there).
-      '@modelcontextprotocol/sdk/server/mcp': new URL(
+      '@modelcontextprotocol/sdk/server/mcp': fileURLToPath(new URL(
         '../node_modules/@modelcontextprotocol/sdk/dist/cjs/server/mcp.js',
         import.meta.url,
-      ).pathname,
-      '@modelcontextprotocol/sdk/server/streamableHttp': new URL(
+      )),
+      '@modelcontextprotocol/sdk/server/streamableHttp': fileURLToPath(new URL(
         '../node_modules/@modelcontextprotocol/sdk/dist/cjs/server/streamableHttp.js',
         import.meta.url,
-      ).pathname,
-      '@modelcontextprotocol/sdk/inMemory': new URL(
+      )),
+      '@modelcontextprotocol/sdk/inMemory': fileURLToPath(new URL(
         '../node_modules/@modelcontextprotocol/sdk/dist/cjs/inMemory.js',
         import.meta.url,
-      ).pathname,
-      '@modelcontextprotocol/sdk/client/index': new URL(
+      )),
+      '@modelcontextprotocol/sdk/client/index': fileURLToPath(new URL(
         '../node_modules/@modelcontextprotocol/sdk/dist/cjs/client/index.js',
         import.meta.url,
-      ).pathname,
+      )),
     },
   },
 });

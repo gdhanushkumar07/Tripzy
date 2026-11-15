@@ -63,17 +63,18 @@ function readCookie(res: request.Response, name: string): string | undefined {
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'k1', alg: 'RS256', use: 'sig' };
-const codes = new Set<string>();
+const codes = new Map<string, string>();
 /** Every request the provider saw: method, path and the address the client dialled. */
 const seen: { method: string; path: string; local: string }[] = [];
 let provider: http.Server;
 let port = 0;
 
 const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
-function signIdToken(issuer: string): string {
+function signIdToken(issuer: string, nonce: string): string {
   const now = Math.floor(Date.now() / 1000);
   const signingInput = `${b64({ alg: 'RS256', kid: 'k1', typ: 'JWT' })}.${b64({
     iss: issuer,
+    nonce,
     sub: 'lan-sub-1',
     aud: CLIENT_ID,
     iat: now,
@@ -105,7 +106,7 @@ function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   }
   if (url.pathname === '/authorize') {
     const code = crypto.randomBytes(12).toString('hex');
-    codes.add(code);
+    codes.set(code, url.searchParams.get('nonce') ?? '');
     const back = new URL(url.searchParams.get('redirect_uri') ?? '');
     back.searchParams.set('code', code);
     back.searchParams.set('state', url.searchParams.get('state') ?? '');
@@ -118,10 +119,11 @@ function handle(req: http.IncomingMessage, res: http.ServerResponse) {
     req.on('end', () => {
       const form = new URLSearchParams(raw);
       const code = form.get('code') ?? '';
+      const nonce = codes.get(code) ?? '';
       if (!codes.delete(code) || form.get('client_secret') !== CLIENT_SECRET || !form.get('code_verifier')) {
         return answerJson(res, 400, { error: 'invalid_grant' });
       }
-      answerJson(res, 200, { access_token: 'lan-access', token_type: 'Bearer', id_token: signIdToken(issuer) });
+      answerJson(res, 200, { access_token: 'lan-access', token_type: 'Bearer', id_token: signIdToken(issuer, nonce) });
     });
     return;
   }

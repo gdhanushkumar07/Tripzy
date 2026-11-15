@@ -1,0 +1,1144 @@
+{
+  "local_commit": "8769b3bd8fbc52d06e9c47651fa86d9638e5bae1",
+  "remote_commit": "cf326f6a75f71a5b85c3557af089cf538b483418",
+  "strategy": "Additive port into travel; preserve platform and backend; no merge or commit",
+  "remote_files": [
+    {
+      "source": ".env.example",
+      "destination": "travel/.env.example",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": ".gitignore",
+      "destination": "travel/.gitignore",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "AUDIT.md",
+      "destination": "travel/AUDIT.md",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "README.md",
+      "destination": "travel/README.md",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "api/index.js",
+      "destination": "travel/api/index.js",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "docs/GLOBAL_JOURNEYS.md",
+      "destination": "travel/docs/GLOBAL_JOURNEYS.md",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "docs/KEYS_AND_HOSTING.md",
+      "destination": "travel/docs/KEYS_AND_HOSTING.md",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "docs/REALTIME_PLAN.md",
+      "destination": "travel/docs/REALTIME_PLAN.md",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "eslint.config.js",
+      "destination": "travel/eslint.config.js",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "firebase.json",
+      "destination": "travel/firebase.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "firestore.rules",
+      "destination": "travel/firestore.rules",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "index.html",
+      "destination": "travel/index.html",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "package-lock.json",
+      "destination": "travel/package-lock.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "package.json",
+      "destination": "travel/package.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "postcss.config.js",
+      "destination": "travel/postcss.config.js",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/icon.svg",
+      "destination": "travel/public/icon.svg",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/showcase/intel.png",
+      "destination": "travel/public/showcase/intel.png",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/showcase/live.png",
+      "destination": "travel/public/showcase/live.png",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/showcase/ready.png",
+      "destination": "travel/public/showcase/ready.png",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/amber-fort-sm.webp",
+      "destination": "travel/public/stories/amber-fort-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/amber-fort.webp",
+      "destination": "travel/public/stories/amber-fort.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/birla-mandir-hyderabad-sm.webp",
+      "destination": "travel/public/stories/birla-mandir-hyderabad-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/birla-mandir-hyderabad.webp",
+      "destination": "travel/public/stories/birla-mandir-hyderabad.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/charminar-sm.webp",
+      "destination": "travel/public/stories/charminar-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/charminar.webp",
+      "destination": "travel/public/stories/charminar.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/chowmahalla-palace-sm.webp",
+      "destination": "travel/public/stories/chowmahalla-palace-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/chowmahalla-palace.webp",
+      "destination": "travel/public/stories/chowmahalla-palace.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/golconda-sm.webp",
+      "destination": "travel/public/stories/golconda-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/golconda.webp",
+      "destination": "travel/public/stories/golconda.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/hawa-mahal-sm.webp",
+      "destination": "travel/public/stories/hawa-mahal-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/hawa-mahal.webp",
+      "destination": "travel/public/stories/hawa-mahal.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/hussain-sagar-sm.webp",
+      "destination": "travel/public/stories/hussain-sagar-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/hussain-sagar.webp",
+      "destination": "travel/public/stories/hussain-sagar.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/jal-mahal-sm.webp",
+      "destination": "travel/public/stories/jal-mahal-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/jal-mahal.webp",
+      "destination": "travel/public/stories/jal-mahal.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/jantar-mantar-jaipur-sm.webp",
+      "destination": "travel/public/stories/jantar-mantar-jaipur-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/jantar-mantar-jaipur.webp",
+      "destination": "travel/public/stories/jantar-mantar-jaipur.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/makkah-masjid-hyderabad-sm.webp",
+      "destination": "travel/public/stories/makkah-masjid-hyderabad-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/makkah-masjid-hyderabad.webp",
+      "destination": "travel/public/stories/makkah-masjid-hyderabad.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/nahargarh-fort-sm.webp",
+      "destination": "travel/public/stories/nahargarh-fort-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/nahargarh-fort.webp",
+      "destination": "travel/public/stories/nahargarh-fort.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/qutb-shahi-tombs-sm.webp",
+      "destination": "travel/public/stories/qutb-shahi-tombs-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/qutb-shahi-tombs.webp",
+      "destination": "travel/public/stories/qutb-shahi-tombs.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/salar-jung-museum-sm.webp",
+      "destination": "travel/public/stories/salar-jung-museum-sm.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "public/stories/salar-jung-museum.webp",
+      "destination": "travel/public/stories/salar-jung-museum.webp",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "render.yaml",
+      "destination": "travel/render.yaml",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "scripts/airports.ts",
+      "destination": "travel/scripts/airports.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "scripts/gtfs-import.ts",
+      "destination": "travel/scripts/gtfs-import.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "scripts/scenarios.ts",
+      "destination": "travel/scripts/scenarios.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/ai/agent.test.ts",
+      "destination": "travel/server/ai/agent.test.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/ai/agent.ts",
+      "destination": "travel/server/ai/agent.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/ai/rag.ts",
+      "destination": "travel/server/ai/rag.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/app.ts",
+      "destination": "travel/server/app.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/data/airports.json",
+      "destination": "travel/server/data/airports.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/data/cities.ts",
+      "destination": "travel/server/data/cities.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/data/kb/tripzy-help.md",
+      "destination": "travel/server/data/kb/tripzy-help.md",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/fares.ts",
+      "destination": "travel/server/fares.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/index.ts",
+      "destination": "travel/server/index.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/lib.ts",
+      "destination": "travel/server/lib.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/plan/commute.ts",
+      "destination": "travel/server/plan/commute.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/plan/journey.ts",
+      "destination": "travel/server/plan/journey.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/plan/rail-links.ts",
+      "destination": "travel/server/plan/rail-links.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/plan/tour.ts",
+      "destination": "travel/server/plan/tour.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/plan/tourTravel.ts",
+      "destination": "travel/server/plan/tourTravel.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/ai.ts",
+      "destination": "travel/server/providers/ai.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/airports.ts",
+      "destination": "travel/server/providers/airports.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/flights.ts",
+      "destination": "travel/server/providers/flights.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/geo.ts",
+      "destination": "travel/server/providers/geo.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/hotels.ts",
+      "destination": "travel/server/providers/hotels.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/hubs.ts",
+      "destination": "travel/server/providers/hubs.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/places.ts",
+      "destination": "travel/server/providers/places.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/rail.ts",
+      "destination": "travel/server/providers/rail.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/route.ts",
+      "destination": "travel/server/providers/route.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/transitous.ts",
+      "destination": "travel/server/providers/transitous.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/providers/weather.ts",
+      "destination": "travel/server/providers/weather.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/transit/feeds.ts",
+      "destination": "travel/server/transit/feeds.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "server/transit/gtfs.ts",
+      "destination": "travel/server/transit/gtfs.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/App.tsx",
+      "destination": "travel/src/App.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/ai/AiPage.tsx",
+      "destination": "travel/src/ai/AiPage.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/commute/CommutePage.tsx",
+      "destination": "travel/src/commute/CommutePage.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/commute/JourneyView.tsx",
+      "destination": "travel/src/commute/JourneyView.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/commute/RouteView.tsx",
+      "destination": "travel/src/commute/RouteView.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/commute/engine.test.ts",
+      "destination": "travel/src/commute/engine.test.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/commute/engine.ts",
+      "destination": "travel/src/commute/engine.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/commute/live.test.ts",
+      "destination": "travel/src/commute/live.test.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/data/hyderabad-graph.json",
+      "destination": "travel/src/data/hyderabad-graph.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/data/places.json",
+      "destination": "travel/src/data/places.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/index.css",
+      "destination": "travel/src/index.css",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/api.ts",
+      "destination": "travel/src/lib/api.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/auth.tsx",
+      "destination": "travel/src/lib/auth.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/db.ts",
+      "destination": "travel/src/lib/db.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/firebase.ts",
+      "destination": "travel/src/lib/firebase.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/history.ts",
+      "destination": "travel/src/lib/history.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/location.ts",
+      "destination": "travel/src/lib/location.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/request.ts",
+      "destination": "travel/src/lib/request.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/status.tsx",
+      "destination": "travel/src/lib/status.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/taste.ts",
+      "destination": "travel/src/lib/taste.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/types.ts",
+      "destination": "travel/src/lib/types.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/useDraft.ts",
+      "destination": "travel/src/lib/useDraft.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/useGroup.tsx",
+      "destination": "travel/src/lib/useGroup.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/lib/validate.ts",
+      "destination": "travel/src/lib/validate.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/main.tsx",
+      "destination": "travel/src/main.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/pages/CreditsPage.tsx",
+      "destination": "travel/src/pages/CreditsPage.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/pages/Dashboard.tsx",
+      "destination": "travel/src/pages/Dashboard.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/pages/HomePage.tsx",
+      "destination": "travel/src/pages/HomePage.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/pages/JoinPage.tsx",
+      "destination": "travel/src/pages/JoinPage.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/pages/LoginPage.tsx",
+      "destination": "travel/src/pages/LoginPage.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/pages/YourData.tsx",
+      "destination": "travel/src/pages/YourData.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/tour/GettingThere.tsx",
+      "destination": "travel/src/tour/GettingThere.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/tour/TourPage.tsx",
+      "destination": "travel/src/tour/TourPage.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/tour/TripPage.tsx",
+      "destination": "travel/src/tour/TripPage.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/tour/generate.test.ts",
+      "destination": "travel/src/tour/generate.test.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/tour/generate.ts",
+      "destination": "travel/src/tour/generate.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/tour/live.test.ts",
+      "destination": "travel/src/tour/live.test.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/tour/questions.ts",
+      "destination": "travel/src/tour/questions.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/ui/AppShell.tsx",
+      "destination": "travel/src/ui/AppShell.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/ui/LiveMap.tsx",
+      "destination": "travel/src/ui/LiveMap.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/ui/LocationInput.tsx",
+      "destination": "travel/src/ui/LocationInput.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/ui/PublicLayout.tsx",
+      "destination": "travel/src/ui/PublicLayout.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/ui/kit.tsx",
+      "destination": "travel/src/ui/kit.tsx",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/ui/motion.ts",
+      "destination": "travel/src/ui/motion.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "src/ui/photos.ts",
+      "destination": "travel/src/ui/photos.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "tailwind.config.js",
+      "destination": "travel/tailwind.config.js",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "tsconfig.json",
+      "destination": "travel/tsconfig.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "tsconfig.server.json",
+      "destination": "travel/tsconfig.server.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "vercel.json",
+      "destination": "travel/vercel.json",
+      "action": "imported; compare against origin/main for integration adaptations"
+    },
+    {
+      "source": "vite.config.ts",
+      "destination": "travel/vite.config.ts",
+      "action": "imported; compare against origin/main for integration adaptations"
+    }
+  ],
+  "local_files_deleted": [],
+  "local_engine_endpoints": [
+    [
+      "get",
+      "/api/health"
+    ],
+    [
+      "get",
+      "/api/cities"
+    ],
+    [
+      "post",
+      "/api/brief/parse"
+    ],
+    [
+      "get",
+      "/api/dna/cards"
+    ],
+    [
+      "post",
+      "/api/trips/compose"
+    ],
+    [
+      "get",
+      "/api/trips/{trip_id}"
+    ],
+    [
+      "get",
+      "/api/trips/{trip_id}/route/{day}"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/edit"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/stay"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/choose"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/bookings"
+    ],
+    [
+      "post",
+      "/api/bookings/parse"
+    ],
+    [
+      "get",
+      "/api/live/train/{number}"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/ripple"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/ripple/{pid}/accept"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/ripple/{pid}/reject"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/feedback"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/retune"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/expense"
+    ],
+    [
+      "post",
+      "/api/links"
+    ],
+    [
+      "get",
+      "/api/links/{platform_trip_id}"
+    ],
+    [
+      "get",
+      "/api/cities/{city_key}/places"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/resequence"
+    ],
+    [
+      "post",
+      "/api/demo/seed"
+    ],
+    [
+      "get",
+      "/api/me/profile"
+    ],
+    [
+      "put",
+      "/api/me/profile"
+    ],
+    [
+      "get",
+      "/api/me/capsules"
+    ],
+    [
+      "get",
+      "/api/me/discover"
+    ],
+    [
+      "get",
+      "/api/providers"
+    ],
+    [
+      "post",
+      "/api/bookings/parse-file"
+    ],
+    [
+      "get",
+      "/api/fx"
+    ],
+    [
+      "get",
+      "/api/trips/{trip_id}/readiness"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/readiness/{item_id}"
+    ],
+    [
+      "post",
+      "/api/trips/{trip_id}/companion"
+    ],
+    [
+      "get",
+      "/api/trips/{trip_id}/alerts"
+    ],
+    [
+      "get",
+      "/api/trips/{trip_id}/nearby"
+    ],
+    [
+      "get",
+      "/api/trips/{trip_id}/hotels"
+    ],
+    [
+      "get",
+      "/api/flights"
+    ],
+    [
+      "get",
+      "/api/trips/{trip_id}/finance"
+    ],
+    [
+      "get",
+      "/api/trips/{trip_id}/recap"
+    ]
+  ],
+  "remote_api_endpoints": [
+    [
+      "get",
+      "/api/health"
+    ],
+    [
+      "get",
+      "/api/geocode"
+    ],
+    [
+      "get",
+      "/api/reverse"
+    ],
+    [
+      "get",
+      "/api/fx"
+    ],
+    [
+      "get",
+      "/api/weather"
+    ],
+    [
+      "get",
+      "/api/place/check"
+    ],
+    [
+      "post",
+      "/api/commute/plan"
+    ],
+    [
+      "post",
+      "/api/journey/plan"
+    ],
+    [
+      "get",
+      "/api/hotels"
+    ],
+    [
+      "post",
+      "/api/commute/group"
+    ],
+    [
+      "post",
+      "/api/commute/meet"
+    ],
+    [
+      "post",
+      "/api/ai/chat"
+    ],
+    [
+      "post",
+      "/api/tour/travel"
+    ],
+    [
+      "post",
+      "/api/tour/plan"
+    ]
+  ],
+  "local_pages": [
+    "platform/client/src/pages/AdminPage.test.tsx",
+    "platform/client/src/pages/AdminPage.tsx",
+    "platform/client/src/pages/AtlasPage.test.tsx",
+    "platform/client/src/pages/AtlasPage.tsx",
+    "platform/client/src/pages/AtlasPage.wiring.test.tsx",
+    "platform/client/src/pages/CollectionsPage.test.tsx",
+    "platform/client/src/pages/CollectionsPage.tsx",
+    "platform/client/src/pages/CollectionsPage.wiring.test.tsx",
+    "platform/client/src/pages/DashboardPage.desktop.test.tsx",
+    "platform/client/src/pages/DashboardPage.test.tsx",
+    "platform/client/src/pages/DashboardPage.tsx",
+    "platform/client/src/pages/FilesPage.test.tsx",
+    "platform/client/src/pages/FilesPage.tsx",
+    "platform/client/src/pages/ForgotPasswordPage.test.tsx",
+    "platform/client/src/pages/ForgotPasswordPage.tsx",
+    "platform/client/src/pages/HelpPage.test.tsx",
+    "platform/client/src/pages/HelpPage.tsx",
+    "platform/client/src/pages/InAppNotificationsPage.test.tsx",
+    "platform/client/src/pages/InAppNotificationsPage.tsx",
+    "platform/client/src/pages/JoinTripPage.tsx",
+    "platform/client/src/pages/JourneyDetailPage.test.tsx",
+    "platform/client/src/pages/JourneyDetailPage.tsx",
+    "platform/client/src/pages/JourneyDetailPage.wiring.test.tsx",
+    "platform/client/src/pages/JourneyPage.test.tsx",
+    "platform/client/src/pages/JourneyPage.tsx",
+    "platform/client/src/pages/JourneyPage.wiring.test.tsx",
+    "platform/client/src/pages/JourneyPublicPage.test.tsx",
+    "platform/client/src/pages/JourneyPublicPage.tsx",
+    "platform/client/src/pages/JourneyPublicPage.wiring.test.tsx",
+    "platform/client/src/pages/JourneyStudioPage.tsx",
+    "platform/client/src/pages/LoginPage.oidc-redirect.test.tsx",
+    "platform/client/src/pages/LoginPage.test.tsx",
+    "platform/client/src/pages/LoginPage.tsx",
+    "platform/client/src/pages/LoginPage.wiring.test.tsx",
+    "platform/client/src/pages/NativeHandoffPage.test.tsx",
+    "platform/client/src/pages/NativeHandoffPage.tsx",
+    "platform/client/src/pages/OAuthAuthorizePage.test.tsx",
+    "platform/client/src/pages/OAuthAuthorizePage.tsx",
+    "platform/client/src/pages/PATTERN.md",
+    "platform/client/src/pages/PluginPage.tsx",
+    "platform/client/src/pages/ResetPasswordPage.test.tsx",
+    "platform/client/src/pages/ResetPasswordPage.tsx",
+    "platform/client/src/pages/SettingsPage.test.tsx",
+    "platform/client/src/pages/SettingsPage.tsx",
+    "platform/client/src/pages/SharedTripPage.test.tsx",
+    "platform/client/src/pages/SharedTripPage.tsx",
+    "platform/client/src/pages/TripPlannerPage.leftPanelTab.test.tsx",
+    "platform/client/src/pages/TripPlannerPage.test.tsx",
+    "platform/client/src/pages/TripPlannerPage.tours.wiring.test.tsx",
+    "platform/client/src/pages/TripPlannerPage.tsx",
+    "platform/client/src/pages/TripPlannerPage.wiring.fixture.ts",
+    "platform/client/src/pages/TripPlannerPage.wiring.test.tsx",
+    "platform/client/src/pages/Trips/noticeActions.ts",
+    "platform/client/src/pages/VacayPage.sidebar.test.tsx",
+    "platform/client/src/pages/VacayPage.test.tsx",
+    "platform/client/src/pages/VacayPage.tsx",
+    "platform/client/src/pages/admin/AdminNotificationDefaultsPanel.test.tsx",
+    "platform/client/src/pages/admin/AdminNotificationDefaultsPanel.tsx",
+    "platform/client/src/pages/admin/AdminNotificationsPanel.test.tsx",
+    "platform/client/src/pages/admin/AdminNotificationsPanel.tsx",
+    "platform/client/src/pages/admin/AdminNotificationsTab.test.tsx",
+    "platform/client/src/pages/admin/AdminNotificationsTab.tsx",
+    "platform/client/src/pages/admin/AdminPage.constants.ts",
+    "platform/client/src/pages/admin/AdminSettingsTab.test.tsx",
+    "platform/client/src/pages/admin/AdminSettingsTab.tsx",
+    "platform/client/src/pages/admin/AdminStatCard.test.tsx",
+    "platform/client/src/pages/admin/AdminStatCard.tsx",
+    "platform/client/src/pages/admin/AdminUpdateBanner.test.tsx",
+    "platform/client/src/pages/admin/AdminUpdateBanner.tsx",
+    "platform/client/src/pages/admin/AdminUserModals.test.tsx",
+    "platform/client/src/pages/admin/AdminUserModals.tsx",
+    "platform/client/src/pages/admin/AdminUsersTab.test.tsx",
+    "platform/client/src/pages/admin/AdminUsersTab.tsx",
+    "platform/client/src/pages/admin/FoldSummary.test.tsx",
+    "platform/client/src/pages/admin/FoldSummary.tsx",
+    "platform/client/src/pages/admin/GoogleOptions.tsx",
+    "platform/client/src/pages/admin/ProviderBlock.tsx",
+    "platform/client/src/pages/admin/TrekApiCard.tsx",
+    "platform/client/src/pages/admin/adminModel.test.ts",
+    "platform/client/src/pages/admin/adminModel.ts",
+    "platform/client/src/pages/admin/useAdmin.test.tsx",
+    "platform/client/src/pages/admin/useAdmin.ts",
+    "platform/client/src/pages/admin/useNotificationDefaults.ts",
+    "platform/client/src/pages/atlas/AtlasCountrySearch.test.tsx",
+    "platform/client/src/pages/atlas/AtlasCountrySearch.tsx",
+    "platform/client/src/pages/atlas/AtlasLayerToggle.test.tsx",
+    "platform/client/src/pages/atlas/AtlasLayerToggle.tsx",
+    "platform/client/src/pages/atlas/atlasChrome.test.ts",
+    "platform/client/src/pages/atlas/atlasChrome.ts",
+    "platform/client/src/pages/atlas/atlasModel.test.ts",
+    "platform/client/src/pages/atlas/atlasModel.ts",
+    "platform/client/src/pages/atlas/atlasWishlistFill.test.ts",
+    "platform/client/src/pages/atlas/atlasWishlistFill.ts",
+    "platform/client/src/pages/atlas/useAtlas.test.tsx",
+    "platform/client/src/pages/atlas/useAtlas.ts",
+    "platform/client/src/pages/atlas/useAtlasCountryActions.test.ts",
+    "platform/client/src/pages/atlas/useAtlasCountryActions.ts",
+    "platform/client/src/pages/atlas/useCountryNames.ts",
+    "platform/client/src/pages/collections/collectionsModel.test.ts",
+    "platform/client/src/pages/collections/collectionsModel.ts",
+    "platform/client/src/pages/collections/useCollections.test.tsx",
+    "platform/client/src/pages/collections/useCollections.ts",
+    "platform/client/src/pages/dashboard/dashboardModel.test.ts",
+    "platform/client/src/pages/dashboard/dashboardModel.ts",
+    "platform/client/src/pages/dashboard/useDashboard.test.tsx",
+    "platform/client/src/pages/dashboard/useDashboard.ts",
+    "platform/client/src/pages/dashboard/useTripSearch.ts",
+    "platform/client/src/pages/files/useFiles.ts",
+    "platform/client/src/pages/forgotPassword/useForgotPassword.test.ts",
+    "platform/client/src/pages/forgotPassword/useForgotPassword.ts",
+    "platform/client/src/pages/help/useHelp.test.ts",
+    "platform/client/src/pages/help/useHelp.ts",
+    "platform/client/src/pages/inAppNotifications/useInAppNotifications.ts",
+    "platform/client/src/pages/join/useJoinTrip.test.ts",
+    "platform/client/src/pages/join/useJoinTrip.ts",
+    "platform/client/src/pages/journey/journeyModel.test.ts",
+    "platform/client/src/pages/journey/journeyModel.ts",
+    "platform/client/src/pages/journey/useJourney.ts",
+    "platform/client/src/pages/journeyDetail/JourneyDetailPage.constants.ts",
+    "platform/client/src/pages/journeyDetail/JourneyDetailPage.helpers.test.ts",
+    "platform/client/src/pages/journeyDetail/JourneyDetailPage.helpers.ts",
+    "platform/client/src/pages/journeyDetail/useJourneyDetail.test.tsx",
+    "platform/client/src/pages/journeyDetail/useJourneyDetail.ts",
+    "platform/client/src/pages/journeyDetail/useJourneyDetailDayImport.test.ts",
+    "platform/client/src/pages/journeyDetail/useJourneyDetailDayImport.ts",
+    "platform/client/src/pages/journeyDetail/useJourneyDetailLayers.ts",
+    "platform/client/src/pages/journeyDetail/useJourneyDetailRecordings.test.ts",
+    "platform/client/src/pages/journeyDetail/useJourneyDetailRecordings.ts",
+    "platform/client/src/pages/journeyDetail/useProviderPhotoAdds.test.tsx",
+    "platform/client/src/pages/journeyDetail/useProviderPhotoAdds.ts",
+    "platform/client/src/pages/journeyPublic/journeyPublicModel.ts",
+    "platform/client/src/pages/journeyPublic/useJourneyPublic.test.tsx",
+    "platform/client/src/pages/journeyPublic/useJourneyPublic.ts",
+    "platform/client/src/pages/journeyStudio/useJourneyStudio.test.tsx",
+    "platform/client/src/pages/journeyStudio/useJourneyStudio.ts",
+    "platform/client/src/pages/login/LoginWorld.test.tsx",
+    "platform/client/src/pages/login/LoginWorld.tsx",
+    "platform/client/src/pages/login/MfaCodeStep.tsx",
+    "platform/client/src/pages/login/NativeServerLink.tsx",
+    "platform/client/src/pages/login/useLogin.native.test.tsx",
+    "platform/client/src/pages/login/useLogin.test.tsx",
+    "platform/client/src/pages/login/useLogin.ts",
+    "platform/client/src/pages/login/worldDots.test.ts",
+    "platform/client/src/pages/login/worldDots.ts",
+    "platform/client/src/pages/nativeHandoff/useNativeHandoff.test.tsx",
+    "platform/client/src/pages/nativeHandoff/useNativeHandoff.ts",
+    "platform/client/src/pages/oauthAuthorize/useOAuthAuthorize.ts",
+    "platform/client/src/pages/resetPassword/useResetPassword.test.ts",
+    "platform/client/src/pages/resetPassword/useResetPassword.ts",
+    "platform/client/src/pages/settings/useSettings.ts",
+    "platform/client/src/pages/sharedTrip/SharedBookingDetails.tsx",
+    "platform/client/src/pages/sharedTrip/SharedBookingsView.tsx",
+    "platform/client/src/pages/sharedTrip/SharedChrome.tsx",
+    "platform/client/src/pages/sharedTrip/SharedDayCard.tsx",
+    "platform/client/src/pages/sharedTrip/SharedListsViews.tsx",
+    "platform/client/src/pages/sharedTrip/SharedMap.test.tsx",
+    "platform/client/src/pages/sharedTrip/SharedMap.tsx",
+    "platform/client/src/pages/sharedTrip/SharedPlaceDetails.test.tsx",
+    "platform/client/src/pages/sharedTrip/SharedPlaceDetails.tsx",
+    "platform/client/src/pages/sharedTrip/SharedPlanView.tsx",
+    "platform/client/src/pages/sharedTrip/SharedTripErrorScreen.tsx",
+    "platform/client/src/pages/sharedTrip/SharedUnplannedCard.tsx",
+    "platform/client/src/pages/sharedTrip/sharedTripModel.test.ts",
+    "platform/client/src/pages/sharedTrip/sharedTripModel.ts",
+    "platform/client/src/pages/sharedTrip/useSharedTrip.ts",
+    "platform/client/src/pages/tripPlanner/LazyPanel.test.tsx",
+    "platform/client/src/pages/tripPlanner/LazyPanel.tsx",
+    "platform/client/src/pages/tripPlanner/ListsContainer.test.tsx",
+    "platform/client/src/pages/tripPlanner/ListsContainer.tsx",
+    "platform/client/src/pages/tripPlanner/PlanMapStage.test.tsx",
+    "platform/client/src/pages/tripPlanner/PlanMapStage.tsx",
+    "platform/client/src/pages/tripPlanner/TourPlannerMapStage.test.tsx",
+    "platform/client/src/pages/tripPlanner/TourPlannerMapStage.tsx",
+    "platform/client/src/pages/tripPlanner/TripJournalPanel.tsx",
+    "platform/client/src/pages/tripPlanner/b4a-wiring.test.ts",
+    "platform/client/src/pages/tripPlanner/deepLinks/deepLinkTypes.ts",
+    "platform/client/src/pages/tripPlanner/deepLinks/useBookingDeepLink.test.ts",
+    "platform/client/src/pages/tripPlanner/deepLinks/useBookingDeepLink.ts",
+    "platform/client/src/pages/tripPlanner/deepLinks/useRoadtripDeepLink.test.ts",
+    "platform/client/src/pages/tripPlanner/deepLinks/useRoadtripDeepLink.ts",
+    "platform/client/src/pages/tripPlanner/deepLinks/useTourDeepLink.test.ts",
+    "platform/client/src/pages/tripPlanner/deepLinks/useTourDeepLink.ts",
+    "platform/client/src/pages/tripPlanner/placeFormContext.ts",
+    "platform/client/src/pages/tripPlanner/placeImageSave.test.ts",
+    "platform/client/src/pages/tripPlanner/placeImageSave.ts",
+    "platform/client/src/pages/tripPlanner/placeUndo.ts",
+    "platform/client/src/pages/tripPlanner/plannerLazy.test.ts",
+    "platform/client/src/pages/tripPlanner/plannerLazy.ts",
+    "platform/client/src/pages/tripPlanner/plannerTypes.ts",
+    "platform/client/src/pages/tripPlanner/tourMapFocus.ts",
+    "platform/client/src/pages/tripPlanner/transportEditorOpeners.test.ts",
+    "platform/client/src/pages/tripPlanner/transportEditorOpeners.ts",
+    "platform/client/src/pages/tripPlanner/tripCover.test.ts",
+    "platform/client/src/pages/tripPlanner/tripCover.ts",
+    "platform/client/src/pages/tripPlanner/tripHelpScreen.test.ts",
+    "platform/client/src/pages/tripPlanner/tripHelpScreen.ts",
+    "platform/client/src/pages/tripPlanner/tripPlannerModel.test.ts",
+    "platform/client/src/pages/tripPlanner/tripPlannerModel.ts",
+    "platform/client/src/pages/tripPlanner/useAssistantDeepLink.test.ts",
+    "platform/client/src/pages/tripPlanner/useAssistantDeepLink.ts",
+    "platform/client/src/pages/tripPlanner/useAssistantEntityLinks.test.tsx",
+    "platform/client/src/pages/tripPlanner/useAssistantEntityLinks.ts",
+    "platform/client/src/pages/tripPlanner/useAssistantMapLink.test.ts",
+    "platform/client/src/pages/tripPlanner/useAssistantMapLink.ts",
+    "platform/client/src/pages/tripPlanner/useAssistantPlaceDraft.ts",
+    "platform/client/src/pages/tripPlanner/useAssistantRouteLines.test.ts",
+    "platform/client/src/pages/tripPlanner/useAssistantRouteLines.ts",
+    "platform/client/src/pages/tripPlanner/useBookingEdits.test.ts",
+    "platform/client/src/pages/tripPlanner/useBookingEdits.ts",
+    "platform/client/src/pages/tripPlanner/useBookingExpenseEditor.test.ts",
+    "platform/client/src/pages/tripPlanner/useBookingExpenseEditor.ts",
+    "platform/client/src/pages/tripPlanner/useDayAdd.ts",
+    "platform/client/src/pages/tripPlanner/useDayClear.test.ts",
+    "platform/client/src/pages/tripPlanner/useDayClear.ts",
+    "platform/client/src/pages/tripPlanner/useDayDelete.ts",
+    "platform/client/src/pages/tripPlanner/useDayPlanEdits.test.ts",
+    "platform/client/src/pages/tripPlanner/useDayPlanEdits.ts",
+    "platform/client/src/pages/tripPlanner/useFerrataAdopt.test.tsx",
+    "platform/client/src/pages/tripPlanner/useFerrataAdopt.ts",
+    "platform/client/src/pages/tripPlanner/useMapLocationSearch.test.ts",
+    "platform/client/src/pages/tripPlanner/useMapLocationSearch.ts",
+    "platform/client/src/pages/tripPlanner/useMapPlaces.test.ts",
+    "platform/client/src/pages/tripPlanner/useMapPlaces.ts",
+    "platform/client/src/pages/tripPlanner/useOneCornerCard.ts",
+    "platform/client/src/pages/tripPlanner/usePlaceDeepLink.test.ts",
+    "platform/client/src/pages/tripPlanner/usePlaceDeepLink.ts",
+    "platform/client/src/pages/tripPlanner/usePlaceEdits.test.ts",
+    "platform/client/src/pages/tripPlanner/usePlaceEdits.ts",
+    "platform/client/src/pages/tripPlanner/usePlaceFormOpeners.test.ts",
+    "platform/client/src/pages/tripPlanner/usePlaceFormOpeners.ts",
+    "platform/client/src/pages/tripPlanner/usePlacedPointHint.test.ts",
+    "platform/client/src/pages/tripPlanner/usePlacedPointHint.ts",
+    "platform/client/src/pages/tripPlanner/usePlannerDialogs.test.ts",
+    "platform/client/src/pages/tripPlanner/usePlannerDialogs.ts",
+    "platform/client/src/pages/tripPlanner/usePlannerFocusPoints.test.ts",
+    "platform/client/src/pages/tripPlanner/usePlannerFocusPoints.ts",
+    "platform/client/src/pages/tripPlanner/usePlannerMapView.test.ts",
+    "platform/client/src/pages/tripPlanner/usePlannerMapView.ts",
+    "platform/client/src/pages/tripPlanner/usePlannerTripView.test.ts",
+    "platform/client/src/pages/tripPlanner/usePlannerTripView.ts",
+    "platform/client/src/pages/tripPlanner/useRoadtripAlternatives.test.ts",
+    "platform/client/src/pages/tripPlanner/useRoadtripAlternatives.ts",
+    "platform/client/src/pages/tripPlanner/useRoadtripDriveShaping.test.ts",
+    "platform/client/src/pages/tripPlanner/useRoadtripDriveShaping.ts",
+    "platform/client/src/pages/tripPlanner/useRoadtripFeed.test.ts",
+    "platform/client/src/pages/tripPlanner/useRoadtripFeed.ts",
+    "platform/client/src/pages/tripPlanner/useRoadtripStopEdits.test.ts",
+    "platform/client/src/pages/tripPlanner/useRoadtripStopEdits.ts",
+    "platform/client/src/pages/tripPlanner/useTourDayChoice.test.ts",
+    "platform/client/src/pages/tripPlanner/useTourDayChoice.ts",
+    "platform/client/src/pages/tripPlanner/useTourDetailActions.test.ts",
+    "platform/client/src/pages/tripPlanner/useTourDetailActions.ts",
+    "platform/client/src/pages/tripPlanner/useTourMapPlacing.test.ts",
+    "platform/client/src/pages/tripPlanner/useTourMapPlacing.ts",
+    "platform/client/src/pages/tripPlanner/useTourMapPoints.test.tsx",
+    "platform/client/src/pages/tripPlanner/useTourMapPoints.ts",
+    "platform/client/src/pages/tripPlanner/useTourOverview.test.ts",
+    "platform/client/src/pages/tripPlanner/useTourOverview.ts",
+    "platform/client/src/pages/tripPlanner/useTourStageLayers.test.ts",
+    "platform/client/src/pages/tripPlanner/useTourStageLayers.ts",
+    "platform/client/src/pages/tripPlanner/useTourWorkspace.ts",
+    "platform/client/src/pages/tripPlanner/useTrackLinePick.test.ts",
+    "platform/client/src/pages/tripPlanner/useTrackLinePick.ts",
+    "platform/client/src/pages/tripPlanner/useTripPlanner.roadtrip.test.tsx",
+    "platform/client/src/pages/tripPlanner/useTripPlanner.test.tsx",
+    "platform/client/src/pages/tripPlanner/useTripPlanner.ts",
+    "platform/client/src/pages/tripPlanner/useTripPlannerPage.ts",
+    "platform/client/src/pages/tripPlanner/useTripRosterSync.ts",
+    "platform/client/src/pages/tripzy/DashboardHome.tsx",
+    "platform/client/src/pages/tripzy/DnaPage.tsx",
+    "platform/client/src/pages/tripzy/HomePage.tsx",
+    "platform/client/src/pages/tripzy/InfoPages.tsx",
+    "platform/client/src/pages/tripzy/LabPage.tsx",
+    "platform/client/src/pages/tripzy/LivePage.tsx",
+    "platform/client/src/pages/tripzy/OnboardingPage.tsx",
+    "platform/client/src/pages/tripzy/PlanPage.tsx",
+    "platform/client/src/pages/tripzy/TripIntelPage.tsx",
+    "platform/client/src/pages/tripzy/TripReadyPage.tsx",
+    "platform/client/src/pages/vacay/useVacay.ts"
+  ]
+}

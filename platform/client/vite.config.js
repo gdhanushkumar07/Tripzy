@@ -92,6 +92,7 @@ export default defineConfig(({ mode }) => ({
         globIgnores: ['**/stats.html', '**/AssistantSurface-*.js'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [
+          /^\/travel(?:\/|$)/,
           /^\/api/,
           /^\/uploads/,
           /^\/mcp/,
@@ -379,6 +380,7 @@ export default defineConfig(({ mode }) => ({
       ignored: ['!**/shared/dist/**'],
     },
     proxy: {
+      '/travel': { target: 'http://127.0.0.1:5174', changeOrigin: true, ws: true },
       // Tripzy Intelligence engine (FastAPI): DNA, Time-Truth, Ripple, learning
       '/engine': {
         target: process.env.TRIPZY_ENGINE_URL || 'http://127.0.0.1:8000',

@@ -501,6 +501,11 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/my-trips" element={
+            <ProtectedRoute>
+              <ViewportRoute phone={MDashboardScreen} desktop={DashboardPage} />
+            </ProtectedRoute>
+          } />
           {/* Trip invite link (#1143) — behind ProtectedRoute so an anonymous
               visitor is redirected to /login (never registration) and returns here. */}
           <Route

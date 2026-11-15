@@ -28,6 +28,7 @@ const LINKS = [
   ['/#story', 'The journey'],
   ['/#companion', 'Companion'],
   ['/plan', 'Plan a trip'],
+  ['/travel/', 'Daily Traveller'],
 ] as const
 
 /** Minimal navigation. With `overlay`, it floats transparent over a hero photo until you scroll. */
@@ -60,7 +61,7 @@ export function PublicNav({ overlay = false }: { overlay?: boolean }) {
         <Brand light={onPhoto} />
         <nav className="hidden items-center gap-9 md:flex" aria-label="Main">
           {LINKS.map(([href, label]) => (
-            href.includes('#')
+            (href.includes('#') || href.startsWith('/travel'))
               ? <a key={href} href={href} className={linkCls}>{label}</a>
               : <Link key={href} to={href} className={linkCls}>{label}</Link>
           ))}
@@ -102,7 +103,7 @@ export function PublicNav({ overlay = false }: { overlay?: boolean }) {
 
 export function PublicFooter() {
   const cols: [string, [string, string][]][] = [
-    ['Travel', [['/plan', 'Plan a trip'], ['/#story', 'How Tripzy works'], ['/login', 'Sign in'], ['/signup', 'Create an account']]],
+    ['Travel', [['/plan', 'Plan a trip'], ['/travel/', 'Daily Traveller'], ['/#story', 'How Tripzy works'], ['/login', 'Sign in'], ['/signup', 'Create an account']]],
     ['Trust', [['/status', 'Live service status'], ['/privacy', 'Privacy'], ['/terms', 'Terms'], ['/credits', 'Photo credits']]],
   ]
   return (
@@ -119,7 +120,7 @@ export function PublicFooter() {
               <ul className="mt-5 space-y-3">
                 {links.map(([href, label]) => (
                   <li key={label}>
-                    {href.includes('#')
+                    {(href.includes('#') || href.startsWith('/travel'))
                       ? <a href={href} className="tz-link text-[15px] text-[#F7F5EF]/80 hover:text-[#F7F5EF]">{label}</a>
                       : <Link to={href} className="tz-link text-[15px] text-[#F7F5EF]/80 hover:text-[#F7F5EF]">{label}</Link>}
                   </li>

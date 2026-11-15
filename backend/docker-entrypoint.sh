@@ -23,6 +23,8 @@ fi
 
 $RUN_AS /opt/tripzy-venv/bin/uvicorn app.main:app --app-dir /app/engine --host 127.0.0.1 --port 8000 &
 
+(cd /app/travel && PORT=8787 HOST=127.0.0.1 $RUN_AS node server-dist/index.mjs) &
+
 # Wait (briefly) for the engine so the first requests don't race it.
 i=0
 while [ $i -lt 30 ] && ! wget -qO- http://127.0.0.1:8000/api/health >/dev/null 2>&1; do

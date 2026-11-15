@@ -35,6 +35,8 @@ const env = {
   ADMIN_PASSWORD: 'E2eTest12345!',
   // playwright.config.ts picks the port; 3001 is the historical default.
   PORT: process.env.E2E_API_PORT || '3001',
+  APP_URL: `http://localhost:${process.env.E2E_WEB_PORT || '5173'}`,
+  ALLOWED_ORIGINS: `http://localhost:${process.env.E2E_WEB_PORT || '5173'},http://127.0.0.1:${process.env.E2E_WEB_PORT || '5173'}`,
   NODE_ENV: 'development',
 }
 

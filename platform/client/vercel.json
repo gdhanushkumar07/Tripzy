@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/travel/:path*",
+      "destination": "https://tripzy-y6bi.onrender.com/travel/:path*"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "https://tripzy-y6bi.onrender.com/api/$1"
     },

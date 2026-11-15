@@ -391,6 +391,13 @@ export function derivePush(raw: RawEnv) {
   };
 }
 
+export function deriveTripzy(raw: RawEnv) {
+  return {
+    engineUrl: raw.TRIPZY_ENGINE_URL?.trim() || 'http://127.0.0.1:8000',
+    engineKey: raw.TRIPZY_ENGINE_KEY || '',
+  };
+}
+
 export function deriveAll(raw: RawEnv) {
   return {
     app: deriveApp(raw),
@@ -412,6 +419,7 @@ export function deriveAll(raw: RawEnv) {
     paths: derivePaths(raw),
     net: deriveNet(raw),
     push: derivePush(raw),
+    tripzy: deriveTripzy(raw),
   };
 }
 

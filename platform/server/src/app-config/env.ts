@@ -21,6 +21,7 @@ export function readEnv(): AppEnv {
  */
 export const SECRET_ENV_KEYS: ReadonlySet<string> = new Set([
   'ENCRYPTION_KEY',
+  'TRIPZY_ENGINE_KEY',
   'OIDC_CLIENT_SECRET',
   'SMTP_PASS',
   'VAPID_PRIVATE_KEY',

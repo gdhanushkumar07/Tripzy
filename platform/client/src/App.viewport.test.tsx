@@ -49,7 +49,7 @@ vi.mock('./hooks/useInAppNotificationListener.ts', () => ({
 
 /** path, mobile marker, desktop marker */
 const ROUTES: [string, string, string][] = [
-  ['/dashboard', 'm-dashboard', 'd-dashboard'],
+  ['/my-trips', 'm-dashboard', 'd-dashboard'],
   ['/trips/1', 'm-trip', 'd-trip'],
   ['/admin', 'm-admin', 'd-admin'],
   ['/settings', 'm-settings', 'd-settings'],

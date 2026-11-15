@@ -44,6 +44,39 @@ export default {
     global.AbortController = NativeAbortController;
     global.AbortSignal = NativeAbortSignal;
 
+    // MSW converts XHR multipart bodies into Node Request objects. Node's
+    // encoder needs Blob.stream(), which jsdom's File/Blob do not implement.
+    // Keep jsdom objects (FileReader and file inputs require them), but supply
+    // the standard byte-reading methods so uploads cannot hang in MSW.
+    if (!global.Blob.prototype.arrayBuffer) {
+      global.Blob.prototype.arrayBuffer = function () {
+        return new Promise<ArrayBuffer>((resolve, reject) => {
+          const reader = new global.FileReader();
+          reader.onload = () => resolve(reader.result as ArrayBuffer);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsArrayBuffer(this);
+        });
+      };
+    }
+    if (!global.Blob.prototype.stream) {
+      global.Blob.prototype.stream = function () {
+        const blob = this;
+        return new ReadableStream<Uint8Array>({
+          async start(controller) {
+            try {
+              controller.enqueue(new Uint8Array(await blob.arrayBuffer()));
+              controller.close();
+            } catch (error) { controller.error(error); }
+          },
+        });
+      };
+    }
+    if (!global.Blob.prototype.text) {
+      global.Blob.prototype.text = async function () {
+        return new TextDecoder().decode(await this.arrayBuffer());
+      };
+    }
+
     return env;
   },
 };

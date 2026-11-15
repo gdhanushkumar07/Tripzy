@@ -54,6 +54,17 @@ COPY platform/server/ ./server/
 RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build --workspace=server
 
 # ── Stage 4: production runtime ──────────────────────────────────────────────
+FROM node:24-alpine AS travel-builder
+WORKDIR /travel
+COPY travel/package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY travel/ ./
+ARG VITE_FIREBASE_API_KEY
+ARG VITE_FIREBASE_AUTH_DOMAIN
+ARG VITE_FIREBASE_PROJECT_ID
+ARG VITE_FIREBASE_APP_ID
+RUN npm run build && npm run build:server
+
 FROM node:24-trixie-slim
 WORKDIR /app
 
@@ -170,6 +181,10 @@ COPY backend/scripts /app/engine/scripts
 COPY backend/data_store/osrm_matrix_cache.json /app/engine/seed/osrm_matrix_cache.json
 COPY backend/docker-entrypoint.sh /usr/local/bin/tripzy-entrypoint
 RUN chmod 0755 /usr/local/bin/tripzy-entrypoint
+
+COPY --chown=node:node --from=travel-builder /travel/dist /app/travel/dist
+COPY --chown=node:node --from=travel-builder /travel/server-dist /app/travel/server-dist
+COPY --chown=node:node --from=travel-builder /travel/server/data /app/travel/server/data
 
 EXPOSE 3000
 

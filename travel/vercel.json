@@ -1,0 +1,43 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "npm ci --include=dev",
+  "buildCommand": "npm run build && npm run gtfs -- hmrl tgsrtc",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "includeFiles": "{server/data/**,server-dist/**}"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/travel/api/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/travel/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/travel/stories/:path*",
+      "destination": "/stories/:path*"
+    },
+    {
+      "source": "/travel/showcase/:path*",
+      "destination": "/showcase/:path*"
+    },
+    {
+      "source": "/travel/theme.js",
+      "destination": "/theme.js"
+    },
+    {
+      "source": "/travel/icon.svg",
+      "destination": "/icon.svg"
+    },
+    {
+      "source": "/travel/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}

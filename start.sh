@@ -17,6 +17,7 @@ fi
 export TRIPZY_ENGINE_KEY="$(grep -E '^TRIPZY_ENGINE_KEY=' "$ROOT/platform/server/.env" | cut -d= -f2-)"
 trap 'kill 0' EXIT
 ( cd "$ROOT/backend" && .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 ) &
+( cd "$ROOT/travel" && npm run dev ) &
 ( cd "$ROOT/platform" && npm run dev ) &
 echo "Tripzy starting… open http://localhost:5173"
 wait

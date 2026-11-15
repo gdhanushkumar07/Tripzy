@@ -11,6 +11,8 @@ test('create a trip and see it on the dashboard', async ({ page }) => {
   // The release notice greets a freshly seeded user and its backdrop eats the click below.
   await dismissSystemNotices(page)
 
+  await page.getByRole('link', { name: 'Manage my trips' }).click()
+
   // The "+ New Trip" card is always rendered in the default (planned) filter.
   await page.locator('.add-trip-card').click()
 

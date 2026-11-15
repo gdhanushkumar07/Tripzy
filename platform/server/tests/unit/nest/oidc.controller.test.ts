@@ -498,7 +498,7 @@ describe('OidcController /callback', () => {
       }),
     ).callback('c', 's', undefined, reqCb('s'), res);
     // doc.issuer absent → (doc.issuer ?? '') is '' → falls back to config.issuer
-    expect(verifyIdToken).toHaveBeenCalledWith('it', expect.anything(), 'c', 'https://idp');
+    expect(verifyIdToken).toHaveBeenCalledWith('it', expect.anything(), 'c', 'https://idp', undefined);
     expect(res.redirectedTo).toBe('https://app/login?oidc_code=ac');
   });
 
@@ -518,7 +518,7 @@ describe('OidcController /callback', () => {
         findOrCreateUser: vi.fn().mockReturnValue({ user: { id: 1 } }),
       }),
     ).callback('c', 's', undefined, reqCb('s'), res);
-    expect(verifyIdToken).toHaveBeenCalledWith('it', expect.anything(), 'c', 'https://idp');
+    expect(verifyIdToken).toHaveBeenCalledWith('it', expect.anything(), 'c', 'https://idp', undefined);
   });
 
   it('redirects no_email when the userinfo has no email', async () => {

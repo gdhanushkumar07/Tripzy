@@ -1,0 +1,49 @@
+# One free Render web service runs the API and serves the built web app (one URL).
+# Render dashboard → New → Blueprint → pick this repo/branch. Then add the secret env vars below.
+services:
+  - type: web
+    name: tripzy
+    rootDir: travel
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm ci --include=dev && npm run build && npm run gtfs -- hmrl tgsrtc
+    startCommand: npx tsx server/index.ts
+    healthCheckPath: /travel/api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_VERSION
+        value: "24"
+      # Firebase web config is baked in at build time (Vite):
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: VITE_USE_EMULATORS
+        value: "false"
+      # Provider keys (server only):
+      - key: GEOAPIFY_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: OLA_MAPS_API_KEY
+        sync: false
+      - key: OPENTRIPMAP_API_KEY
+        sync: false
+      - key: RAIL_API_KEY
+        sync: false
+      - key: SERPAPI_KEY
+        sync: false
+      - key: TRAVELPAYOUTS_TOKEN
+        sync: false
+      - key: TRAVELPAYOUTS_MARKER
+        sync: false
+      - key: LITEAPI_KEY
+        sync: false

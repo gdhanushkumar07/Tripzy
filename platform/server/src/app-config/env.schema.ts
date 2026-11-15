@@ -67,6 +67,8 @@ export const envSchema = z.object({
   LOG_LEVEL: oneOf(['error', 'warn', 'info', 'debug']),
   APP_VERSION: anyString,
   APP_URL: url,
+  TRIPZY_ENGINE_URL: url,
+  TRIPZY_ENGINE_KEY: anyString,
   ALLOWED_ORIGINS: anyString,
   // Candidates lowercased so mixed-case codes (zh-TW) validate case-insensitively.
   DEFAULT_LANGUAGE: oneOf(SUPPORTED_LANGUAGE_CODES.map((c) => c.toLowerCase())),

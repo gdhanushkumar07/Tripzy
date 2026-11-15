@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["node"], "lib": ["ES2023", "DOM"] },
+  "include": ["server", "scripts", "src/commute/engine.ts", "src/tour/generate.ts", "src/lib/types.ts", "src/tour/questions.ts"]
+}

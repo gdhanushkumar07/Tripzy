@@ -93,7 +93,10 @@ export default function DashboardHome(): React.ReactElement {
             <div data-reveal className="tz-chapter">Every journey begins somewhere.</div>
             <h1 data-reveal className="tz-h1 mt-2 text-content">{greeting()}, {user?.username ?? 'traveller'}.</h1>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link to="/my-trips" className="inline-flex h-12 items-center rounded-full border border-edge px-5 text-[15px] font-semibold text-content hover:bg-surface-hover">Manage my trips</Link>
           <Link to="/plan" className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-[15px] font-semibold text-accent-text transition hover:bg-accent-hover"><Plus className="h-4 w-4" />Plan a journey</Link>
+          </div>
         </header>
         {err && <div className="mt-6 rounded-2xl bg-danger-soft px-4 py-3 text-body text-danger">{err} <button type="button" className="underline" onClick={() => window.location.reload()}>Retry</button></div>}
 

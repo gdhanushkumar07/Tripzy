@@ -102,9 +102,10 @@ export default function Navbar({ tripTitle, tripId, onBack, showBack, onSettings
   const TRIPZY_ADDON_LABELS: Record<string, string> = { atlas: 'Explore Map', journey: 'Memories' }
   const tabs = [{ id: '__trips', path: '/dashboard', label: t('nav.myTrips'), Icon: Briefcase },
     { id: 'tripzy-plan', path: '/plan', label: 'Plan with AI', Icon: Sparkles },
+    { id: 'tripzy-travel', path: '/travel/', label: 'Daily Traveller', Icon: CalendarDays },
     { id: 'tripzy-live', path: '/live', label: 'Live', Icon: Radio },
     { id: 'tripzy-dna', path: '/dna', label: 'Travel DNA', Icon: Dna },
-    ...globalAddons.filter(a => a.id === 'atlas' || a.id === 'journey')
+    ...globalAddons.filter(a => !['lab', 'test-lab'].includes(a.id))
       .map(a => ({ id: a.id, path: `/${a.id}`, label: TRIPZY_ADDON_LABELS[a.id] ?? getAddonName(a), Icon: ADDON_ICONS[a.icon] || CalendarDays })),
     ...pagePlugins.map(p => ({ id: `plugin:${p.id}`, path: `/plugins/${p.id}`, label: p.name, Icon: resolvePluginIcon(p.icon) })),
     // Empty in this repository — see client/src/managed.
@@ -242,7 +243,7 @@ export default function Navbar({ tripTitle, tripId, onBack, showBack, onSettings
           {tabs.map(tab => {
             const isActive = location.pathname === tab.path
             return (
-              <Link key={tab.id} to={tab.path}
+              <Link key={tab.id} to={tab.path} reloadDocument={tab.id === 'tripzy-travel'}
                 title={tab.label} aria-label={tab.label}
                 className="flex items-center gap-1.5 whitespace-nowrap transition-colors"
                 style={{

@@ -1,3 +1,4 @@
+import { readEnv } from '../../app-config';
 import { UserSessions } from '../../db/entities/UserSessions.entity';
 import { Users } from '../../db/entities/Users.entity';
 import { extractToken, verifyJwtAndLoadUser } from '../auth-core/jwt-verify';
@@ -16,8 +17,6 @@ import type { Request, Response } from 'express';
  * engine itself allows without a user (brief parsing, DNA cards, compose, and
  * reading the unowned draft they just composed).
  */
-const ENGINE = process.env.TRIPZY_ENGINE_URL || 'http://127.0.0.1:8000';
-const KEY = process.env.TRIPZY_ENGINE_KEY || '';
 const MAX_BODY = 12 * 1024 * 1024;
 
 @Public('Anonymous trip planning preview; the engine enforces per-user ownership from the forwarded, keyed user id')
@@ -25,8 +24,10 @@ const MAX_BODY = 12 * 1024 * 1024;
 export class TripzyProxyController {
   constructor(private readonly em: EntityManager) {}
 
+  // response-contract-exempt: transparent engine proxy writes JSON, binary uploads and SSE through @Res().
   @All('*path')
   async proxy(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const { engineUrl, engineKey } = readEnv().tripzy;
     const token = extractToken(req);
     const user = token
       ? await verifyJwtAndLoadUser(token, this.em.getRepository(Users), this.em.getRepository(UserSessions))
@@ -39,7 +40,7 @@ export class TripzyProxyController {
       return;
     }
     const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
-    const headers: Record<string, string> = { 'x-tripzy-key': KEY };
+    const headers: Record<string, string> = { 'x-tripzy-key': engineKey };
     if (user) {
       headers['x-tripzy-user'] = String(user.id);
       headers['x-tripzy-user-name'] = encodeURIComponent(String(user.username ?? ''));
@@ -70,7 +71,7 @@ export class TripzyProxyController {
 
     let upstream: globalThis.Response;
     try {
-      upstream = await fetch(`${ENGINE}/api/${sub}${qs}`, {
+      upstream = await fetch(`${engineUrl}/api/${sub}${qs}`, {
         method: req.method,
         headers,
         body,

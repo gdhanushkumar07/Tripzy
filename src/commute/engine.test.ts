@@ -115,3 +115,26 @@ describe('group split', () => {
     expect(cabLeg.fare).toBe(Math.round(solo.legs[0].fare / 2))
   })
 })
+
+describe('own vehicle (park-and-ride)', () => {
+  const own = (spec: Partial<GraphData['private']>) => buildGraph({ ...(data as unknown as GraphData), private: { ...(data as unknown as GraphData).private, ...spec } })
+  const scooter = { ownscooter: { base: 20, baseKm: 0, perKm: 2.3, wait: 2, speed: 1.05, peakShare: 0.5, maxKm: 120, capacity: 2, own: true } }
+
+  it('is only ever the first ride: you cannot pick your scooter up mid-journey', () => {
+    const g2 = own(scooter)
+    const res = plan(g2, { ...at6pm, modes: ['walk', 'ownscooter', 'metro', 'citybus', 'ibus', 'train'] })
+    expect(res.routes.length).toBeGreaterThan(0)
+    for (const r of res.routes) {
+      const idx = r.legs.map((l, i) => (l.mode === 'ownscooter' ? i : -1)).filter((i) => i >= 0)
+      expect(idx.every((i) => i === 0)).toBe(true)
+    }
+  })
+
+  it('scooter → metro → bus beats taking only public transport from the door', () => {
+    const g2 = own(scooter)
+    const withOwn = plan(g2, { ...at6pm, modes: ['walk', 'ownscooter', 'metro', 'citybus', 'ibus'] }).routes.find((r) => r.labels.includes('Fastest'))!
+    const without = plan(g2, { ...at6pm, modes: ['walk', 'metro', 'citybus', 'ibus'] }).routes.find((r) => r.labels.includes('Fastest'))
+    expect(withOwn.legs[0].mode).toBe('ownscooter')
+    if (without) expect(withOwn.totalMin).toBeLessThanOrEqual(without.totalMin)
+  })
+})

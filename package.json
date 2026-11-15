@@ -13,7 +13,8 @@
     "web": "vite",
     "api": "tsx server/index.ts",
     "gtfs": "tsx scripts/gtfs-import.ts",
-    "typecheck": "tsc -p . && tsc -p tsconfig.server.json"
+    "typecheck": "tsc -p . && tsc -p tsconfig.server.json",
+    "airports": "tsx scripts/airports.ts"
   },
   "dependencies": {
     "@fontsource/geist-sans": "^5.3.0",

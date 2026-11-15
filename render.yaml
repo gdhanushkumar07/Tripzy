@@ -5,7 +5,7 @@ services:
     name: tripzy
     runtime: node
     plan: free
-    branch: minimal
+    branch: main
     buildCommand: npm ci --include=dev && npm run build && npm run gtfs -- hmrl tgsrtc
     startCommand: npx tsx server/index.ts
     healthCheckPath: /api/health
@@ -37,4 +37,12 @@ services:
       - key: OPENTRIPMAP_API_KEY
         sync: false
       - key: RAIL_API_KEY
+        sync: false
+      - key: SERPAPI_KEY
+        sync: false
+      - key: TRAVELPAYOUTS_TOKEN
+        sync: false
+      - key: TRAVELPAYOUTS_MARKER
+        sync: false
+      - key: LITEAPI_KEY
         sync: false

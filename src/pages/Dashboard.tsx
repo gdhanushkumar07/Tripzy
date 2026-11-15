@@ -10,7 +10,7 @@ import { removeDoc, routeDoc, savePrefs, tripDoc } from '../lib/db'
 import { db } from '../lib/firebase'
 import { toFriendly } from '../lib/request'
 import { ErrorBox, useAction, useStatus } from '../lib/status'
-import { MODES, MODE_ICON, MODE_LABEL, type Mode, type Prefs } from '../lib/types'
+import { MODES, MODE_ICON, MODE_LABEL, type Fuel, type Mode, type Prefs, type Priority } from '../lib/types'
 import { readLocalDraft } from '../lib/useDraft'
 import { budgetError, optNum, transfersError } from '../lib/validate'
 import type { TourDraft } from '../tour/TourPage'
@@ -247,16 +247,30 @@ function PrefsForm({ uid, name, prefs }: { uid: string; name: string; prefs: Pre
   const [budget, setBudget] = useState(prefs.budget?.toString() ?? '')
   const [maxT, setMaxT] = useState(prefs.maxTransfers?.toString() ?? '')
   const [err, setErr] = useState('')
+  const [fam, setFam] = useState(prefs.family ?? { adults: 1, children: 0, seniors: 0 })
+  const [priority, setPriority] = useState<Priority>(prefs.priority ?? 'balanced')
+  const [hasCar, setHasCar] = useState(!!prefs.vehicles?.car)
+  const [carKmpl, setCarKmpl] = useState(String(prefs.vehicles?.car?.kmpl ?? 15))
+  const [fuel, setFuel] = useState<Fuel>(prefs.vehicles?.car?.fuel ?? 'petrol')
+  const [seats, setSeats] = useState(String(prefs.vehicles?.car?.seats ?? 5))
+  const [hasScooter, setHasScooter] = useState(!!prefs.vehicles?.scooter)
+  const [scKmpl, setScKmpl] = useState(String(prefs.vehicles?.scooter?.kmpl ?? 45))
   const saveAction = useAction(async () => {
+    const kmpl = Number(carKmpl), sk = Number(scKmpl), st = Number(seats)
     const e = budgetError(optNum(budget)) || transfersError(optNum(maxT)) || (!modes.length ? 'Pick at least one mode.' : '')
+      || (hasCar && !(kmpl >= 3 && kmpl <= 60) ? 'Car mileage should be between 3 and 60 km per litre.' : '')
+      || (hasCar && !(st >= 2 && st <= 9) ? 'Car seats should be between 2 and 9.' : '')
+      || (hasScooter && !(sk >= 10 && sk <= 120) ? 'Scooter mileage should be between 10 and 120 km per litre.' : '')
+      || (fam.adults + fam.seniors < 1 ? 'At least one adult travels.' : '')
     setErr(e)
     if (e) return
-    const res = await savePrefs(uid, name, { modes, budget: optNum(budget), maxTransfers: optNum(maxT) })
+    const vehicles = { ...(hasCar ? { car: { kmpl, fuel, seats: st } } : {}), ...(hasScooter ? { scooter: { kmpl: sk } } : {}) }
+    const res = await savePrefs(uid, name, { modes, budget: optNum(budget), maxTransfers: optNum(maxT), vehicles, family: fam, priority })
     toast(res === 'local' ? 'Preferences saved on this device — will sync when online' : 'Preferences saved', 'success')
   })
   return (
     <div data-reveal className="mt-8">
-      <p className="text-[14px] text-content-muted">Used to preselect modes on the Daily Traveller form.</p>
+      <p className="text-[14px] text-content-muted">Preselects modes on the Daily Traveller form and answers most journey questions for you.</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {MODES.map((m) => {
           const on = modes.includes(m)
@@ -275,6 +289,37 @@ function PrefsForm({ uid, name, prefs }: { uid: string; name: string; prefs: Pre
         <div>
           <label className="label" htmlFor="pmax">Max transfers</label>
           <input id="pmax" className="tz-input" inputMode="numeric" value={maxT} onChange={(e) => setMaxT(e.target.value.replace(/[^\d]/g, ''))} placeholder="Any" />
+        </div>
+      </div>
+      <div className="mt-6 grid gap-5 md:grid-cols-3">
+        <div>
+          <span className="label">Usually travelling</span>
+          {(['adults', 'children', 'seniors'] as const).map((k) => (
+            <label key={k} className="mt-1 flex items-center justify-between gap-2 text-body capitalize">{k}
+              <input type="number" min={0} max={9} className="tz-input !h-9 !w-20" value={fam[k]} onChange={(e) => setFam({ ...fam, [k]: Math.max(0, Math.min(9, Number(e.target.value) || 0)) })} />
+            </label>
+          ))}
+        </div>
+        <div>
+          <label className="label" htmlFor="ppri">What matters most</label>
+          <select id="ppri" className="tz-input" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
+            <option value="balanced">Best balance</option><option value="fastest">Time</option><option value="cheapest">Money</option><option value="comfort">Comfort</option>
+          </select>
+          <p className="mt-2 text-caption text-content-faint">Journeys ask only who is travelling, luggage and this — the rest comes from here.</p>
+        </div>
+        <div className="space-y-2">
+          <span className="label">Your vehicles</span>
+          <label className="flex items-center gap-2 text-body"><input type="checkbox" checked={hasCar} onChange={(e) => setHasCar(e.target.checked)} />I have a car</label>
+          {hasCar && (
+            <div className="grid grid-cols-3 gap-2">
+              <input aria-label="Car mileage km per litre" className="tz-input !h-9" inputMode="decimal" value={carKmpl} onChange={(e) => setCarKmpl(e.target.value.replace(/[^\d.]/g, ''))} title="km per litre" />
+              <select aria-label="Fuel" className="tz-input !h-9" value={fuel} onChange={(e) => setFuel(e.target.value as Fuel)}><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="cng">CNG</option><option value="ev">Electric</option></select>
+              <input aria-label="Seats" className="tz-input !h-9" inputMode="numeric" value={seats} onChange={(e) => setSeats(e.target.value.replace(/[^\d]/g, ''))} title="seats" />
+            </div>
+          )}
+          <label className="flex items-center gap-2 text-body"><input type="checkbox" checked={hasScooter} onChange={(e) => setHasScooter(e.target.checked)} />I have a scooter / bike</label>
+          {hasScooter && <input aria-label="Scooter mileage km per litre" className="tz-input !h-9" inputMode="decimal" value={scKmpl} onChange={(e) => setScKmpl(e.target.value.replace(/[^\d.]/g, ''))} />}
+          <p className="text-caption text-content-faint">Mileage in km per litre: fuel cost for park-and-ride and road trips.</p>
         </div>
       </div>
       {err && <p className="field-error">{err}</p>}

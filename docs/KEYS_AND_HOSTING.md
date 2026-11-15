@@ -8,7 +8,11 @@ All keys go in `.env` at the repo root (git-ignored). Restart `npm run dev` afte
 |---|---|---|
 | `GEMINI_API_KEY` | set | AI reading of live web news — needs `TAVILY_API_KEY` too |
 | `GEOAPIFY_API_KEY` | set | Restaurants with vegetarian tags and opening hours; backup place search |
-| `OIDC_*`, `LITEAPI_KEY`, `TRAVELPAYOUTS_*`, `VITE_AI_PLANNER_URL` | not used | Left over from the old app — safe to delete |
+| `LITEAPI_KEY` | set (sandbox) | Hotel rates in “Where to stay” — sandbox prices are labelled as test prices |
+| `TAVILY_API_KEY` | set | Live web/news checks for tour places (with Gemini) |
+| `OLA_MAPS_API_KEY` | set but **answers 401** | Open https://maps.olakrutrim.com → your project → make sure the key is active and Places + Routing APIs are enabled |
+| `TRAVELPAYOUTS_TOKEN` | empty | Real flight fares — paste the API token from Travelpayouts → Tools → API |
+| `OIDC_*`, `VITE_AI_PLANNER_URL` | not used | Left over from the old app — safe to delete |
 
 ## Keys still needed (all free, no card unless noted)
 
@@ -39,11 +43,15 @@ https://app.tavily.com → sign up → copy the key → `TAVILY_API_KEY=` (1,000
 https://maps.olakrutrim.com → sign up → Dashboard → **Create project** → copy the API key → `OLA_MAPS_API_KEY=`.
 100,000 free calls/month per API. Fixes the biggest accuracy gap: live traffic instead of estimated peak factors.
 
-### 4. OpenTripMap — attraction popularity
-https://dev.opentripmap.org/register → confirm e-mail → key → `OPENTRIPMAP_API_KEY=`.
+### 4. SerpApi — live flight and hotel prices (replaces OpenTripMap / indianrailapi)
+https://serpapi.com/users/sign_up → sign up with Google or e-mail (no card) → Dashboard → **Your private API key** → `SERPAPI_KEY=`.
+250 searches/month free; results are cached 3 h (flights) and 6 h (hotels) so a demo uses only a few. One key gives Google Flights and Google Hotels, and its dashboard shows every call and the remaining quota.
 
-### 5. Indian Rail API — real trains between stations
-https://indianrailapi.com → register → API key → `RAIL_API_KEY=`. Without it trains show as a labelled estimate with an IRCTC link.
+### 5. Travelpayouts — flight fares without per-search limits (optional)
+https://www.travelpayouts.com → sign up → **Tools → API** → copy the token → `TRAVELPAYOUTS_TOKEN=` (and the Partner ID as `TRAVELPAYOUTS_MARKER=`). Real fares seen in the last 48 h; booking links earn commission.
+
+Public transport worldwide (Transitous), airports (OurAirports), time zones and weather (Open-Meteo) need no key.
+Trains in India stay a labelled estimate with prefilled ixigo/ConfirmTkt searches; a RapidAPI IRCTC key is the next step if you want live schedules.
 
 ## Keeping the server up
 
@@ -56,7 +64,7 @@ npm run dev
 Keep the terminal open; with emulators (`npm run emulators`) everything runs offline-capable on your machine.
 
 ### Online, free: Render (one URL for web + API)
-1. Push the `minimal` branch to GitHub.
+1. Push the `main` branch to GitHub.
 2. https://render.com → sign in with GitHub → **New → Blueprint** → choose the repo. It reads `render.yaml`.
 3. Fill in the secret values it asks for (the same values as your `.env`; the Firebase ones are required).
 4. Deploy. The build also downloads the metro/bus timetables. Your app is at `https://tripzy-xxxx.onrender.com`.

@@ -9,8 +9,8 @@
  *  - road vehicles priced from published tariffs (estimates) with booking links
  */
 import { buildGraph, plan, planGroup, type GraphData, type GroupMember, type Leg, type PlanResult, type GroupPlan, type Route } from '../../src/commute/engine'
-import type { Mode } from '../../src/lib/types'
-import { busLinks, rideLinks, tariffs, trainLinks, type Link } from '../fares'
+import type { Mode, Vehicles } from '../../src/lib/types'
+import { busLinks, ownPerKm, rideLinks, tariffs, trainLinks, type Link } from '../fares'
 import { haversineKm, type LatLon } from '../lib'
 import { busHubs, cityOf, railHubs, type Hub } from '../providers/hubs'
 import { trainsBetweenNames } from '../providers/rail'
@@ -18,7 +18,7 @@ import { road, roadTable } from '../providers/route'
 import { dayType, fareBetween, feedsNear, nearestStations } from '../transit/gtfs'
 
 export type Point = LatLon & { name: string; state?: string; city?: string }
-export type CommuteQuery = { from: Point; to: Point; date: string; time: string; modes: Mode[]; budget?: number | null; maxTransfers?: number | null; people?: number }
+export type CommuteQuery = { from: Point; to: Point; date: string; time: string; modes: Mode[]; budget?: number | null; maxTransfers?: number | null; people?: number; vehicles?: Vehicles }
 
 type Node = GraphData['nodes'][number]
 type LineMeta = { source: string; estimate: boolean; links: Link[]; color?: string; stops?: [number, number][] }
@@ -78,7 +78,7 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = []) {
         }
       } else {
         const name = `Train ${a.name} → ${b.name}`
-        lines.push({ id: `train-est-${a.id}-${b.id}`, mode: 'train', name, headway: 180, stops: [`hub:${a.id}`, `hub:${b.id}`], segments: [{ km: +km.toFixed(0), min: Math.round((km / 50) * 60), fare: Math.round(km * 0.45 + 30) }] })
+        lines.push({ id: `train-est-${a.id}-${b.id}`, mode: 'train', name, headway: 180, stops: [`hub:${a.id}`, `hub:${b.id}`], segments: [{ km: +km.toFixed(0), min: Math.round((km / (km > 500 ? 60 : 50)) * 60), fare: Math.round(km * 0.45 + 30) }] })
         meta[name] = { source: 'Estimate from distance — add RAIL_API_KEY for real train timings', estimate: true, links: trainLinks() }
       }
     }
@@ -188,12 +188,18 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = []) {
     const t = T[m]
     priv[m] = { base: t.base, baseKm: t.baseKm, perKm: t.perKm, perMin: t.perMin, wait: t.wait, speed: t.speed, peakShare: t.peakShare, maxKm: t.maxKm, capacity: t.seats }
   }
+  // your own scooter/car: fuel cost only, it can only be the first ride (park-and-ride), parking at the station
+  const v = { ...q.vehicles }
+  if (q.modes.includes('ownscooter') && !v.scooter) v.scooter = { kmpl: 45 }
+  if (q.modes.includes('owncar') && !v.car) v.car = { kmpl: 15, fuel: 'petrol', seats: 5 }
+  if (v.scooter) priv.ownscooter = { base: 20, baseKm: 0, perKm: +ownPerKm(v.scooter.kmpl, 'petrol').toFixed(2), wait: 2, speed: 1.05, peakShare: 0.5, maxKm: 120, capacity: 2, own: true }
+  if (v.car) priv.owncar = { base: 40, baseKm: 0, perKm: +ownPerKm(v.car.kmpl, v.car.fuel).toFixed(2), wait: 3, speed: 1, peakShare: 1, maxKm: 900, capacity: Math.max(2, v.car.seats || 5), own: true }
   const data: GraphData = { peakWindows: [['08:00', '11:00'], ['17:00', '21:00']], private: priv, walk: { kmh: 4.5, maxKm: 2 }, nodes, roads, transfers, lines }
   return { graph: buildGraph(data), meta, depart, roadSource: tbl.source }
 }
 
 type LegOut = Leg & { source: string; estimate: boolean; links: Link[]; geometry?: [number, number][]; color?: string; from_ll: [number, number]; to_ll: [number, number] }
-const ROAD_MODES = ['auto', 'shareauto', 'erick', 'bike', 'cab', 'suv', 'cycle', 'walk']
+const ROAD_MODES = ['auto', 'shareauto', 'erick', 'bike', 'cab', 'suv', 'cycle', 'walk', 'ownscooter', 'owncar']
 
 async function enrich(r: Route, g: ReturnType<typeof buildGraph>, meta: Record<string, LineMeta>, q: CommuteQuery) {
   const ll = (id: string): [number, number] => { const n = g.nodes.get(id)!; return [n.lat, n.lon] }
@@ -204,7 +210,7 @@ async function enrich(r: Route, g: ReturnType<typeof buildGraph>, meta: Record<s
     if (ROAD_MODES.includes(l.mode)) geometry = await road(a, b, l.mode === 'walk' ? 'walking' : l.mode === 'cycle' ? 'cycling' : 'driving').then((x) => x.geometry).catch(() => undefined)
     return {
       ...l, geometry, color: m?.color, from_ll: ll(l.from), to_ll: ll(l.to),
-      source: m?.source ?? (l.mode === 'walk' ? 'Walking time (OSRM)' : 'Road time (OSRM/Ola Maps) · fare from published tariff'),
+      source: m?.source ?? (l.mode === 'walk' ? 'Walking time (OSRM)' : l.mode.startsWith('own') ? 'Road time (OSRM/Ola Maps) · fuel from your saved mileage + parking' : 'Road time (OSRM/Ola Maps) · fare from published tariff'),
       estimate: m?.estimate ?? l.mode !== 'walk',
       links: [...(m?.links ?? []), ...rideLinks(l.mode, a, b)].filter((x, i, arr) => arr.findIndex((y) => y.label === x.label) === i),
     }
@@ -219,6 +225,16 @@ export async function planCommute(q: CommuteQuery): Promise<PlanResult & { live:
   const res = plan(graph, { from: 'O', to: 'D', depart, modes: q.modes, budget: q.budget, maxTransfers: q.maxTransfers, people: q.people })
   const routes = await Promise.all(res.routes.map((r) => enrich(r, graph, meta, q)))
   return { ...res, routes, live: true, sources: [roadSource, ...new Set(Object.values(meta).map((m) => m.source))] }
+}
+
+/** One live graph, several mode sets (e.g. train-only and bus-only intercity variants) — used by the journey planner. */
+export async function planCommuteVariants(q: CommuteQuery, sets: Mode[][]) {
+  const { graph, meta, depart, roadSource } = await buildLiveGraph(q)
+  const out = await Promise.all(sets.map(async (modes) => {
+    const res = plan(graph, { from: 'O', to: 'D', depart, modes, people: q.people })
+    return Promise.all(res.routes.map((r) => enrich(r, graph, meta, q)))
+  }))
+  return { variants: out, sources: [roadSource, ...new Set(Object.values(meta).map((m) => m.source))] }
 }
 
 export async function planGroupCommute(q: CommuteQuery & { members: (GroupMember & { point: Point })[] }): Promise<GroupPlan & { sources: string[] }> {

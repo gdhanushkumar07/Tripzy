@@ -18,8 +18,12 @@ service cloud.firestore {
       }
       function validPrefs(p) {
         return p is map
-          && p.modes is list && p.modes.size() <= 8
-          && p.modes.hasOnly(['walk', 'auto', 'bike', 'cab', 'citybus', 'metro', 'ibus', 'train'])
+          && p.modes is list && p.modes.size() <= 16
+          && p.modes.hasOnly(['walk', 'cycle', 'auto', 'shareauto', 'erick', 'bike', 'cab', 'suv', 'citybus', 'metro', 'rail', 'ferry', 'ibus', 'train', 'ownscooter', 'owncar'])
+          && (!('priority' in p) || p.priority in ['balanced', 'fastest', 'cheapest', 'comfort'])
+          && (!('family' in p) || (p.family is map && p.family.keys().hasOnly(['adults', 'children', 'seniors'])
+              && p.family.adults is int && p.family.adults <= 12 && p.family.children is int && p.family.children <= 10 && p.family.seniors is int && p.family.seniors <= 10))
+          && (!('vehicles' in p) || (p.vehicles is map && p.vehicles.keys().hasOnly(['car', 'scooter'])))
           && (p.budget == null || (p.budget is number && p.budget >= 0 && p.budget <= 100000))
           && (p.maxTransfers == null || (p.maxTransfers is int && p.maxTransfers >= 0 && p.maxTransfers <= 5));
       }

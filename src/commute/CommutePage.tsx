@@ -13,11 +13,14 @@ import { GroupPanel, ModeToggle, useGroup } from '../lib/useGroup'
 import { budgetError, optNum, transfersError, validTime } from '../lib/validate'
 import { LocationInput } from '../ui/LocationInput'
 import { fmtDur, fmtTime, type GroupPlan, type PlanResult, type TogetherPlan } from './engine'
+import { JourneyQuestions, JourneyResults, type JourneyAsk, type JourneyResult } from './JourneyView'
 import { LegList, MapView, RouteCard, routeLayers, storable, type LiveRoute } from './RouteView'
 
 export type CommuteForm = {
   from: GeoPoint | null; to: GeoPoint | null; date: string; time: string; modes: Mode[]
-  budget: string; maxTransfers: string; people: number; touched: boolean; groupCode: string | null
+  budget: string; maxTransfers: string; people: number; touched: boolean; groupCode: string | null; ask?: JourneyAsk
+  /** the last search shown, so reopening the page (or the app) resumes where you were */
+  lastSearch?: string
 }
 const today = () => new Date().toISOString().slice(0, 10)
 const EMPTY: CommuteForm = { from: null, to: null, date: today(), time: '18:00', modes: [], budget: '', maxTransfers: '', people: 1, touched: false, groupCode: null }
@@ -28,6 +31,15 @@ const PRESETS: { name: string; from: GeoPoint; to: GeoPoint; time: string }[] = 
 ]
 
 const ll = (p: GeoPoint) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`
+const DEFAULT_ASK: JourneyAsk = { party: { adults: 1, children: 0, seniors: 0 }, luggage: 'light', priority: 'balanced', own: 'none' }
+const inIndia = (p: GeoPoint) => p.lat > 6 && p.lat < 37.5 && p.lon > 68 && p.lon < 97.5
+const crowKm = (a: GeoPoint, b: GeoPoint) => {
+  const r = Math.PI / 180, x = Math.sin(((b.lat - a.lat) * r) / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lon - a.lon) * r) / 2) ** 2
+  return 12742 * Math.asin(Math.sqrt(x))
+}
+/** Long or international trips use the journey planner (flights, trains, buses, your car); city trips the Daily Traveller engine. */
+export const isJourney = (a: GeoPoint, b: GeoPoint) => !inIndia(a) || !inIndia(b) || crowKm(a, b) > 80
+const nowHHMM = () => new Date().toTimeString().slice(0, 5)
 const parseLL = (name: string | null, v: string | null): GeoPoint | null => {
   if (!name || !v) return null
   const [lat, lon] = v.split(',').map(Number)
@@ -35,8 +47,12 @@ const parseLL = (name: string | null, v: string | null): GeoPoint | null => {
 }
 
 /** Encode a search in the URL so refresh, back/forward and saved-route links all work. */
-export function commuteUrl(f: { from: GeoPoint; to: GeoPoint; time: string; date?: string; modes: Mode[]; budget?: string | number | null; maxTransfers?: string | number | null; people?: number }) {
+export function commuteUrl(f: { from: GeoPoint; to: GeoPoint; time: string; date?: string; modes: Mode[]; budget?: string | number | null; maxTransfers?: string | number | null; people?: number; ask?: JourneyAsk }) {
   const p = new URLSearchParams({ f: f.from.name, fl: ll(f.from), t: f.to.name, tl: ll(f.to), tm: f.time, m: f.modes.join(',') })
+  if (isJourney(f.from, f.to)) {
+    const a = f.ask ?? DEFAULT_ASK
+    p.set('pa', `${a.party.adults}.${a.party.children}.${a.party.seniors}`); p.set('lg', a.luggage); p.set('pr', a.priority); p.set('ow', a.own)
+  }
   if (f.date) p.set('d', f.date)
   if (f.people && f.people > 1) p.set('p', String(f.people))
   if (f.budget !== '' && f.budget != null) p.set('b', String(f.budget))
@@ -54,6 +70,8 @@ type GroupResult = LiveGroup & { at: number; fromName: string; time: string }
 
 export default function CommutePage() {
   const { user, profile } = useAuth()
+  const [params0] = useSearchParams()
+  const mode: 'solo' | 'group' = params0.get('group') ? 'group' : 'solo'
   const { toast } = useStatus()
   const taste = useTaste(user?.uid)
   const [params, setParams] = useSearchParams()
@@ -74,13 +92,30 @@ export default function CommutePage() {
     const from = parseLL(params.get('f'), params.get('fl')), to = parseLL(params.get('t'), params.get('tl')), t = params.get('tm')
     if (!from || !to || !t || !validTime(t)) return null
     const modes = (params.get('m') ?? '').split(',').filter((m): m is Mode => (MODES as readonly string[]).includes(m))
-    return { from, to, time: t, date: params.get('d') ?? today(), modes, people: Number(params.get('p') ?? 1) || 1, budget: optNum(params.get('b') ?? ''), maxTransfers: optNum(params.get('x') ?? '') }
+    const [adults = 1, children = 0, seniors = 0] = (params.get('pa') ?? '').split('.').map(Number)
+    const ask: JourneyAsk = {
+      party: { adults: adults || 0, children: children || 0, seniors: seniors || 0 }, luggage: params.get('lg') === 'heavy' ? 'heavy' : 'light',
+      priority: (['fastest', 'cheapest', 'comfort'] as const).find((x) => x === params.get('pr')) ?? 'balanced', own: params.get('ow') === 'car' ? 'car' : params.get('ow') === 'scooter' ? 'scooter' : 'none',
+    }
+    if (ask.party.adults + ask.party.seniors < 1) ask.party.adults = 1
+    return { from, to, time: t, date: params.get('d') ?? today(), modes, people: Number(params.get('p') ?? 1) || 1, budget: optNum(params.get('b') ?? ''), maxTransfers: optNum(params.get('x') ?? ''), ask, journey: isJourney(from, to) }
   }, [params])
   useEffect(() => {
     if (!q) return
-    draft.update((p) => ({ ...p, from: q.from, to: q.to, time: q.time, date: q.date, modes: q.modes, people: q.people, budget: q.budget?.toString() ?? '', maxTransfers: q.maxTransfers?.toString() ?? '', touched: true }))
+    draft.update((p) => ({ ...p, from: q.from, to: q.to, time: q.time, date: q.date, modes: q.modes, people: q.people, budget: q.budget?.toString() ?? '', maxTransfers: q.maxTransfers?.toString() ?? '', touched: true, lastSearch: params.toString(), ...(q.journey ? { ask: q.ask } : {}) }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
+  // reopening /commute (reload, new tab, next visit) resumes the last search; past dates move to today
+  const resumed = useRef(false)
+  useEffect(() => {
+    if (resumed.current || !draft.restored) return
+    resumed.current = true
+    if (q || groupCode || params.toString() || !f.lastSearch) return
+    const p = new URLSearchParams(f.lastSearch)
+    p.delete('open')
+    if ((p.get('d') ?? '') < today()) p.set('d', today())
+    setParams(p, { replace: true })
+  }, [draft.restored, q, groupCode, params, f.lastSearch, setParams])
 
   useEffect(() => {
     if (groupCode && f.groupCode !== groupCode) draft.update((p) => ({ ...p, groupCode }))
@@ -88,12 +123,22 @@ export default function CommutePage() {
 
   // ------------------------------------------------------------ live search
   const [result, setResult] = useState<LivePlan | null>(null)
+  const [journey, setJourney] = useState<JourneyResult | null>(null)
+  const vehicles = profile.prefs.vehicles
   const search = useAction(async (query: NonNullable<typeof q>) => {
-    setResult(null)
-    const r = await api.post<LivePlan>('/api/commute/plan', query, `commute:${JSON.stringify(query)}`)
-    setResult(r)
-    if (user) logEvent(user.uid, { type: 'commute_search', at: Date.now(), modes: query.modes, people: query.people })
+    setResult(null); setJourney(null)
+    if (query.journey) {
+      const r = await api.post<JourneyResult>('/api/journey/plan', { from: query.from, to: query.to, date: query.date, time: query.time, ...query.ask, vehicles }, `journey:${JSON.stringify(query)}`)
+      setJourney(r)
+    } else {
+      const r = await api.post<LivePlan>('/api/commute/plan', { ...query, vehicles }, `commute:${JSON.stringify(query)}`)
+      setResult(r)
+    }
+    if (user) logEvent(user.uid, { type: 'commute_search', at: Date.now(), modes: query.modes, people: query.journey ? query.ask.party.adults + query.ask.party.children + query.ask.party.seniors : query.people })
   })
+  const fam = profile.prefs.family
+  const ask: JourneyAsk = f.ask ?? { ...DEFAULT_ASK, party: fam ?? DEFAULT_ASK.party, priority: profile.prefs.priority ?? 'balanced', own: vehicles?.car ? 'car' : 'none' }
+  const journeyForm = mode === 'solo' && !!f.from && !!f.to && isJourney(f.from, f.to)
   const lastQ = useRef('')
   useEffect(() => {
     if (!q || groupCode) return
@@ -112,7 +157,7 @@ export default function CommutePage() {
     if (!validTime(f.time)) e.time = 'Enter a time like 18:00.'
     const b = budgetError(optNum(f.budget)); if (b) e.budget = b
     const x = transfersError(optNum(f.maxTransfers)); if (x) e.maxTransfers = x
-    if (!f.modes.length) e.modes = 'Pick at least one way of travelling.'
+    if (!f.modes.length && !(f.from && f.to && isJourney(f.from, f.to))) e.modes = 'Pick at least one way of travelling.'
     setErrors(e)
     return !Object.keys(e).length
   }
@@ -120,7 +165,7 @@ export default function CommutePage() {
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!validate(true)) return
-    setParams(new URLSearchParams(commuteUrl({ ...f, from: f.from!, to: f.to! }).split('?')[1]))
+    setParams(new URLSearchParams(commuteUrl({ ...f, from: f.from!, to: f.to!, ask }).split('?')[1]))
   }
 
   const save = useAction(async (routeId: string) => {
@@ -142,6 +187,7 @@ export default function CommutePage() {
     toast(r.together?.recommended ? `Group plan ready — one ${r.together.mode === 'suv' ? 'SUV' : 'cab'} for everyone` : `Group plan ready — split at ${r.splitName}`, 'success'),
   )
   const isOwner = !!group && group.ownerUid === user?.uid
+  const groupLocked = mode === 'group' && !isOwner
   const me = user ? (group?.members[user.uid] as { dest?: GeoPoint } | undefined) : undefined
   const settings = group?.settings as { from?: GeoPoint; time?: string; date?: string; modes?: Mode[] } | undefined
 
@@ -178,8 +224,6 @@ export default function CommutePage() {
     await setGroup(groupCode, { settings: { from: f.from, time: f.time, date: f.date, modes: f.modes }, result: { ...safe, at: Date.now(), fromName: f.from!.name, time: f.time } })
   })
 
-  const mode: 'solo' | 'group' = groupCode ? 'group' : 'solo'
-  const groupLocked = mode === 'group' && !isOwner
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-6 px-5 pb-24 pt-10 md:px-10">
@@ -187,7 +231,7 @@ export default function CommutePage() {
         <div>
           <div className="tz-chapter">The nearest bus stand is not always the fastest way out.</div>
           <h1 className="tz-h1 mt-2 text-content">Daily Traveller</h1>
-          <p className="mt-3 max-w-2xl text-[16px] text-content-muted">Door-to-door routes anywhere in India, mixing metro, buses, trains, autos and cabs — live road times and real timetables.</p>
+          <p className="mt-3 max-w-2xl text-[16px] text-content-muted">Door-to-door journeys within a city, between states or abroad — metro, buses, trains, flights, autos, cabs and your own vehicle, compared on live road times and real timetables.</p>
         </div>
         <div className="flex items-center gap-3">
           <SaveStatus status={draft.status} onRetry={() => void draft.retry()} />
@@ -217,7 +261,7 @@ export default function CommutePage() {
         )}
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <LocationInput label="From" value={groupLocked ? settings?.from ?? null : f.from} onChange={(p) => set({ from: p })} disabled={groupLocked} />
+            <LocationInput label="From" value={groupLocked ? settings?.from ?? null : f.from} onChange={(p) => set({ from: p })} disabled={groupLocked} autoLocate={!q && !groupCode} />
             {errors.from && <p className="field-error">{errors.from}</p>}
           </div>
           <div>
@@ -236,7 +280,7 @@ export default function CommutePage() {
             <input id="time" type="time" className="tz-input" value={groupLocked ? settings?.time ?? '' : f.time} disabled={groupLocked} onChange={(e) => set({ time: e.target.value })} />
             {errors.time && <p className="field-error">{errors.time}</p>}
           </div>
-          {mode === 'solo' && (
+          {mode === 'solo' && !journeyForm && (
             <div>
               <span className="label">Travelling together</span>
               <div className="flex h-11 items-center gap-2">
@@ -247,11 +291,13 @@ export default function CommutePage() {
             </div>
           )}
         </div>
-        {mode === 'solo' && f.people >= 3 && !f.modes.includes('cab') && !f.modes.includes('suv') && (
+        {journeyForm && <JourneyQuestions value={ask} onChange={(a) => set({ ask: a })} hasCar={!!vehicles?.car} hasScooter={!!vehicles?.scooter} />}
+        {journeyForm && <div className="flex justify-end"><button className="btn h-12 px-8" disabled={search.busy}>{search.busy ? 'Comparing flights, trains, buses, cars…' : 'Compare journeys'}</button></div>}
+        {mode === 'solo' && !journeyForm && f.people >= 3 && !f.modes.includes('cab') && !f.modes.includes('suv') && (
           <p className="rounded-2xl bg-accent-subtle px-4 py-3 text-body text-content-secondary"><Car className="me-1 inline h-4 w-4" />With {f.people} people a shared cab is often cheaper per person and more comfortable. <button type="button" className="btn-link" onClick={() => set({ modes: [...f.modes, f.people > 4 ? 'suv' : 'cab'] })}>Add {f.people > 4 ? 'SUV cab' : 'cab'}</button></p>
         )}
 
-        {!groupLocked && (
+        {!groupLocked && !journeyForm && (
           <fieldset>
             <legend className="label">Modes you're comfortable with</legend>
             <div className="flex flex-wrap gap-2">
@@ -269,7 +315,7 @@ export default function CommutePage() {
           </fieldset>
         )}
 
-        {mode === 'solo' && (
+        {mode === 'solo' && !journeyForm && (
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className="label" htmlFor="budget">Budget per person (₹, optional)</label>
@@ -295,6 +341,10 @@ export default function CommutePage() {
         </div>
       )}
       {mode === 'solo' && search.error && !search.busy && <ErrorBox message={search.error} onRetry={() => void search.retry()} />}
+      {mode === 'solo' && journey && q?.journey && !search.busy && (
+        <JourneyResults r={journey} ask={q.ask} to={q.to} date={q.date}
+          onReplanFrom={(p) => setParams(new URLSearchParams(commuteUrl({ ...q, from: p, date: today(), time: nowHHMM() }).split('?')[1]))} />
+      )}
       {mode === 'solo' && result && !search.busy && (
         <SoloResults result={result} open={open}
           setOpen={(id) => { const p = new URLSearchParams(params); if (id) p.set('open', id); else p.delete('open'); setParams(p, { replace: true }) }}

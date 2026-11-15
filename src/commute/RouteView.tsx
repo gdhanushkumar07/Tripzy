@@ -15,7 +15,7 @@ export type LiveRoute = Omit<Route, 'legs'> & { legs: LiveLeg[]; gmaps?: string 
 
 export const MODE_COLOR: Record<Mode, string> = {
   walk: '#6c706a', cycle: '#4d7c0f', auto: '#ca8a04', shareauto: '#a16207', erick: '#65a30d', bike: '#ea580c', cab: '#7c3aed', suv: '#6d28d9',
-  citybus: '#dc2626', metro: '#2563eb', rail: '#0e7490', ferry: '#0891b2', ibus: '#315c4c', train: '#18211f',
+  citybus: '#dc2626', metro: '#2563eb', rail: '#0e7490', ferry: '#0891b2', ibus: '#315c4c', train: '#18211f', ownscooter: '#c2410c', owncar: '#1d4ed8',
 }
 
 const gTravel = (m: Mode) => (m === 'walk' ? 'walking' : m === 'cycle' ? 'bicycling' : ['metro', 'citybus', 'rail', 'train', 'ibus', 'ferry'].includes(m) ? 'transit' : m === 'bike' ? 'two-wheeler' : 'driving')

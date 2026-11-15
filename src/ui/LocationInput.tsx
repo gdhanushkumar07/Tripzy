@@ -1,15 +1,16 @@
 import { Loader2, LocateFixed, MapPin } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { api, type GeoPoint } from '../lib/api'
+import { currentPosition, shouldAutoLocate } from '../lib/location'
 import { toFriendly } from '../lib/request'
 
 /**
- * Search any place in India (Ola Maps / OpenStreetMap through the API server),
- * with keyboard support and "use my location".
+ * Search any place in the world (Ola Maps / OpenStreetMap through the API server), biased to
+ * where you are, with keyboard support and "use my location" (auto-filled once when autoLocate).
  */
-export function LocationInput({ label, value, onChange, placeholder = 'Search a place in India', near, disabled, allowLocate = true }: {
+export function LocationInput({ label, value, onChange, placeholder = 'Search any place, station or airport', near, disabled, allowLocate = true, autoLocate = false }: {
   label: string; value: GeoPoint | null; onChange: (p: GeoPoint | null) => void; placeholder?: string
-  near?: { lat: number; lon: number } | null; disabled?: boolean; allowLocate?: boolean
+  near?: { lat: number; lon: number } | null; disabled?: boolean; allowLocate?: boolean; autoLocate?: boolean
 }) {
   const id = useId()
   const [text, setText] = useState(value?.name ?? '')
@@ -37,7 +38,7 @@ export function LocationInput({ label, value, onChange, placeholder = 'Search a 
         setItems(r)
         setOpen(true)
         setActive(0)
-        if (!r.length) setErr('No place found in India with that name.')
+        if (!r.length) setErr('No place found with that name.')
       } catch (e) {
         setErr(toFriendly(e).message)
       } finally {
@@ -53,21 +54,22 @@ export function LocationInput({ label, value, onChange, placeholder = 'Search a 
   }
 
   const locate = () => {
-    if (!navigator.geolocation) return setErr('Location is not available in this browser.')
     setBusy(true)
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const r = await api.reverse(pos.coords.latitude, pos.coords.longitude)
-          pick(r ?? { name: 'My location', lat: pos.coords.latitude, lon: pos.coords.longitude })
-        } catch {
-          pick({ name: 'My location', lat: pos.coords.latitude, lon: pos.coords.longitude })
-        } finally { setBusy(false) }
-      },
-      () => { setBusy(false); setErr('Location permission was denied.') },
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
+    currentPosition().then(pick, (e: Error) => setErr(e.message)).finally(() => setBusy(false))
   }
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange })
+  // live location as the default start, once per session, only while the field is empty
+  const auto = useRef({ value, autoLocate, disabled })
+  useEffect(() => {
+    const a = auto.current
+    if (!a.autoLocate || a.value || a.disabled) return
+    let off = false
+    void shouldAutoLocate().then((ok) => {
+      if (ok && !off) currentPosition().then((p) => { if (!off) { onChangeRef.current(p); setText(p.name) } }, () => undefined)
+    })
+    return () => { off = true }
+  }, [])
 
   return (
     <div className="relative">

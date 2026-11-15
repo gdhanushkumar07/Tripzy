@@ -12,7 +12,9 @@ import { MODES, MODE_LABEL, type Mode } from '../lib/types'
 
 // ---------------------------------------------------------------- graph types
 
-type PrivateSpec = { base: number; perKm: number; perMin?: number; baseKm?: number; wait: number; speed: number; peakShare: number; maxKm: number; capacity: number }
+type PrivateSpec = { base: number; perKm: number; perMin?: number; baseKm?: number; wait: number; speed: number; peakShare: number; maxKm: number; capacity: number
+  /** your own vehicle: it starts at the origin, so it can only be the first ride (then it is parked) */
+  own?: boolean }
 export type GraphNode = { id: string; name: string; kind: string; lat: number; lon: number }
 type Segment = { km: number; min: number; fare: number; peak?: number }
 type Line = {
@@ -161,6 +163,7 @@ function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): L
       if (l.vehicle === 'walk' && l.boardings === 0 && l.vehicle !== m) continue
       const p = g.data.private[m]!
       const cont = l.vehicle === m
+      if (p.own && !cont && (l.boardings > 0 || l.vehicle === 'walk')) continue
       const rideKm = (cont ? l.rideKm : 0) + arc.km
       if (rideKm > p.maxKm) continue
       const free = arc.min * p.speed
@@ -210,7 +213,7 @@ export function search(g: Graph, q: Query, obj: Objective, groupSize = 1): Route
       for (const n of expand(g, l, arc, modes, groupSize)) {
         if (q.budget != null && n.fare / groupSize > q.budget) continue
         if (q.maxTransfers != null && n.changes > q.maxTransfers) continue
-        if (n.t - q.depart > 24 * 60) continue
+        if (n.t - q.depart > 48 * 60) continue // long-distance trains and buses can run over a day
         const k = key(n)
         const labels = front.get(k) ?? []
         if (labels.some((o) => dominates(o, n))) continue

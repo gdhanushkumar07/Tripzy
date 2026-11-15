@@ -46,6 +46,11 @@ export function rideFare(mode: RoadMode, km: number, min: number, t: Tariff, dep
 // ---------------------------------------------------------------- booking links
 
 export type Link = { label: string; url: string }
+
+/** Retail fuel prices in India (₹ per litre / kg / kWh-equivalent per km for EVs), Nov 2026 averages. */
+export const FUEL_PRICE = { petrol: 103, diesel: 90, cng: 88, ev: 9 } as const
+/** Running cost of your own vehicle per km: fuel only (tolls and parking are added separately). */
+export const ownPerKm = (kmpl: number, fuel: keyof typeof FUEL_PRICE) => (fuel === 'ev' ? 1.4 : FUEL_PRICE[fuel] / Math.max(5, kmpl))
 type P = { lat: number; lon: number; name?: string }
 
 export function rideLinks(mode: string, a: P, b: P): Link[] {
@@ -56,7 +61,7 @@ export function rideLinks(mode: string, a: P, b: P): Link[] {
   if (mode === 'cab' || mode === 'suv') out.push({ label: 'Uber', url: uber }, { label: 'Ola', url: ola }, { label: 'Rapido', url: 'https://www.rapido.bike/' }, { label: 'Namma Yatri', url: 'https://nammayatri.in/' })
   if (mode === 'auto') out.push({ label: 'Namma Yatri', url: 'https://nammayatri.in/' }, { label: 'Rapido', url: 'https://www.rapido.bike/' }, { label: 'Ola', url: ola }, { label: 'Uber', url: uber })
   if (mode === 'bike') out.push({ label: 'Rapido', url: 'https://www.rapido.bike/' }, { label: 'Uber Moto', url: uber }, { label: 'Ola Bike', url: ola })
-  out.push({ label: 'Google Maps', url: `https://www.google.com/maps/dir/?api=1&origin=${ll(a)}&destination=${ll(b)}&travelmode=${mode === 'walk' ? 'walking' : mode === 'cycle' ? 'bicycling' : ['bike'].includes(mode) ? 'two-wheeler' : ['metro', 'citybus', 'rail', 'train', 'ibus', 'ferry'].includes(mode) ? 'transit' : 'driving'}` })
+  out.push({ label: 'Google Maps', url: `https://www.google.com/maps/dir/?api=1&origin=${ll(a)}&destination=${ll(b)}&travelmode=${mode === 'walk' ? 'walking' : mode === 'cycle' ? 'bicycling' : ['bike', 'ownscooter'].includes(mode) ? 'two-wheeler' : ['metro', 'citybus', 'rail', 'train', 'ibus', 'ferry'].includes(mode) ? 'transit' : 'driving'}` })
   return out
 }
 

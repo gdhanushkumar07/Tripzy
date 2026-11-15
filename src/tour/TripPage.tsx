@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Car, Footprints, Repeat, 
 import { Navigation, ShieldCheck } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { logEvent } from '../lib/history'
+import { GettingThere } from './GettingThere'
 import { PlaceImage } from '../ui/kit'
 import { popupHtml, type MapLayer } from '../ui/LiveMap'
 const LiveMap = lazy(() => import('../ui/LiveMap'))
@@ -162,6 +163,11 @@ export default function TripPage() {
           </div>
         </div>
       </article>
+
+      {(() => {
+        const c = trip.center ?? trip.places?.find((x) => x.cat !== 'food')
+        return c ? <GettingThere dest={{ name: trip.center?.name ?? CITIES[trip.city]?.name ?? trip.city, lat: c.lat, lon: c.lon }} start={trip.start} days={trip.days.length} party={trip.party} /> : null
+      })()}
 
       {trip.days.map((day, di) => (
         <section key={day.date} className="mt-14" aria-label={`Day ${di + 1}`}>

@@ -1,10 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { browserLocalPersistence, connectAuthEmulator, getAuth, setPersistence } from 'firebase/auth'
-import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-} from './localstore'
+import { initializeFirestore } from './localstore'
 
 const env = import.meta.env
 /** No keys configured → run against the local emulators so the app works out of the box. */
@@ -24,12 +20,8 @@ const app = initializeApp(
 export const auth = getAuth(app)
 void setPersistence(auth, browserLocalPersistence)
 
-/** Offline persistence: reads come from the IndexedDB cache and writes queue until the network returns. */
 /** Tripzy keeps data in this browser (see localstore.ts); no cloud database needed. */
-export const db = initializeFirestore(app, {
-  ignoreUndefinedProperties: true,
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-})
+export const db = initializeFirestore()
 
 if (usingEmulators) {
   const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname

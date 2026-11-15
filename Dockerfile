@@ -2,7 +2,7 @@
 FROM node:24-slim
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --include=dev --no-audit --no-fund
+RUN npm install --include=dev --no-audit --no-fund
 COPY . .
 # Firebase web config is baked into the web bundle at build time (Render passes env vars as build args).
 ARG VITE_FIREBASE_API_KEY

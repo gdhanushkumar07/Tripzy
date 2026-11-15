@@ -1,0 +1,13 @@
+node_modules
+dist
+server-dist
+.git
+.trash
+api-keys.env
+.env
+.env.*
+!.env.example
+platform
+backend
+travel
+*.mp4

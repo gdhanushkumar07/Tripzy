@@ -16,6 +16,7 @@ import { planCommute, planGroupCommute, planMeetCommute, type Point } from './pl
 import { planTour } from './plan/tour'
 import { planJourney } from './plan/journey'
 import { hotelsNear } from './providers/hotels'
+import { chat, type ChatContext, type ChatMsg } from './ai/agent'
 import { loadFeeds } from './transit/gtfs'
 
 const app = express()
@@ -105,6 +106,7 @@ app.post('/api/journey/plan', wrap(async (req) => {
   return planJourney({
     from: anyPoint(b.from), to: anyPoint(b.to), date: date(b.date), time: time(b.time), party: party(b.party),
     luggage: b.luggage === 'heavy' ? 'heavy' : 'light', priority: pr, own: b.own === 'car' || b.own === 'scooter' ? b.own : 'none', vehicles: vehicles(b.vehicles),
+    modes: modes(b.modes), flights: b.flights !== false,
   })
 }))
 
@@ -126,6 +128,23 @@ app.post('/api/commute/meet', wrap(async (req) => {
   const members = (Array.isArray(b.members) ? b.members : []).slice(0, 12).map((m: { id: string; name: string; point: unknown }) => ({ id: String(m.id), name: String(m.name).slice(0, 40), point: point(m.point) }))
   if (members.length < 2) throw new UpstreamError('At least two members need to set where they start', 400)
   return planMeetCommute({ to: point(b.to), date: date(b.date), time: time(b.time), modes: modes(b.modes), members })
+}))
+
+// Tripzy AI chat: the last messages + what the app knows (location, preferences, saved items)
+app.post('/api/ai/chat', wrap(async (req) => {
+  const b = req.body ?? {}
+  const messages: ChatMsg[] = (Array.isArray(b.messages) ? b.messages : []).slice(-14)
+    .filter((m: ChatMsg) => (m?.role === 'user' || m?.role === 'assistant') && typeof m.text === 'string')
+    .map((m: ChatMsg) => ({ role: m.role, text: m.text.slice(0, 2000) }))
+  if (!messages.some((m) => m.role === 'user')) throw new UpstreamError('Say something first', 400)
+  const c = (b.context ?? {}) as ChatContext
+  const ctx: ChatContext = {
+    location: c.location && Number.isFinite(c.location.lat) && Number.isFinite(c.location.lon) ? { lat: num(c.location.lat, -90, 90), lon: num(c.location.lon, -180, 180), name: str(c.location.name, 80) } : undefined,
+    prefs: c.prefs ? { modes: modes(c.prefs.modes), vehicles: vehicles(c.prefs.vehicles), family: c.prefs.family ? party(c.prefs.family) : undefined, priority: (['balanced', 'fastest', 'cheapest', 'comfort'] as Priority[]).find((x) => x === c.prefs?.priority) } : undefined,
+    memory: (Array.isArray(c.memory) ? c.memory : []).slice(0, 40).map((m) => ({ title: String(m?.title ?? '').slice(0, 80), text: String(m?.text ?? '').slice(0, 300) })),
+    name: str(c.name, 40),
+  }
+  return chat(messages, ctx)
 }))
 
 app.post('/api/tour/plan', wrap(async (req) => {

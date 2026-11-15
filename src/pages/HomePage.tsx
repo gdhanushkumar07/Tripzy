@@ -378,7 +378,7 @@ function DailyTraveller() {
             <div><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-content-muted">Peak traffic</div><div className="mt-1 font-serif text-[34px] leading-none text-[var(--tz-coral)]">−50 min</div></div>
           </div>
           <div data-reveal data-reveal-stagger className="mt-8 flex flex-wrap gap-2">
-            {['Cheapest', 'Fastest', 'Fewest transfers', 'Travel as a group, split on the way'].map((t) => <span key={t} className="rounded-full border border-edge bg-surface-card px-3.5 py-1.5 text-[13px] text-content-secondary">{t}</span>)}
+            {['Recommended', 'Fastest', 'Cheapest', 'Most comfortable', 'Travel as a group, split or meet on the way'].map((t) => <span key={t} className="rounded-full border border-edge bg-surface-card px-3.5 py-1.5 text-[13px] text-content-secondary">{t}</span>)}
           </div>
           <button data-reveal type="button" onClick={() => nav('/commute')} className="group mt-10 inline-flex h-14 items-center gap-3 rounded-full bg-accent px-7 text-[15px] font-semibold text-accent-text transition hover:bg-accent-hover">
             Plan my commute <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

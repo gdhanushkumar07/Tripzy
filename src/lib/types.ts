@@ -1,11 +1,13 @@
-export const MODES = ['walk', 'cycle', 'auto', 'shareauto', 'erick', 'bike', 'cab', 'suv', 'citybus', 'metro', 'rail', 'ferry', 'ibus', 'train', 'ownscooter', 'owncar'] as const
+export const MODES = ['walk', 'cycle', 'auto', 'erick', 'bike', 'cab', 'suv', 'citybus', 'metro', 'rail', 'ferry', 'ibus', 'train', 'ownscooter', 'owncar'] as const
 export type Mode = (typeof MODES)[number]
+/** Modes saved by older versions that are no longer offered (shared autos: availability unknown). */
+export const RETIRED_MODES = ['shareauto']
+export const cleanModes = (m: readonly string[] = []): Mode[] => m.filter((x): x is Mode => (MODES as readonly string[]).includes(x))
 
 export const MODE_LABEL: Record<Mode, string> = {
   walk: 'Walk',
   cycle: 'Cycle',
   auto: 'Auto',
-  shareauto: 'Shared auto',
   erick: 'E-rickshaw',
   bike: 'Bike taxi',
   cab: 'Cab',
@@ -21,7 +23,7 @@ export const MODE_LABEL: Record<Mode, string> = {
 }
 
 export const MODE_ICON: Record<Mode, string> = {
-  walk: '🚶', cycle: '🚲', auto: '🛺', shareauto: '🛺', erick: '🛵', bike: '🏍️', cab: '🚕', suv: '🚙',
+  walk: '🚶', cycle: '🚲', auto: '🛺', erick: '🛵', bike: '🏍️', cab: '🚕', suv: '🚙',
   citybus: '🚌', metro: '🚇', rail: '🚈', ferry: '⛴️', ibus: '🚍', train: '🚆', ownscooter: '🛵', owncar: '🚗',
 }
 
@@ -33,4 +35,4 @@ export type Prefs = { modes: Mode[]; budget: number | null; maxTransfers: number
 export type Priority = 'balanced' | 'fastest' | 'cheapest' | 'comfort'
 export type Profile = { name: string; prefs: Prefs }
 
-export const DEFAULT_PREFS: Prefs = { modes: ['walk', 'auto', 'shareauto', 'bike', 'metro', 'citybus', 'rail', 'ibus', 'train'], budget: null, maxTransfers: null }
+export const DEFAULT_PREFS: Prefs = { modes: ['walk', 'auto', 'bike', 'cab', 'metro', 'citybus', 'rail', 'ibus', 'train'], budget: null, maxTransfers: null }

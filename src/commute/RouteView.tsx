@@ -10,11 +10,13 @@ export type LiveLeg = Leg & {
   source?: string; estimate?: boolean; links?: { label: string; url: string }[]
   /** road/line shape; a compact "lat,lon;lat,lon" string once stored in Firestore (no nested arrays there) */
   geometry?: [number, number][] | string; color?: string; from_ll?: [number, number]; to_ll?: [number, number]
+  /** other ways to finish from this stop, decided on the spot (next bus, auto, bike taxi, cab, walk) */
+  alts?: { mode: Mode; minutes: number; fare: number; wait: number; arrive: number; via: string }[]
 }
 export type LiveRoute = Omit<Route, 'legs'> & { legs: LiveLeg[]; gmaps?: string }
 
 export const MODE_COLOR: Record<Mode, string> = {
-  walk: '#6c706a', cycle: '#4d7c0f', auto: '#ca8a04', shareauto: '#a16207', erick: '#65a30d', bike: '#ea580c', cab: '#7c3aed', suv: '#6d28d9',
+  walk: '#6c706a', cycle: '#4d7c0f', auto: '#ca8a04', erick: '#65a30d', bike: '#ea580c', cab: '#7c3aed', suv: '#6d28d9',
   citybus: '#dc2626', metro: '#2563eb', rail: '#0e7490', ferry: '#0891b2', ibus: '#315c4c', train: '#18211f', ownscooter: '#c2410c', owncar: '#1d4ed8',
 }
 
@@ -89,6 +91,18 @@ export function LegList({ legs, who, showLinks = true }: { legs: LiveLeg[]; who?
               {l.peakDelay >= 3 && <span className="text-warning"> · +{l.peakDelay} min peak traffic</span>}
             </p>
             {l.note && <p className="mt-1 rounded-lg bg-warning-soft px-2 py-1 text-caption text-warning">⚠️ {l.note}</p>}
+            {l.alts && l.alts.length > 1 && (
+              <div className="mt-1.5 rounded-xl bg-surface-secondary p-2 text-caption">
+                <p className="font-semibold text-content-secondary">Other ways from {l.fromName} (arriving {fmtTime(l.depart - l.wait)}):</p>
+                <ul className="mt-1 flex flex-wrap gap-1.5">
+                  {l.alts.map((a) => (
+                    <li key={a.mode} title={a.via} className={`rounded-full border px-2.5 py-0.5 ${a.mode === l.mode ? 'border-[var(--accent)] text-content' : 'border-edge text-content-secondary'}`}>
+                      {MODE_ICON[a.mode]} {MODE_LABEL[a.mode]} · {fmtDur(a.minutes)} · {a.fare ? `₹${a.fare}` : 'free'}{a.wait >= 2 && ['citybus', 'metro'].includes(a.mode) ? ` · next in ${a.wait} min` : ''} · arrive {fmtTime(a.arrive)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {showLinks && (
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-caption">
                 {legDirections(l) && (
@@ -114,7 +128,9 @@ export function LegList({ legs, who, showLinks = true }: { legs: LiveLeg[]; who?
 const BADGE: Record<string, string> = {
   Cheapest: 'bg-success-soft text-success',
   Fastest: 'bg-accent-subtle text-accent-on',
-  'Fewest transfers': 'tz-coral-pill',
+  'Most comfortable': 'tz-coral-pill',
+  Recommended: 'bg-accent text-accent-text',
+  'Public transport': 'bg-surface-secondary text-content-secondary',
 }
 
 export function RouteCard({ route, open, onToggle, onSave, saving }: {

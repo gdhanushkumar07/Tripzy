@@ -3,18 +3,17 @@
  * and typical app pricing. No ride-hailing company offers a public price API, so these
  * are labelled "Estimate" in the UI and every leg links out to the operator's own app.
  */
-export type RoadMode = 'auto' | 'shareauto' | 'erick' | 'bike' | 'cab' | 'suv' | 'cycle'
+export type RoadMode = 'auto' | 'erick' | 'bike' | 'cab' | 'suv' | 'cycle'
 
 type Tariff = { base: number; baseKm: number; perKm: number; perMin?: number; seats: number; wait: number; speed: number; peakShare: number; maxKm: number }
 
-/** National defaults (₹). Cab ≈ app "Mini", SUV ≈ 6-seater; shared auto/e-rickshaw are per seat. */
+/** National defaults (₹). Cab ≈ app "Mini", SUV ≈ 6-seater (city and intercity up to 200 km; longer trips use outstation cabs); e-rickshaw is per seat. */
 const DEFAULT: Record<RoadMode, Tariff> = {
   auto: { base: 30, baseKm: 1.5, perKm: 16, seats: 3, wait: 5, speed: 1.1, peakShare: 1, maxKm: 25 },
-  shareauto: { base: 15, baseKm: 3, perKm: 4, seats: 1, wait: 8, speed: 1.2, peakShare: 1, maxKm: 12 },
   erick: { base: 10, baseKm: 2, perKm: 5, seats: 1, wait: 5, speed: 1.6, peakShare: 0.8, maxKm: 6 },
-  bike: { base: 20, baseKm: 1, perKm: 8, seats: 1, wait: 4, speed: 0.9, peakShare: 0.7, maxKm: 20 },
-  cab: { base: 60, baseKm: 0, perKm: 14, perMin: 1.5, seats: 4, wait: 7, speed: 1.0, peakShare: 1, maxKm: 600 },
-  suv: { base: 90, baseKm: 0, perKm: 19, perMin: 2, seats: 6, wait: 9, speed: 1.0, peakShare: 1, maxKm: 600 },
+  bike: { base: 20, baseKm: 1, perKm: 8, seats: 1, wait: 4, speed: 0.9, peakShare: 0.7, maxKm: 30 },
+  cab: { base: 60, baseKm: 0, perKm: 14, perMin: 1.5, seats: 4, wait: 7, speed: 1.0, peakShare: 1, maxKm: 200 },
+  suv: { base: 90, baseKm: 0, perKm: 19, perMin: 2, seats: 6, wait: 9, speed: 1.0, peakShare: 1, maxKm: 200 },
   cycle: { base: 0, baseKm: 0, perKm: 0, seats: 1, wait: 0, speed: 3.2, peakShare: 0.1, maxKm: 15 },
 }
 

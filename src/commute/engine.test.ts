@@ -31,13 +31,13 @@ describe('Kokapet → Warangal at evening peak', () => {
     expect(places(fastest)).toContain('mgbs')
   })
 
-  it('returns up to three distinct, labelled routes', () => {
+  it('returns up to four distinct routes: Recommended, Fastest, Cheapest, Most comfortable', () => {
     const res = plan(g, { ...at6pm, modes: ALL })
     expect(res.routes.length).toBeGreaterThan(0)
-    expect(res.routes.length).toBeLessThanOrEqual(3)
+    expect(res.routes.length).toBeLessThanOrEqual(4)
     expect(new Set(res.routes.map((r) => r.id)).size).toBe(res.routes.length)
     const labels = res.routes.flatMap((r) => r.labels).sort()
-    expect(labels).toEqual(['Cheapest', 'Fastest', 'Fewest transfers'])
+    expect(labels).toEqual(['Cheapest', 'Fastest', 'Most comfortable', 'Recommended'])
     const cheapest = res.routes.find((r) => r.labels.includes('Cheapest'))!
     for (const r of res.routes) expect(cheapest.fare).toBeLessThanOrEqual(r.fare)
   })
@@ -160,5 +160,63 @@ describe('meeting point for people starting in different places', () => {
 
   it('early arrivers are told to leave later rather than wait', () => {
     for (const m of res.best.members) expect(m.leaveBy).toBeGreaterThanOrEqual(toMin('18:00'))
+  })
+})
+
+describe('group variations a normal group would try', () => {
+  const at = (id: string, name: string, to: string) => ({ id, name, to })
+
+  it('everyone to the same place: one shared plan, nobody pays more than going alone', () => {
+    const p = planGroup(g, { from: 'kokapet', depart: toMin('18:00'), modes: ALL, members: [at('a', 'Asha', 'wgl'), at('b', 'Ravi', 'wgl'), at('c', 'Meena', 'wgl')] })!
+    expect(p).toBeTruthy()
+    // the group plan values time like Recommended: compare money + time with each person's solo Recommended
+    const solo = plan(g, { from: 'kokapet', to: 'wgl', depart: toMin('18:00'), modes: ALL }).routes.find((r) => r.labels.includes('Recommended'))!
+    const groupArrive = Math.max(...p.members.map((m) => m.route?.arrive ?? p.shared?.arrive ?? 0))
+    const score = (fare: number, arrive: number) => fare + 5 * (arrive - toMin('18:00'))
+    expect(score(p.totalPerPerson, groupArrive)).toBeLessThanOrEqual(score(solo.fare, solo.arrive) + 30)
+  })
+
+  it('bigger groups never pay more per person for a shared cab ride', () => {
+    const per = (n: number) => planGroup(g, { from: 'kokapet', depart: toMin('11:00'), modes: ['walk', 'cab'], members: Array.from({ length: n }, (_, i) => at(String(i), `P${i}`, 'ameerpet')) })!.totalPerPerson
+    expect(per(2)).toBeLessThanOrEqual(per(1))
+    expect(per(4)).toBeLessThanOrEqual(per(2))
+  })
+
+  it('meeting point: a member who starts at the meeting point gets no legs and waits for nobody', () => {
+    const r = planMeet(g, { to: 'wgl', depart: toMin('18:00'), modes: ALL, members: [{ id: 'a', name: 'Asha', from: 'kokapet' }, { id: 'b', name: 'Ravi', from: 'uppal' }] })!
+    expect(r).toBeTruthy()
+    const atUppal = [r.best, ...r.alternatives].find((p) => p.at === 'uppal')
+    if (atUppal) expect(atUppal.members.find((m) => m.id === 'b')!.route.legs).toHaveLength(0)
+  })
+
+  it('meeting point never returns a plan someone cannot reach', () => {
+    const r = planMeet(g, { to: 'wgl', depart: toMin('07:00'), modes: ['walk', 'metro', 'ibus'], members: [{ id: 'a', name: 'Asha', from: 'lbnagar' }, { id: 'b', name: 'Ravi', from: 'dsnr' }] })
+    if (r) for (const m of r.best.members) expect(m.route).toBeTruthy()
+  })
+})
+
+describe('route sanity a normal person expects', () => {
+  it('never chains two hired rides back to back (bike → walk → bike)', () => {
+    for (const t of ['08:00', '12:00', '18:00', '22:00']) for (const r of plan(g, { ...at6pm, depart: toMin(t), modes: ALL }).routes) {
+      const rides = r.legs.filter((l) => l.mode !== 'walk')
+      for (let i = 1; i < rides.length; i++) {
+        const road = ['auto', 'bike', 'cab']
+        expect(road.includes(rides[i - 1].mode) && road.includes(rides[i].mode)).toBe(false)
+      }
+    }
+  })
+
+  it('Most comfortable is never less comfortable than Cheapest (fewer bus/bike minutes or changes)', () => {
+    const res = plan(g, { ...at6pm, modes: ALL })
+    const comfy = res.routes.find((r) => r.labels.includes('Most comfortable'))!, cheap = res.routes.find((r) => r.labels.includes('Cheapest'))!
+    const hard = (r: typeof comfy) => r.legs.filter((l) => ['citybus', 'bike', 'walk'].includes(l.mode)).reduce((s, l) => s + l.minutes, 0) + 15 * r.changes
+    expect(hard(comfy)).toBeLessThanOrEqual(hard(cheap))
+  })
+
+  it('a route never visits the same stop twice', () => {
+    for (const r of plan(g, { ...at6pm, modes: ALL }).routes) {
+      const stops = r.legs.flatMap((l, i) => (i === 0 ? [l.from, l.to] : [l.to]))
+      expect(new Set(stops).size).toBe(stops.length)
+    }
   })
 })

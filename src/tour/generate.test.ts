@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayTotal, generateBasic, moveStop, placeById, removeStop, swapStop, alternatives, tripTotal } from './generate'
+import { dayTotal, generateBasic, moveStop, placeById, removeStop, swapStop, alternatives, tripTotal, travel } from './generate'
 import { mergeAnswers, type Answers } from './questions'
 
 const solo: Answers = {
@@ -55,5 +55,24 @@ describe('group merge', () => {
     expect(m.votes.history).toEqual(['Asha', 'Ravi'])
     const t = generateBasic(m, 2)
     expect(t.days[0].stops.some((s) => s.who.length > 0)).toBe(true)
+  })
+})
+
+describe('getting around between stops uses the modes you are comfortable with', () => {
+  const a = { lat: 17.3616, lon: 78.4747 }, b = { lat: 17.385, lon: 78.4867 } // Charminar → ~3 km
+  it('without preferences it stays the auto estimate (unchanged behaviour)', () => {
+    expect(travel(a, b, 2).mode).toBeUndefined()
+  })
+  it('never picks a mode you did not choose', () => {
+    for (const modes of [['transit'], ['cab'], ['walk', 'bike'], ['owncar']] as const) {
+      const t = travel(a, b, 2, [...modes])
+      expect([...modes, 'walk']).toContain(t.mode)
+    }
+  })
+  it('a family of 4 that is fine with cabs and autos gets one cab, not two autos', () => {
+    expect(travel(a, b, 4, ['auto', 'cab']).mode).toBe('cab')
+  })
+  it('short hops are walked when walking is allowed', () => {
+    expect(travel(a, { lat: 17.3625, lon: 78.4755 }, 1, ['walk', 'cab']).mode).toBe('walk')
   })
 })

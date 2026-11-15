@@ -110,7 +110,7 @@ export default function Dashboard() {
                 <Link to={tourDraft?.groupCode ? `/tour?group=${tourDraft.groupCode}` : '/tour'} className="group block">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#D98955]">Tourist Planner</div>
                   <div className="mt-1 flex items-center justify-between gap-3 text-[17px]">
-                    {answered} of 12 questions answered
+                    {answered} of 13 questions answered
                     <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
                   </div>
                   <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[#D98955]" style={{ width: `${(answered / 12) * 100}%` }} /></div>
@@ -148,7 +148,7 @@ export default function Dashboard() {
         {trips.error ? <div className="mt-6"><ErrorBox message={trips.error} /></div> : trips.items === null ? (
           <div className="mt-8 space-y-3">{[0, 1].map((i) => <Skeleton key={i} className="h-24" />)}</div>
         ) : !trips.items.length ? (
-          <p className="mt-6 max-w-md text-[15px] text-content-muted">No trips yet. <Link to="/tour" className="text-accent-on underline underline-offset-2">Answer the 12 questions</Link> and your first one appears here.</p>
+          <p className="mt-6 max-w-md text-[15px] text-content-muted">No trips yet. <Link to="/tour" className="text-accent-on underline underline-offset-2">Answer the 13 questions</Link> and your first one appears here.</p>
         ) : (
           <ul data-reveal data-reveal-stagger className="mt-8 border-t border-edge">
             {trips.items.map((t) => {

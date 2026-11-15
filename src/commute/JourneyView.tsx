@@ -25,11 +25,11 @@ export type JOption = {
   walkKm: number; waitMin: number; comfort: number; reliability: number; notes: string[]; tags: Tag[]; why: string; estimate: boolean; gmaps: string
 }
 export type JourneyResult = { options: JOption[]; sources: string[]; km: number; start: string; timeZone?: string; message?: string }
-export type JourneyAsk = { party: Family; luggage: 'light' | 'heavy'; priority: Priority; own: 'none' | 'car' | 'scooter' }
+export type JourneyAsk = { party: Family; luggage: 'light' | 'heavy'; priority: Priority; own: 'none' | 'car' | 'scooter'; flights?: boolean }
 
 const ICON: Record<string, string> = {
   flight: '✈️', train: '🚆', rail: '🚈', metro: '🚇', citybus: '🚌', ibus: '🚍', coach: '🚍', ferry: '⛴️', cab: '🚕', suv: '🚙', owncar: '🚗', ownscooter: '🛵',
-  auto: '🛺', shareauto: '🛺', erick: '🛵', bike: '🏍️', cycle: '🚲', walk: '🚶', transit: '🚉',
+  auto: '🛺', erick: '🛵', bike: '🏍️', cycle: '🚲', walk: '🚶', transit: '🚉',
 }
 const COLOR: Record<string, string> = {
   flight: '#0ea5e9', train: '#18211f', rail: '#0e7490', metro: '#2563eb', citybus: '#dc2626', ibus: '#315c4c', coach: '#315c4c', ferry: '#0891b2',
@@ -76,6 +76,8 @@ export function JourneyQuestions({ value, onChange, hasCar, hasScooter }: { valu
         <span className="label">3 · Take your own vehicle?</span>
         {choice(value.own, (own) => onChange({ ...value, own }), [['none', 'No'], ['car', hasCar ? 'My car' : 'A car'], ['scooter', hasScooter ? 'My scooter' : 'A scooter']])}
         <p className="mt-2 text-caption text-content-faint">{hasCar || hasScooter ? 'Fuel cost uses the mileage saved in your profile.' : 'Save your vehicle’s mileage in your dashboard for exact fuel costs.'}</p>
+        <span className="label mt-3">Flights</span>
+        {choice(value.flights === false ? 'no' : 'yes', (v) => onChange({ ...value, flights: v === 'yes' }), [['yes', '✈️ Flights are fine'], ['no', 'No flights']])}
       </div>
     </div>
   )

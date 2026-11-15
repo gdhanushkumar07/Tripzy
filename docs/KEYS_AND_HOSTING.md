@@ -6,7 +6,7 @@ All keys go in `.env` at the repo root (git-ignored). Restart `npm run dev` afte
 
 | Key | Status | Used for |
 |---|---|---|
-| `GEMINI_API_KEY` | set | AI reading of live web news — needs `TAVILY_API_KEY` too |
+| `GEMINI_API_KEY` | set | Tripzy AI chat, and AI reading of live web news (with `TAVILY_API_KEY`). Leave `GEMINI_MODEL` empty: Tripzy uses `gemini-flash-latest` and fails over to other Flash models when one is retired or overloaded |
 | `GEOAPIFY_API_KEY` | set | Restaurants with vegetarian tags and opening hours; backup place search |
 | `LITEAPI_KEY` | set (sandbox) | Hotel rates in “Where to stay” — sandbox prices are labelled as test prices |
 | `TAVILY_API_KEY` | set | Live web/news checks for tour places (with Gemini) |

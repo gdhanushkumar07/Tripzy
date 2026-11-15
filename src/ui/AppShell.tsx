@@ -1,4 +1,4 @@
-import { ChevronDown, Home, LogOut, Moon, Route, Sun, Luggage } from 'lucide-react'
+import { ChevronDown, Home, LogOut, Moon, Route, Sparkles, Sun, Luggage } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router'
@@ -10,6 +10,7 @@ const TABS = [
   { path: '/', label: 'Home', Icon: Home, match: (p: string) => p === '/' },
   { path: '/commute', label: 'Daily Traveller', Icon: Route, match: (p: string) => p.startsWith('/commute') },
   { path: '/tour', label: 'Tourist Planner', Icon: Luggage, match: (p: string) => p.startsWith('/tour') },
+  { path: '/ai', label: 'Tripzy AI', Icon: Sparkles, match: (p: string) => p.startsWith('/ai') },
 ]
 
 export function useDarkMode(): [boolean, () => void] {

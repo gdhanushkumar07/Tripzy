@@ -1,5 +1,5 @@
 /**
- * The 12 questions. The first three are trip-level (the group organiser answers
+ * The 13 questions. The first three are trip-level (the group organiser answers
  * them); the other nine are personal (every member answers them).
  * Content merged from the old Travel DNA cards, brief parser and onboarding.
  */
@@ -22,7 +22,10 @@ export type Answers = {
   effort?: 'high' | 'low'
   evening?: 'spiritual' | 'nightlife' | 'early'
   food?: 'street' | 'sitdown'
+  /** ways of getting around between stops the traveller is comfortable with */
+  getaround?: GetAround[]
 }
+export type GetAround = 'walk' | 'auto' | 'bike' | 'cab' | 'transit' | 'owncar' | 'ownscooter'
 
 type Option = { value: string | number; label: string; emoji: string }
 export type Question = {
@@ -39,6 +42,9 @@ export const QUESTIONS: Question[] = [
   { id: 'party', scope: 'personal', title: "Who's travelling with you?", kind: 'choice', options: [
     { value: 'solo', label: 'Just me', emoji: '🧍' }, { value: 'couple', label: 'Partner', emoji: '👫' }, { value: 'friends', label: 'Friends', emoji: '🧑‍🤝‍🧑' },
     { value: 'kids', label: 'Family with kids', emoji: '👨‍👩‍👧' }, { value: 'seniors', label: 'With parents / seniors', emoji: '👵' }] },
+  { id: 'getaround', scope: 'personal', title: 'How do you like to get around between places?', help: 'Pick every way you are comfortable with — Tripzy picks the best one for each hop.', kind: 'multi', options: [
+    { value: 'walk', label: 'Walk short hops', emoji: '🚶' }, { value: 'auto', label: 'Auto', emoji: '🛺' }, { value: 'bike', label: 'Bike taxi', emoji: '🏍️' },
+    { value: 'cab', label: 'Cab', emoji: '🚕' }, { value: 'transit', label: 'Metro / bus', emoji: '🚇' }, { value: 'owncar', label: 'My car', emoji: '🚗' }, { value: 'ownscooter', label: 'My scooter', emoji: '🛵' }] },
   { id: 'budget', scope: 'personal', title: 'Your budget per day (per person)?', help: 'Tickets, food and local travel. Hotels are not included.', kind: 'choice', options: [
     { value: 800, label: 'Up to ₹800', emoji: '💰' }, { value: 2000, label: 'Up to ₹2,000', emoji: '💵' }, { value: 4000, label: 'Up to ₹4,000', emoji: '💳' }, { value: 0, label: 'No limit', emoji: '💎' }] },
   { id: 'pace', scope: 'personal', title: 'What pace suits you?', kind: 'choice', options: [
@@ -99,6 +105,13 @@ export function mergeAnswers(trip: Answers, people: MemberAnswers[]): Merged {
     effort: A.some((a) => a.effort === 'low') ? 'low' : 'high',
     evening: A.some((a) => a.evening === 'early') ? 'early' : majority(A.map((a) => a.evening), 'nightlife'),
     food: majority(A.map((a) => a.food), 'sitdown'),
+    // ways everyone is comfortable with; if nobody overlaps, any one person's choices
+    getaround: (() => {
+      const lists = A.map((a) => a.getaround).filter((x): x is GetAround[] => !!x?.length)
+      if (!lists.length) return undefined
+      const common = lists.reduce((acc, l) => acc.filter((m) => l.includes(m)))
+      return common.length ? common : [...new Set(lists.flat())]
+    })(),
     votes,
   }
 }

@@ -25,6 +25,15 @@ Other apps plan in one mode and pick the nearest hub greedily, one leg at a time
 - **Accounts** — register, log in, log out, password reset (Firebase Auth). The session survives refresh and browser restarts. Each user sees only their own data.
 - **Dashboard** — welcome by name, two big module cards, saved routes and saved trips (one tap to reopen, delete with confirmation), "Continue where you left off" when a draft exists, and default preferences (modes, budget, max transfers).
 - **Daily Traveller** (`/commute`) — form and results on one page. Mode chips (walk, auto, bike taxi, cab, city bus, metro, intercity bus, train) are preselected from your preferences. Optional budget and max transfers. Up to three distinct routes (one route can carry two labels). Each has legs, time, fare, distance, changes and a "Why this route" line. Tap a card for the leg-by-leg timeline and a Leaflet/OpenStreetMap map (no API key). "Save route" for one-tap reuse. If nothing is found, it says which mode filter blocks the route and offers "Try with auto added"-style buttons.
+- **Tripzy AI** (`/ai`) — chat or speak ("Kokapet to Miyapur", "I have a scooty but don't want to drive in traffic", "I'm in a hurry").
+  - Gemini calls Tripzy's own planners as tools (city routes, journeys, hotels, weather), so every fare and time comes from data.
+  - Answers about the app and about you are grounded by retrieval (BM25 over the help knowledge base plus your saved routes, trips and preferences).
+  - Multiple chats are saved to your account and sync across devices.
+  - If the model is down or slow, a rule-based planner answers within seconds.
+- **Four answers for every trip** — Recommended, Fastest, Cheapest and Most comfortable. A **Public transport** option is added whenever none of them uses a bus or the metro.
+  - Metro fares are one ticket across line changes.
+  - At the stop where you get off, "Other ways from here" lists the next bus, auto, bike taxi, cab and walking, with times and fares.
+  - "Missed it? Replan from where I am now" works for city trips and long journeys.
 - **Journeys anywhere** — when the trip is longer than 80 km or outside India, Daily Traveller becomes a door-to-door journey planner. It asks 2–3 questions (who travels, what matters most, luggage and own vehicle) and compares flights (with the airport cab, check-in buffer and bag wait), trains, intercity buses, your own car (fuel from your saved mileage, tolls), outstation cabs, and worldwide public transport from Transitous (rail, FlixBus, metro, ferries). Options are tagged **Fastest / Cheapest / Most comfortable / Best balanced**. Booking links open with the stations or airports, date and passengers filled in (ixigo/ConfirmTkt for IRCTC trains, MakeMyTrip/Google Flights/Skyscanner, Booking.com). "Replan from where I am now" uses your live location after a missed connection. Hotels with nightly prices come up for the destination. See [docs/GLOBAL_JOURNEYS.md](docs/GLOBAL_JOURNEYS.md).
 - **Own vehicle and profile** — save your family, car/scooter mileage and priority once in the dashboard. Your scooter or car can be the first ride of a city route (scooter → metro → bus).
 - **Meet up from different places** — in Group mode choose *Different starts, one destination*. Everyone sets where they start, and Tripzy picks the meeting point (a metro station, bus stand or railway station) where riding on together saves the most. If going separately is better, it says so. Each person gets their own leave time so nobody waits.
@@ -117,6 +126,10 @@ Open http://localhost:5173. Everything works without any API key using OpenStree
 | `RAIL_API_KEY` | server | Real trains between stations (else a labelled estimate) |
 
 ## Test
+
+`npm test` runs the unit tests: the engine on a fixed Hyderabad graph (labels, metro one-ticket fares, no back-to-back hired rides, no revisited stops, park-and-ride, groups split/meet), the tour planner, and Tripzy AI's parser and retrieval.
+
+`npm run scenarios` runs live checks on real roads and timetables. It covers Karmanghat → Kokapet with all modes, public transport only, a ₹120 budget and own scooter. It also covers Miyapur → HITEC City, LB Nagar → Ameerpet, Uppal → Raidurg, Secunderabad → Charminar, a family of 4, Gachibowli → Warangal, both group modes and Hyderabad → Bengaluru by car. It fails on answers a normal person would call wrong.
 
 ```bash
 npm test

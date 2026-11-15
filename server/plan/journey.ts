@@ -12,7 +12,7 @@
  * waiting, comfort (luggage, children, seniors), reliability and night-driving safety, and four
  * are tagged: Fastest, Cheapest, Most comfortable and Best balanced.
  */
-import type { Family, Priority, Vehicles } from '../../src/lib/types'
+import type { Family, Mode, Priority, Vehicles } from '../../src/lib/types'
 import { FUEL_PRICE, ownPerKm, rideLinks, tariffs, type Link } from '../fares'
 import { cached, DAY, fetchJson, haversineKm, UpstreamError, type LatLon } from '../lib'
 import { nearestAirports, type Airport } from '../providers/airports'
@@ -27,7 +27,10 @@ export type JourneyQuery = {
   from: Point & { country?: string }; to: Point & { country?: string }
   date: string; time: string; party: Family; luggage: 'light' | 'heavy'; priority: Priority
   own: 'none' | 'car' | 'scooter'; vehicles?: Vehicles
+  /** modes the traveller is comfortable with (empty = all) and whether flights are fine */
+  modes?: Mode[]; flights?: boolean
 }
+const allows = (q: JourneyQuery, ...m: Mode[]) => !q.modes?.length || m.some((x) => q.modes!.includes(x))
 
 export type JLeg = {
   mode: string; name: string; from: string; to: string; fromLL: [number, number]; toLL: [number, number]
@@ -51,7 +54,7 @@ const ll = (p: LatLon): [number, number] => [p.lat, p.lon]
 // comfort of an hour on each mode (0–10); luggage and children change it
 const COMFORT: Record<string, number> = {
   flight: 8, train: 7, rail: 5, metro: 6, ferry: 7, ibus: 5.5, coach: 6, citybus: 3.5, cab: 8, suv: 8.5, owncar: 7, ownscooter: 3,
-  auto: 4, shareauto: 3, erick: 3.5, bike: 3, cycle: 3, walk: 4, transit: 5,
+  auto: 4, erick: 3.5, bike: 3, cycle: 3, walk: 4, transit: 5,
 }
 const RELIABILITY: Record<string, number> = { flight: 0.86, train: 0.8, rail: 0.85, metro: 0.97, ferry: 0.8, ibus: 0.75, coach: 0.82, citybus: 0.7, cab: 0.9, suv: 0.9, owncar: 0.92, ownscooter: 0.9, auto: 0.88, bike: 0.88, walk: 1, transit: 0.82 }
 
@@ -126,7 +129,7 @@ async function roadOptions(q: JourneyQuery, startMin: number): Promise<JOption[]
     }, q, startMin))
   }
   // outstation cab (India): one-way fares on popular routes, sedan up to 4, SUV up to 6
-  if (india && r.km > 60 && r.km <= 1500) {
+  if (india && r.km > 60 && r.km <= 1500 && allows(q, 'cab', 'suv')) {
     const suv = people > 4
     const perKm = suv ? 17 : 12.5
     const days = Math.max(1, Math.ceil((drivingMin + breaks) / 600))
@@ -150,10 +153,13 @@ async function roadOptions(q: JourneyQuery, startMin: number): Promise<JOption[]
 
 async function indiaGroundOptions(q: JourneyQuery, startMin: number): Promise<{ options: JOption[]; sources: string[] }> {
   const people = size(q.party)
+  // hired cabs only for the first/last mile here; door-to-door long rides are the outstation cab option
   const base = ['walk', 'auto', 'bike', 'cab', 'suv', 'metro', 'citybus', 'rail'] as const
   // park-and-ride with your own vehicle makes sense for day trips, not for parking it for days at a far station
   const own = haversineKm(q.from, q.to) > 150 ? [] : q.own === 'car' ? (['owncar'] as const) : q.own === 'scooter' ? (['ownscooter'] as const) : []
-  const sets = [[...base, ...own, 'train'], [...base, ...own, 'ibus']] as unknown as Parameters<typeof planCommuteVariants>[1]
+  const pick = (ms: readonly Mode[]) => ms.filter((m) => m === 'walk' || allows(q, m))
+  const sets = [allows(q, 'train') ? [...pick(base), ...own, 'train'] : null, allows(q, 'ibus') ? [...pick(base), ...own, 'ibus'] : null].filter(Boolean) as unknown as Parameters<typeof planCommuteVariants>[1]
+  if (!sets.length) return { options: [], sources: [] }
   const { variants, sources } = await planCommuteVariants({ from: q.from, to: q.to, date: q.date, time: q.time, modes: [], people, vehicles: q.vehicles }, sets)
   const seen = new Set<string>()
   const out: JOption[] = []
@@ -208,6 +214,8 @@ function transitOption(it: TransitItinerary, q: JourneyQuery, i: number, startIs
     }
   })
   if (!legs.some((l) => l.mode !== 'walk')) return null
+  // respect the modes the traveller chose (coach counts as intercity bus)
+  if (q.modes?.length && legs.some((l) => l.mode !== 'walk' && !allows(q, (l.mode === 'coach' ? 'ibus' : l.mode) as Mode))) return null
   const main = legs.filter((l) => l.mode !== 'walk').sort((a, b) => b.minutes - a.minutes)[0]
   const kind: JOption['kind'] = main.mode === 'train' ? 'train' : main.mode === 'coach' ? 'bus' : 'transit'
   return finish({ id: `tr-${i}`, title: `${main.name}${legs.length > 3 ? ' + connections' : ''}`, kind, legs, estimate: true, gmaps: gmapsUrl(q.from, q.to), notes: [] }, q, startMin)
@@ -233,7 +241,7 @@ async function accessLeg(a: LatLon & { name: string }, b: LatLon & { name: strin
 
 async function flightOptions(q: JourneyQuery, startMin: number): Promise<{ options: JOption[]; sources: string[] }> {
   const km = haversineKm(q.from, q.to)
-  if (km < 300) return { options: [], sources: [] }
+  if (km < 300 || q.flights === false) return { options: [], sources: [] }
   const ao = nearestAirports(q.from, 2), ad = nearestAirports(q.to, 2)
   if (!ao.length || !ad.length) return { options: [], sources: [] }
   const pairs: [Airport & { km: number }, Airport & { km: number }][] = []

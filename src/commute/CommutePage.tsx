@@ -11,6 +11,7 @@ import { MODES, MODE_ICON, MODE_LABEL, type Mode } from '../lib/types'
 import { useDraft } from '../lib/useDraft'
 import { GroupPanel, ModeToggle, useGroup } from '../lib/useGroup'
 import { budgetError, optNum, transfersError, validTime } from '../lib/validate'
+import { currentPosition } from '../lib/location'
 import { LocationInput } from '../ui/LocationInput'
 import { fmtDur, fmtTime, type GroupPlan, type PlanResult, type TogetherPlan } from './engine'
 import { JourneyQuestions, JourneyResults, type JourneyAsk, type JourneyResult } from './JourneyView'
@@ -52,6 +53,7 @@ export function commuteUrl(f: { from: GeoPoint; to: GeoPoint; time: string; date
   if (isJourney(f.from, f.to)) {
     const a = f.ask ?? DEFAULT_ASK
     p.set('pa', `${a.party.adults}.${a.party.children}.${a.party.seniors}`); p.set('lg', a.luggage); p.set('pr', a.priority); p.set('ow', a.own)
+    if (a.flights === false) p.set('nf', '1')
   }
   if (f.date) p.set('d', f.date)
   if (f.people && f.people > 1) p.set('p', String(f.people))
@@ -102,7 +104,7 @@ export default function CommutePage() {
     const [adults = 1, children = 0, seniors = 0] = (params.get('pa') ?? '').split('.').map(Number)
     const ask: JourneyAsk = {
       party: { adults: adults || 0, children: children || 0, seniors: seniors || 0 }, luggage: params.get('lg') === 'heavy' ? 'heavy' : 'light',
-      priority: (['fastest', 'cheapest', 'comfort'] as const).find((x) => x === params.get('pr')) ?? 'balanced', own: params.get('ow') === 'car' ? 'car' : params.get('ow') === 'scooter' ? 'scooter' : 'none',
+      priority: (['fastest', 'cheapest', 'comfort'] as const).find((x) => x === params.get('pr')) ?? 'balanced', own: params.get('ow') === 'car' ? 'car' : params.get('ow') === 'scooter' ? 'scooter' : 'none', flights: params.get('nf') !== '1',
     }
     if (ask.party.adults + ask.party.seniors < 1) ask.party.adults = 1
     return { from, to, time: t, date: params.get('d') ?? today(), modes, people: Number(params.get('p') ?? 1) || 1, budget: optNum(params.get('b') ?? ''), maxTransfers: optNum(params.get('x') ?? ''), ask, journey: isJourney(from, to) }
@@ -135,7 +137,7 @@ export default function CommutePage() {
   const search = useAction(async (query: NonNullable<typeof q>) => {
     setResult(null); setJourney(null)
     if (query.journey) {
-      const r = await api.post<JourneyResult>('/api/journey/plan', { from: query.from, to: query.to, date: query.date, time: query.time, ...query.ask, vehicles }, `journey:${JSON.stringify(query)}`)
+      const r = await api.post<JourneyResult>('/api/journey/plan', { from: query.from, to: query.to, date: query.date, time: query.time, ...query.ask, modes: query.modes, vehicles }, `journey:${JSON.stringify(query)}`)
       setJourney(r)
     } else {
       const r = await api.post<LivePlan>('/api/commute/plan', { ...query, vehicles }, `commute:${JSON.stringify(query)}`)
@@ -343,7 +345,7 @@ export default function CommutePage() {
           <p className="rounded-2xl bg-accent-subtle px-4 py-3 text-body text-content-secondary"><Car className="me-1 inline h-4 w-4" />With {f.people} people a shared cab is often cheaper per person and more comfortable. <button type="button" className="btn-link" onClick={() => set({ modes: [...f.modes, f.people > 4 ? 'suv' : 'cab'] })}>Add {f.people > 4 ? 'SUV cab' : 'cab'}</button></p>
         )}
 
-        {!groupLocked && !journeyForm && (
+        {!groupLocked && (
           <fieldset>
             <legend className="label">Modes you're comfortable with</legend>
             <div className="flex flex-wrap gap-2">
@@ -396,6 +398,7 @@ export default function CommutePage() {
           setOpen={(id) => { const p = new URLSearchParams(params); if (id) p.set('open', id); else p.delete('open'); setParams(p, { replace: true }) }}
           onSave={(id) => void save.run(id)} saving={save.busy}
           onAddMode={(m) => { const modes = [...f.modes, m]; set({ modes }); if (q) setParams(new URLSearchParams(commuteUrl({ ...q, modes }).split('?')[1])) }}
+          onReplan={(p) => q && setParams(new URLSearchParams(commuteUrl({ ...q, from: p, date: today(), time: nowHHMM() }).split('?')[1]))}
         />
       )}
       {save.error && <ErrorBox message={save.error} onRetry={() => void save.retry()} />}
@@ -448,10 +451,12 @@ function Sources({ list }: { list?: string[] }) {
   return <p className="text-caption text-content-faint">Data: {list.join(' · ')}. Fares marked “est.” are estimates from published tariffs — book through the linked apps for exact prices.</p>
 }
 
-function SoloResults({ result, open, setOpen, onSave, saving, onAddMode }: {
+function SoloResults({ result, open, setOpen, onSave, saving, onAddMode, onReplan }: {
   result: LivePlan; open: string | null; setOpen: (id: string | null) => void
-  onSave: (id: string) => void; saving: boolean; onAddMode: (m: Mode) => void
+  onSave: (id: string) => void; saving: boolean; onAddMode: (m: Mode) => void; onReplan: (p: GeoPoint) => void
 }) {
+  const [locating, setLocating] = useState(false)
+  const [locErr, setLocErr] = useState('')
   if (!result.routes.length) {
     return (
       <section className="card" role="alert">
@@ -472,7 +477,14 @@ function SoloResults({ result, open, setOpen, onSave, saving, onAddMode }: {
           The usual plan — go to the nearest hub, <strong>{result.baseline.hubName}</strong>, and travel on from there — takes <strong>{fmtDur(result.baseline.totalMin)}</strong>. The nearest hub is not always the fastest way.
         </p>
       )}
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button type="button" className="btn-secondary" disabled={locating}
+          onClick={() => { setLocating(true); setLocErr(''); currentPosition().then(onReplan, (e: Error) => setLocErr(e.message)).finally(() => setLocating(false)) }}>
+          {locating ? 'Finding you…' : 'Missed it? Replan from where I am now'}
+        </button>
+        {locErr && <p className="field-error w-full text-right">{locErr}</p>}
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {result.routes.map((r) => <RouteCard key={r.id} route={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} onSave={() => onSave(r.id)} saving={saving} />)}
       </div>
       <Sources list={result.sources} />

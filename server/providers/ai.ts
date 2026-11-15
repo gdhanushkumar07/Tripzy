@@ -4,7 +4,7 @@
  * short verdict with sources. Both are free tiers; without keys the planner uses
  * only the deterministic checks (weather, AQI, opening hours).
  */
-import { cached, env, fetchJson, HOUR } from '../lib'
+import { cached, env, fetchJson, HOUR, providerFailed, providerUp } from '../lib'
 
 export type LiveCheck = { verdict: 'good' | 'caution' | 'avoid'; note: string; sources: { title: string; url: string }[]; by: 'ai' }
 
@@ -22,17 +22,36 @@ export function webSearch(query: string): Promise<TavilyResult[]> {
   })
 }
 
+/**
+ * One Gemini generateContent call with failover. Models get retired (404) or overloaded (503/429)
+ * and the newest ones can be slow, so Tripzy tries GEMINI_MODEL (if set), then a chain of current
+ * Flash models, each with a short timeout, skipping a model for a few minutes after it fails.
+ */
+const CHAIN = ['gemini-flash-latest', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest']
+export async function geminiGenerate<T>(body: unknown, timeoutMs = 15000): Promise<T> {
+  const key = env('GEMINI_API_KEY')!
+  const models = [...new Set([env('GEMINI_MODEL'), ...CHAIN].filter((m): m is string => !!m))]
+  let last: unknown
+  for (const model of models) {
+    if (!providerUp(`gemini:${model}`)) continue
+    try {
+      return await fetchJson<T>(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, timeoutMs, body: JSON.stringify(body),
+      })
+    } catch (e) {
+      last = e
+      providerFailed(`gemini:${model}`, e)
+      if (!/answered (404|429|500|503)|timed out/.test((e as Error).message)) throw e
+    }
+  }
+  throw last ?? new Error('No Gemini model available')
+}
+
 export async function gemini(prompt: string, json = true): Promise<string | null> {
-  const key = env('GEMINI_API_KEY')
-  if (!key) return null
-  const model = env('GEMINI_MODEL') ?? 'gemini-2.5-flash'
-  const j = await fetchJson<{ candidates?: { content?: { parts?: { text?: string }[] } }[] }>(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-    {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, timeoutMs: 25000,
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, ...(json ? { responseMimeType: 'application/json' } : {}) } }),
-    },
-  )
+  if (!env('GEMINI_API_KEY')) return null
+  const j = await geminiGenerate<{ candidates?: { content?: { parts?: { text?: string }[] } }[] }>({
+    contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, ...(json ? { responseMimeType: 'application/json' } : {}) },
+  })
   return j.candidates?.[0]?.content?.parts?.[0]?.text ?? null
 }
 

@@ -17,7 +17,7 @@ import { toFriendly } from '../lib/request'
 import { ErrorBox, SaveStatus, Skeleton, useStatus, useUnsavedWarning, type SaveState } from '../lib/status'
 import { useGroup } from '../lib/useGroup'
 import {
-  alternatives, CITIES, dayTotal, describeWx, fmt, moveStop, placeOf, removeStop, stopTotal, swapStop, tripTotal, type Day, type Place, type Trip,
+  alternatives, CITIES, dayTotal, HOP_LABEL, describeWx, fmt, moveStop, placeOf, removeStop, stopTotal, swapStop, tripTotal, type Day, type Place, type Trip,
 } from './generate'
 
 const fmtDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
@@ -199,7 +199,7 @@ export default function TripPage() {
                       <span className="flex justify-center"><span className="my-1 h-full border-s border-dashed border-[var(--tz-stone)]" /></span>
                       <div className="flex flex-wrap items-center gap-x-3 py-1.5 text-[12px] text-content-muted">
                         <span className="inline-flex items-center gap-1.5 text-content-secondary">
-                          {s.travel.fare ? <><Car className="h-3.5 w-3.5" />Auto · {s.travel.min} min · {s.travel.km} km · {rupees(s.travel.fare)}</> : <><Footprints className="h-3.5 w-3.5" />Walk · {s.travel.min} min</>}
+                          {s.travel.fare ? <><Car className="h-3.5 w-3.5" />{HOP_LABEL[s.travel.mode ?? 'auto']} · {s.travel.min} min · {s.travel.km} km · {rupees(s.travel.fare)}</> : <><Footprints className="h-3.5 w-3.5" />Walk · {s.travel.min} min</>}
                         </span>
                       </div>
                     </div>

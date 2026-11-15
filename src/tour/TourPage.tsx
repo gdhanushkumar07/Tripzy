@@ -144,7 +144,7 @@ export default function TourPage() {
         <div>
           <div className="tz-chapter">Not another generic itinerary.</div>
           <h1 className="tz-h1 mt-2 text-content">Tourist Planner</h1>
-          <p className="mt-3 max-w-xl text-[16px] text-content-muted">12 quick questions, then a day-by-day plan anywhere in India — real places, opening hours, weather and air quality, shaped by your past trips.</p>
+          <p className="mt-3 max-w-xl text-[16px] text-content-muted">13 quick questions, then a day-by-day plan anywhere — real places, opening hours, weather and air quality, shaped by your past trips.</p>
         </div>
         <div className="flex items-center gap-3">
           <SaveStatus status={draft.status} onRetry={() => void draft.retry()} />

@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { Navigate, useLocation } from 'react-router'
 import { auth, db } from './firebase'
 import { Skeleton } from './status'
-import { DEFAULT_PREFS, type Profile } from './types'
+import { cleanModes, DEFAULT_PREFS, type Profile } from './types'
 
 type AuthCtx = { user: User | null; profile: Profile; loading: boolean; expired: boolean; logout: () => Promise<void> }
 
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const d = snap.data() as Partial<Profile> | undefined
         setProfile({
           name: d?.name || user.displayName || user.email?.split('@')[0] || 'traveller',
-          prefs: { ...DEFAULT_PREFS, ...(d?.prefs ?? {}) },
+          prefs: { ...DEFAULT_PREFS, ...(d?.prefs ?? {}), modes: d?.prefs?.modes ? cleanModes(d.prefs.modes) : DEFAULT_PREFS.modes },
         })
       },
       () => undefined, // permission errors surface through the auth listener

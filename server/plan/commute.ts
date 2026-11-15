@@ -8,7 +8,7 @@
  *  - one OSRM road matrix between every point (drive times), peak multiplier by hour
  *  - road vehicles priced from published tariffs (estimates) with booking links
  */
-import { buildGraph, plan, planGroup, planMeet, type GraphData, type GroupMember, type Leg, type PlanResult, type GroupPlan, type Route } from '../../src/commute/engine'
+import { buildGraph, plan, planGroup, planMeet, search, type GraphData, type GroupMember, type Leg, type PlanResult, type GroupPlan, type Route } from '../../src/commute/engine'
 import type { Mode, Vehicles } from '../../src/lib/types'
 import { busLinks, ownPerKm, rideLinks, tariffs, trainLinks, type Link } from '../fares'
 import { haversineKm, type LatLon } from '../lib'
@@ -91,34 +91,80 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = [], e
   // journeys to wire: origin → (destinations + origin-side terminals), destination-side terminals → destinations
   const wire: [LatLon[], LatLon[]][] = [[origins, [...dests, ...hubsO]]]
   if (hubsD.length) wire.push([hubsD, dests])
-  for (const feed of feedsAround([...allEnds, ...hubsO, ...hubsD])) {
+  // first and last mile by bus: from the door to the metro stations near it, and from the metro
+  // stations near the destination onwards (get off the metro, take the bus that goes there)
+  const feedsHere = feedsAround([...allEnds, ...hubsO, ...hubsD])
+  const metroNear = (pts: LatLon[]) => feedsHere.filter((f) => f.mode === 'metro')
+    .flatMap((f) => pts.flatMap((p) => nearestStations(f, p, 10, 4).map((s) => ({ lat: f.stations[s.i][2], lon: f.stations[s.i][3] }))))
+  const busWire: [LatLon[], LatLon[]][] = [[origins, metroNear(origins)], [metroNear(dests), dests]]
+  const fareSystems: NonNullable<GraphData['fareSystems']> = {}
+  for (const feed of feedsHere) {
     // metro: people take an auto/bike/cab to a station up to ~10 km away; buses: walkable stops
     const nearOf = (p: LatLon) => (feed.mode === 'metro' ? nearestStations(feed, p, 10, 3) : nearestStations(feed, p, 1.2, 4)).map((s) => s.i)
     const chosen = new Set<number>()
     const key = new Set<number>()
-    for (const [starts, ends] of wire) {
+    const metro = feed.mode === 'metro'
+    for (const [starts, ends] of metro ? wire : [...wire, ...busWire]) {
       const startSet = new Set(starts.flatMap(nearOf)), endSet = new Set(ends.flatMap(nearOf))
       if (!startSet.size || !endSet.size) continue
       startSet.forEach((x) => key.add(x)); endSet.forEach((x) => key.add(x))
-      const pats = new Set<number>()
-      for (const st of [...startSet, ...endSet]) for (const pi of feed.byStation!.get(st) ?? []) pats.add(pi)
-      for (const pi of pats) {
+      const firstIn = (pi: number, set: Set<number>) => feed.patterns[pi].stops.findIndex((x) => set.has(x))
+      const lastIn = (pi: number, set: Set<number>) => { const st = feed.patterns[pi].stops; for (let i = st.length - 1; i >= 0; i--) if (set.has(st[i])) return i; return -1 }
+      // only variants that actually run around this time at the stop where you would board
+      // (city feeds list hundreds of variants that run once or twice a day)
+      const nextAt = (pi: number, at: number, lo: number, hi: number) => {
         const pt = feed.patterns[pi]
-        const i0 = pt.stops.findIndex((x) => startSet.has(x))
-        if (i0 >= 0 && pt.stops.slice(i0 + 1).some((x) => endSet.has(x))) chosen.add(pi)
+        if (at < 0) return undefined
+        const off = pt.times[at] / 60
+        let best: number | undefined
+        for (const sec of pt.deps[day] ?? pt.deps.wk ?? []) { const m = sec / 60 + off; if (m >= lo && m <= hi && (best === undefined || m < best)) best = m }
+        return best
       }
-      // one transfer: a start-area pattern meets an end-area pattern at a shared station
-      const touches = (pi: number, set: Set<number>) => feed.patterns[pi].stops.some((x) => set.has(x))
-      const fromP = [...pats].filter((pi) => touches(pi, startSet)).slice(0, 14)
-      const toP = [...pats].filter((pi) => touches(pi, endSet)).slice(0, 14)
-      let pairs = 0
-      for (const a of fromP) for (const b of toP) {
-        if (a === b || pairs >= (feed.mode === 'metro' ? 40 : 12)) continue
-        const shared = feed.patterns[a].stops.find((x) => feed.patterns[b].stops.includes(x))
-        if (shared !== undefined) { chosen.add(a); chosen.add(b); key.add(shared); pairs++ }
+      const runs = (pi: number, at: number, lo: number, hi: number) => nextAt(pi, at, lo, hi) !== undefined
+      const fromP = new Set<number>(), toP = new Set<number>()
+      for (const st of startSet) for (const pi of feed.byStation!.get(st) ?? []) if (runs(pi, firstIn(pi, startSet), depart - 15, depart + 150)) fromP.add(pi)
+      for (const st of endSet) for (const pi of feed.byStation!.get(st) ?? []) if (runs(pi, lastIn(pi, endSet), depart, depart + 8 * 60)) toP.add(pi)
+      // each link (door → stations, stations → destination, …) gets its own share, so busy areas
+      // near the start cannot crowd out the last-mile bus at the other end
+      const budget = metro ? 40 : 8
+      let n = 0
+      // direct: boards in the start area, later reaches the end area (shortest rides first)
+      const direct = [...fromP].filter((pi) => { const a = firstIn(pi, startSet), b = lastIn(pi, endSet); return a >= 0 && b > a })
+        .sort((x, y) => (lastIn(x, endSet) - firstIn(x, startSet)) - (lastIn(y, endSet) - firstIn(y, startSet)))
+      for (const pi of direct) { if (n >= budget) break; if (!chosen.has(pi)) { chosen.add(pi); n++ } }
+      // one change: a start-area bus reaches a stop from which an end-area bus continues (direction-aware);
+      // every valid pair is ranked by stops ridden and the shortest few are kept
+      // the change can be at the same stop or across the road: stops within 350 m count as one interchange
+      // (operators give each side of a junction its own stop id)
+      const toList = [...toP].filter((pi) => !direct.includes(pi))
+      const near = (x: number, y: number) => x === y || haversineKm({ lat: feed.stations[x][2], lon: feed.stations[x][3] }, { lat: feed.stations[y][2], lon: feed.stations[y][3] }) <= 0.35
+      const found: { a: number; b: number; x: number; y: number; len: number }[] = []
+      for (const pa of fromP) {
+        const sa = firstIn(pa, startSet)
+        if (sa < 0 || direct.includes(pa)) continue
+        const stopsA = feed.patterns[pa].stops
+        for (const pb of toList) {
+          const stopsB = feed.patterns[pb].stops, eb = lastIn(pb, endSet)
+          if (eb < 0) continue
+          let best: { x: number; y: number; len: number } | undefined
+          for (let i = sa + 1; i < stopsA.length; i++) {
+            for (let j = 0; j < eb; j++) {
+              if (!near(stopsA[i], stopsB[j])) continue
+              const len = (i - sa) + (eb - j)
+              if (!best || len < best.len) best = { x: stopsA[i], y: stopsB[j], len }
+            }
+          }
+          if (best) {
+            // rank by when the first bus actually comes plus the ride (≈2 min a stop), not stops alone
+            const wait = Math.max(0, (nextAt(pa, sa, depart, depart + 150) ?? depart + 150) - depart)
+            found.push({ a: pa, b: pb, ...best, len: best.len * 2 + wait })
+          }
+        }
       }
+      found.sort((p, q2) => p.len - q2.len)
+      for (const f of found.slice(0, metro ? 40 : 16)) { chosen.add(f.a); chosen.add(f.b); key.add(f.x); key.add(f.y) }
     }
-    const capped = [...chosen].slice(0, feed.mode === 'metro' ? 16 : 20)
+    const capped = [...chosen].slice(0, metro ? 16 : 60)
     // metro: every interchange between chosen lines (few); buses: only the transfer stops found above
     if (feed.mode === 'metro') for (const a of capped) for (const b of capped) if (a < b) for (const x of feed.patterns[a].stops) if (feed.patterns[b].stops.includes(x)) key.add(x)
     const nodeId = (x: number) => `${feed.id}:${feed.stations[x][0]}`
@@ -131,20 +177,31 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = [], e
       if (!deps.length) continue
       idx.forEach(([x]) => used.add(x))
       const mode: Mode = feed.mode === 'metro' ? 'metro' : feed.mode === 'rail' ? 'rail' : 'citybus'
+      let retimed = false
       const segments = idx.slice(1).map(([x, i], k) => {
         const [px, pi2] = idx[k]
         const km = haversineKm({ lat: feed.stations[px][2], lon: feed.stations[px][3] }, { lat: feed.stations[x][2], lon: feed.stations[x][3] }) * 1.25
         const cumPrev = k === 0 ? 0 : fareBetween(feed, idx[0][0], px)
         const cum = fareBetween(feed, idx[0][0], x)
-        return { km: +km.toFixed(2), min: Math.max(1, (pt.times[i] - pt.times[pi2]) / 60), fare: Math.max(0, cum - cumPrev), peak: mode === 'citybus' ? 1.3 : 1 }
+        // some open feeds carry broken stop times (a 20 km bus "taking" 13 h): anything slower than
+        // 8 km/h is re-timed at a typical 15 km/h city-bus speed and the line is marked as an estimate
+        const gtfsMin = Math.max(1, (pt.times[i] - pt.times[pi2]) / 60)
+        const broken = mode === 'citybus' && gtfsMin > (km / 8) * 60 + 10
+        if (broken) retimed = true
+        return { km: +km.toFixed(2), min: broken ? Math.max(2, (km / 15) * 60) : gtfsMin, fare: Math.max(0, cum - cumPrev), peak: mode === 'citybus' ? 1.3 : 1 }
       })
       // official boarding → alighting fares (metro zone table) when the feed publishes them
-      const fareAt = feed.fares ? idx.map(([a]) => idx.map(([b]) => (a === b ? 0 : fareBetween(feed, a, b)))) : undefined
-      lines.push({ id: `${feed.id}-${pi}`, mode, name: pt.name, stops: idx.map(([x]) => nodeId(x)), segments, departures: { forward: deps.map((m) => fmt(m)), reverse: [] }, fareAt })
+      // boarding → alighting fare for every pair of stops (metro zone table, or the bus distance slab)
+      const fareAt = idx.map(([a]) => idx.map(([b]) => (a === b ? 0 : fareBetween(feed, a, b))))
+      lines.push({ id: `${feed.id}-${pi}`, mode, name: pt.name, stops: idx.map(([x]) => nodeId(x)), segments, departures: { forward: deps.map((m) => fmt(m)), reverse: [] }, fareAt, system: feed.mode === 'metro' && feed.fares ? feed.id : undefined })
       meta[pt.name] = {
-        source: `${feed.attribution} · timetable ${feed.builtAt.slice(0, 10)}`, estimate: feed.mode !== 'metro' || !feed.fares, links: [], color: pt.color,
+        source: `${feed.attribution} · timetable ${feed.builtAt.slice(0, 10)}${retimed ? ' · travel time re-estimated (feed timing implausible)' : ''}`, estimate: feed.mode !== 'metro' || !feed.fares || retimed, links: [], color: pt.color,
         stops: pt.stops.slice(idx[0][1], idx[idx.length - 1][1] + 1).map((x) => [feed.stations[x][2], feed.stations[x][3]]),
       }
+    }
+    if (feed.mode === 'metro' && feed.fares && used.size) {
+      const ids = [...used]
+      fareSystems[feed.id] = { nodes: ids.map(nodeId), fares: ids.map((a) => ids.map((b) => (a === b ? 0 : fareBetween(feed, a, b)))) }
     }
     for (const x of used) add({ id: nodeId(x), name: feed.stations[x][1] + (feed.mode === 'metro' ? ' Metro' : ' bus stop'), kind: feed.mode === 'metro' ? 'metro' : 'bus', lat: feed.stations[x][2], lon: feed.stations[x][3] })
   }
@@ -157,11 +214,16 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = [], e
     const km = tbl.km[i][j], min = tbl.min[i][j]
     if (km == null || min == null || km < 0.05) continue
     const stops = (n: Node) => n.kind === 'metro' || (n.kind === 'bus' && !n.id.startsWith('hub:'))
+    // walking between two stops: by foot you cross the road, so use the straight line, not the driving U-turn
+    const crow = haversineKm(nodes[i], nodes[j])
+    if (nodes[i].kind !== 'place' && nodes[j].kind !== 'place' && (km <= 0.6 || crow <= 0.35)) {
+      const walkKm = Math.min(km, crow * 1.3)
+      transfers.push({ a: nodes[i].id, b: nodes[j].id, km: +walkKm.toFixed(2), min: Math.max(3, (walkKm / 4.5) * 60) })
+    }
     if (stops(nodes[i]) && stops(nodes[j]) && km > 0.6) continue // between two stops you ride the line (walk only at interchanges)
     if (!intercity && km > 60) continue
     const urban = km < 40
     roads.push({ a: nodes[i].id, b: nodes[j].id, km: +km.toFixed(2), min: +(min * (urban ? URBAN_BASE : 1.05)).toFixed(1), peak: urban ? URBAN_PEAK : 1.15 })
-    if (km <= 0.6 && nodes[i].kind !== 'place' && nodes[j].kind !== 'place') transfers.push({ a: nodes[i].id, b: nodes[j].id, km, min: Math.max(3, (km / 4.5) * 60) })
   }
   // intercity buses (state RTC / private), labelled estimate. Each service runs as a chain:
   // origin terminal → city-exit stand (city traffic) → destination terminal, so boarding at the
@@ -187,7 +249,7 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = [], e
   }
 
   const priv: GraphData['private'] = {}
-  for (const m of ['auto', 'shareauto', 'erick', 'bike', 'cab', 'suv', 'cycle'] as const) {
+  for (const m of ['auto', 'erick', 'bike', 'cab', 'suv', 'cycle'] as const) {
     const t = T[m]
     priv[m] = { base: t.base, baseKm: t.baseKm, perKm: t.perKm, perMin: t.perMin, wait: t.wait, speed: t.speed, peakShare: t.peakShare, maxKm: t.maxKm, capacity: t.seats }
   }
@@ -197,12 +259,28 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = [], e
   if (q.modes.includes('owncar') && !v.car) v.car = { kmpl: 15, fuel: 'petrol', seats: 5 }
   if (v.scooter) priv.ownscooter = { base: 20, baseKm: 0, perKm: +ownPerKm(v.scooter.kmpl, 'petrol').toFixed(2), wait: 2, speed: 1.05, peakShare: 0.5, maxKm: 120, capacity: 2, own: true }
   if (v.car) priv.owncar = { base: 40, baseKm: 0, perKm: +ownPerKm(v.car.kmpl, v.car.fuel).toFixed(2), wait: 3, speed: 1, peakShare: 1, maxKm: 900, capacity: Math.max(2, v.car.seats || 5), own: true }
-  const data: GraphData = { peakWindows: [['08:00', '11:00'], ['17:00', '21:00']], private: priv, walk: { kmh: 4.5, maxKm: 2 }, nodes, roads, transfers, lines }
+  const data: GraphData = { fareSystems, peakWindows: [['08:00', '11:00'], ['17:00', '21:00']], private: priv, walk: { kmh: 4.5, maxKm: 2 }, nodes, roads, transfers, lines }
   return { graph: buildGraph(data), meta, depart, roadSource: tbl.source }
 }
 
-type LegOut = Leg & { source: string; estimate: boolean; links: Link[]; geometry?: [number, number][]; color?: string; from_ll: [number, number]; to_ll: [number, number] }
-const ROAD_MODES = ['auto', 'shareauto', 'erick', 'bike', 'cab', 'suv', 'cycle', 'walk', 'ownscooter', 'owncar']
+export type Alt = { mode: Mode; minutes: number; fare: number; wait: number; arrive: number; via: string }
+type LegOut = Leg & { source: string; estimate: boolean; links: Link[]; geometry?: [number, number][]; color?: string; from_ll: [number, number]; to_ll: [number, number]; alts?: Alt[] }
+
+/**
+ * Other ways to finish from a station you get off at: the next bus (real departure), auto, bike
+ * taxi, cab, or walking — each with door-to-door minutes from arrival there, fare and wait.
+ */
+function alternativesFrom(g: ReturnType<typeof buildGraph>, node: string, t: number, people: number): Alt[] {
+  const out: Alt[] = []
+  for (const mode of ['citybus', 'metro', 'auto', 'bike', 'cab', 'walk'] as Mode[]) {
+    const r = search(g, { from: node, to: 'D', depart: t, modes: mode === 'walk' ? ['walk'] : [mode, 'walk'], people }, 'time', people)
+    if (!r || !r.legs.some((l) => l.mode === mode)) continue
+    const first = r.legs.find((l) => l.mode === mode)!
+    out.push({ mode, minutes: Math.round(r.arrive - t), fare: r.fare, wait: Math.round(first.wait), arrive: r.arrive, via: r.legs.filter((l) => l.mode !== 'walk').map((l) => l.name).join(' → ') || 'Walk' })
+  }
+  return out.sort((a, b) => a.minutes - b.minutes)
+}
+const ROAD_MODES = ['auto', 'erick', 'bike', 'cab', 'suv', 'cycle', 'walk', 'ownscooter', 'owncar']
 
 export async function enrich(r: Route, g: ReturnType<typeof buildGraph>, meta: Record<string, LineMeta>, q: CommuteQuery, shapes = true) {
   const ll = (id: string): [number, number] => { const n = g.nodes.get(id)!; return [n.lat, n.lon] }
@@ -227,6 +305,18 @@ export async function planCommute(q: CommuteQuery): Promise<PlanResult & { live:
   const { graph, meta, depart, roadSource } = await buildLiveGraph(q)
   const res = plan(graph, { from: 'O', to: 'D', depart, modes: q.modes, budget: q.budget, maxTransfers: q.maxTransfers, people: q.people })
   const routes = await Promise.all(res.routes.map((r) => enrich(r, graph, meta, q)))
+  // at the last station of each route, list the other ways to finish (decide on the spot)
+  const memo = new Map<string, Alt[]>()
+  for (const r of routes) {
+    const i = r.legs.map((l) => ['metro', 'citybus', 'rail', 'train', 'ibus'].includes(l.mode)).lastIndexOf(true)
+    const next = r.legs[i + 1]
+    if (i < 0 || !next) continue
+    const at = r.legs[i].arrive
+    const k = `${next.from}@${Math.round(at)}`
+    if (!memo.has(k)) memo.set(k, alternativesFrom(graph, next.from, at, q.people ?? 1))
+    const alts = memo.get(k)!.filter((a) => a.minutes < 240)
+    if (alts.length > 1) (next as LegOut).alts = alts
+  }
   return { ...res, routes, live: true, sources: [roadSource, ...new Set(Object.values(meta).map((m) => m.source))] }
 }
 

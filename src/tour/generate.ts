@@ -31,7 +31,7 @@ export type StopWx = { temp: number; rain: number; aqi?: number; code: number }
 
 export type Stop = {
   placeId: string; name: string; kind: 'visit' | 'meal'; start: number; end: number; cost: number
-  travel: { km: number; min: number; fare: number } | null
+  travel: { km: number; min: number; fare: number; mode?: HopMode } | null
   why: string; who: string[]; warn?: string
   wx?: StopWx; notes?: string[]; check?: LiveCheck; boosted?: string
 }
@@ -58,11 +58,33 @@ function haversine(a: { lat: number; lon: number }, b: { lat: number; lon: numbe
   return 2 * R * Math.asin(Math.sqrt(h))
 }
 
-/** Auto-rickshaw estimate between two places; fare per person (an auto seats 3). */
-export function travel(a: { lat: number; lon: number }, b: { lat: number; lon: number }, party: number) {
+export type HopMode = 'walk' | 'auto' | 'bike' | 'cab' | 'transit' | 'owncar' | 'ownscooter'
+export const HOP_LABEL: Record<HopMode, string> = { walk: 'Walk', auto: 'Auto', bike: 'Bike taxi', cab: 'Cab', transit: 'Metro / bus', owncar: 'Your car', ownscooter: 'Your scooter' }
+
+/**
+ * Travel between two stops; fare per person. Without preferences it is an auto (seats 3), as before.
+ * With the modes the traveller is comfortable with, every allowed mode is priced (vehicles split
+ * across the party) and the best for a tourist wins: money plus ₹3 per minute of travel.
+ */
+export function travel(a: { lat: number; lon: number }, b: { lat: number; lon: number }, party: number, modes?: HopMode[]): { km: number; min: number; fare: number; mode?: HopMode } {
   const km = Math.round(haversine(a, b) * 1.35 * 10) / 10
-  if (km < 0.4) return { km, min: 5, fare: 0 } // walk
-  return { km, min: Math.round((km / 18) * 60 + 6), fare: Math.round((30 + 16 * km) / Math.min(Math.max(party, 1), 3)) }
+  if (km < 0.4) return { km, min: 5, fare: 0, mode: 'walk' } // walk
+  const n = Math.max(party, 1)
+  if (!modes?.length) return { km, min: Math.round((km / 18) * 60 + 6), fare: Math.round((30 + 16 * km) / Math.min(n, 3)) }
+  const per = (vehicleFare: number, seats: number) => Math.round((vehicleFare * Math.ceil(n / seats)) / n)
+  const opts: { mode: HopMode; min: number; fare: number }[] = []
+  for (const m of modes) {
+    if (m === 'walk' && km <= 1.5) opts.push({ mode: m, min: Math.round((km / 4.5) * 60), fare: 0 })
+    if (m === 'auto') opts.push({ mode: m, min: Math.round((km / 18) * 60 + 6), fare: per(30 + 16 * km, 3) })
+    if (m === 'bike' && n <= 2) opts.push({ mode: m, min: Math.round((km / 22) * 60 + 5), fare: per(20 + 8 * km, 1) })
+    if (m === 'cab') opts.push({ mode: m, min: Math.round((km / 20) * 60 + 7), fare: per(60 + 14 * km + 1.5 * (km / 20) * 60, 4) })
+    if (m === 'transit' && km >= 1.5) opts.push({ mode: m, min: Math.round((km / 15) * 60 + 14), fare: Math.min(40, Math.round(10 + 2 * km)) })
+    if (m === 'owncar') opts.push({ mode: m, min: Math.round((km / 20) * 60 + 8), fare: per(7 * km + 30, 5) })
+    if (m === 'ownscooter' && n <= 2) opts.push({ mode: m, min: Math.round((km / 22) * 60 + 4), fare: per(2.3 * km + 10, 2) })
+  }
+  if (!opts.length) return { km, min: Math.round((km / 18) * 60 + 6), fare: Math.round((30 + 16 * km) / Math.min(n, 3)), mode: 'auto' }
+  const best = opts.reduce((x, y) => (y.fare + 3 * y.min < x.fare + 3 * x.min ? y : x))
+  return { km, ...best }
 }
 
 const weekday = (iso: string, i: number) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + i); return (d.getDay() + 6) % 7 } // 0 = Mon
@@ -231,7 +253,7 @@ export function generateBasic(a: Merged, groupSize = 1, ctx?: PlanContext): Trip
       const options = cityPlaces
         .filter((p) => p.meal?.includes(which) && dietOk(p, a.diet ?? 0) && !used.has(p.id))
         .map((p) => {
-          const tr = here ? travel(here, p, party) : null
+          const tr = here ? travel(here, p, party, a.getaround) : null
           const at = openAt(p, t + (tr?.min ?? 0), wd, date)
           const style = a.food === 'street' ? -p.cost / 100 : p.cost >= 250 ? 0.5 : 0
           return { p, tr, at, score: style - (tr?.min ?? 0) / 15 }
@@ -254,7 +276,7 @@ export function generateBasic(a: Merged, groupSize = 1, ctx?: PlanContext): Trip
       const options = cityPlaces
         .filter((p) => !used.has(p.id) && suitable(p, a) && ctx?.checks?.[p.id]?.verdict !== 'avoid')
         .map((p) => {
-          const tr = here ? travel(here, p, party) : null
+          const tr = here ? travel(here, p, party, a.getaround) : null
           const at = openAt(p, t + (tr?.min ?? 0), wd, date)
           if (at === null || at + p.dwell > dayEnd) return null
           if (budget && spent + p.cost + (tr?.fare ?? 0) > budget) return null
@@ -307,7 +329,7 @@ export function retime(trip: Trip, dayIndex: number): Trip {
   const stops = day.stops.map((s) => {
     const p = placeOf(trip, s.placeId)
     if (!p) return s
-    const tr = prev ? travel(prev, p, trip.party) : null
+    const tr = prev ? travel(prev, p, trip.party, trip.answers.getaround) : null
     const arrive = t + (tr?.min ?? 0)
     const at = openAt(p, arrive, wd, day.date)
     const start = at ?? arrive

@@ -63,6 +63,17 @@ npm run dev
 ```
 Keep the terminal open; with emulators (`npm run emulators`) everything runs offline-capable on your machine.
 
+### Online, free: Vercel (web app + API as a serverless function)
+`vercel.json` builds the web app, downloads the metro/bus timetables, and runs the API (`api/index.ts`) as one Node function (60 s limit).
+1. **Vercel → your project → Settings → General → Root Directory: empty (`./`)**, Framework: Vite. The old projects pointed at `platform/client`, which no longer exists. Delete the extra project or point it at the root too.
+2. **Settings → Environment Variables:** add the same values as `.env`. The `VITE_FIREBASE_*` ones are needed at build time; set `VITE_USE_EMULATORS=false`.
+3. Redeploy. Then add the `*.vercel.app` domain under Firebase **Authentication → Settings → Authorised domains**.
+
+**"Deployment was blocked"** means Vercel refused to build a commit, not that the code failed. On the free Hobby plan, a private repo only deploys commits whose author is the Vercel account owner. Fix it one of these ways:
+- **Deploy hook (free).** The owner opens Vercel → project → **Settings → Git → Deploy Hooks**, creates a hook for branch `main` and opens its URL (or `curl -X POST <hook-url>`) after each push. Hook builds don't check the commit author.
+- **Pro team.** The owner moves the project to a Pro team and invites the other author as a member.
+- **Author's own Vercel account.** The other author imports the repo into their own Vercel account.
+
 ### Online, free: Render (one URL for web + API)
 1. Push the `main` branch to GitHub.
 2. https://render.com → sign in with GitHub → **New → Blueprint** → choose the repo. It reads `render.yaml`.

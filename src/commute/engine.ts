@@ -133,9 +133,12 @@ export const VALUE_OF_TIME = 5
 export const CHANGE_PENALTY = 25
 /** Minutes of friction per change when ranking the fastest route. */
 export const TRANSFER_FRICTION = 4
+/** ₹ per person-minute the Cheapest route still values (₹30 an hour). */
+const CHEAP_VOT = 0.5
 
 function priority(l: Label, obj: Objective, depart: number, size: number): number[] {
-  if (obj === 'cost') return [l.fare, l.t, l.changes]
+  // cheapest, but not absurdly slow: each extra hour counts ₹30 per person (a 2-day wait is never "cheapest")
+  if (obj === 'cost') return [l.fare + (CHEAP_VOT * size * (l.t - depart)), l.t, l.changes]
   if (obj === 'changes') return [l.changes, l.t, l.fare]
   if (obj === 'general') return [l.fare + VALUE_OF_TIME * size * (l.t - depart) + CHANGE_PENALTY * size * l.changes, l.t]
   // fastest: every change costs a few real minutes (walking between platforms, finding the vehicle)
@@ -145,7 +148,6 @@ const less = (a: number[], b: number[]) => {
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]
   return false
 }
-const dominates = (a: Label, b: Label) => a.t <= b.t && a.fare <= b.fare && a.changes <= b.changes && a.rideKm <= b.rideKm && a.board === b.board
 
 /** Expand one label along one arc for every allowed way of travelling it. */
 function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): Label[] {
@@ -204,8 +206,6 @@ function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): L
   return res
 }
 
-const FRONT_CAP = 6
-
 /** Min-heap on lexicographic priority arrays (the open list of the label search). */
 class Heap<T> {
   private a: { p: number[]; v: T }[] = []
@@ -254,12 +254,14 @@ export function searchMany(g: Graph, q: Omit<Query, 'to'>, obj: Objective, group
   open.push(priority(start, obj, q.depart, groupSize), start)
   const found = new Map<string, Route>()
   const key = (l: Label) => `${l.node}|${l.vehicle}`
-  // "general" is one scalar (₹ + value of time + change penalty), so a label that is no later and no
-  // dearer on that scalar dominates — far smaller fronts than comparing fare and changes separately.
-  const gen = (l: Label) => l.fare + VALUE_OF_TIME * groupSize * (l.t - q.depart) + CHANGE_PENALTY * groupSize * l.changes
-  const dom = obj === 'general'
-    ? (a: Label, b: Label) => a.t <= b.t && gen(a) <= gen(b) && a.rideKm <= b.rideKm && a.board === b.board
-    : dominates
+  // Each objective is "time + one other quantity", so exact dominance needs only two criteria:
+  // arriving no later and being no worse on the objective's non-time part (an earlier label can
+  // always wait). Far smaller fronts than full (time, fare, changes) Pareto sets.
+  const other: (l: Label) => number =
+    obj === 'general' ? (l) => l.fare + CHANGE_PENALTY * groupSize * l.changes
+      : obj === 'cost' ? (l) => l.fare
+        : (l) => l.changes
+  const dom = (a: Label, b: Label) => a.t <= b.t && other(a) <= other(b) && a.rideKm <= b.rideKm && a.board === b.board
   while (open.size && found.size < targets.size) {
     const l = open.pop()!
     if (dead.has(l)) continue
@@ -278,11 +280,6 @@ export function searchMany(g: Graph, q: Omit<Query, 'to'>, obj: Objective, group
         const keep: Label[] = []
         for (const o of labels) { if (dom(n, o)) dead.add(o); else keep.push(o) }
         keep.push(n)
-        // bounded fronts: keep the best few trade-offs per stop and vehicle (the search stays interactive on big live graphs)
-        if (keep.length > FRONT_CAP) {
-          keep.sort((a, b) => (less(priority(a, obj, q.depart, groupSize), priority(b, obj, q.depart, groupSize)) ? -1 : 1))
-          for (const o of keep.splice(FRONT_CAP)) dead.add(o)
-        }
         front.set(k, keep)
         open.push(priority(n, obj, q.depart, groupSize), n)
       }

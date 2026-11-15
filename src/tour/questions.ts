@@ -7,7 +7,10 @@ export const TAGS = ['history', 'culture', 'food', 'shopping', 'nature', 'spirit
 export type Tag = (typeof TAGS)[number]
 
 export type Answers = {
+  /** sample-city key or destination name */
   city?: string
+  /** any place in India chosen with the search box */
+  place?: { name: string; lat: number; lon: number; state?: string }
   start?: string
   days?: number
   party?: 'solo' | 'couple' | 'friends' | 'kids' | 'seniors'
@@ -24,11 +27,11 @@ export type Answers = {
 type Option = { value: string | number; label: string; emoji: string }
 export type Question = {
   id: keyof Answers; scope: 'trip' | 'personal'; title: string; help?: string
-  kind: 'choice' | 'multi' | 'date'; options?: Option[]
+  kind: 'choice' | 'multi' | 'date' | 'place'; options?: Option[]
 }
 
 export const QUESTIONS: Question[] = [
-  { id: 'city', scope: 'trip', title: 'Where are you going?', kind: 'choice', options: [
+  { id: 'city', scope: 'trip', title: 'Where are you going?', help: 'Any city, town or region in India.', kind: 'place', options: [
     { value: 'hyderabad', label: 'Hyderabad', emoji: '🕌' }, { value: 'jaipur', label: 'Jaipur', emoji: '🏰' }] },
   { id: 'start', scope: 'trip', title: 'When does the trip start?', kind: 'date' },
   { id: 'days', scope: 'trip', title: 'How many days?', kind: 'choice', options: [
@@ -58,6 +61,7 @@ export const QUESTIONS: Question[] = [
 ]
 
 export const isAnswered = (a: Answers, id: keyof Answers) => {
+  if (id === 'city') return !!(a.place || a.city)
   const v = a[id]
   return Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== ''
 }
@@ -85,7 +89,7 @@ export function mergeAnswers(trip: Answers, people: MemberAnswers[]): Merged {
   const ranked = (Object.keys(votes) as Tag[]).sort((a, b) => votes[b]!.length - votes[a]!.length)
   const parties = A.map((a) => a.party)
   return {
-    city: trip.city, start: trip.start, days: trip.days,
+    city: trip.city, place: trip.place, start: trip.start, days: trip.days,
     party: parties.includes('seniors') ? 'seniors' : parties.includes('kids') ? 'kids' : people.length > 1 ? 'friends' : parties[0] ?? 'solo',
     budget: budgets.length ? Math.min(...budgets) : 0,
     pace: Math.min(...A.map((a) => a.pace ?? 2)),

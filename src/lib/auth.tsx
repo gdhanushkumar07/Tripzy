@@ -1,4 +1,5 @@
-import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
+import { getAdditionalUserInfo, getRedirectResult, onAuthStateChanged, signOut, type User } from 'firebase/auth'
+import { savePrefs } from './db'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
@@ -26,6 +27,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [expired, setExpired] = useState(false)
   const hadUser = useRef(false)
   const loggingOut = useRef(false)
+
+  // finish a Google sign-in that used a full-page redirect (popup blocked); create the profile on first sign-in
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((cred) => {
+        if (cred && getAdditionalUserInfo(cred)?.isNewUser) {
+          void savePrefs(cred.user.uid, (cred.user.displayName ?? cred.user.email?.split('@')[0] ?? 'Traveller').slice(0, 40), DEFAULT_PREFS).catch(() => undefined)
+        }
+      })
+      .catch(() => undefined)
+  }, [])
 
   useEffect(
     () =>

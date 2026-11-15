@@ -55,7 +55,8 @@ service cloud.firestore {
       function validMember(m) {
         return m is map && shortString(m.name, 40) && m.ready is bool
           && (!('destination' in m) || m.destination is string && m.destination.size() <= 40)
-          && (!('answers' in m) || m.answers is map);
+          && (!('answers' in m) || m.answers is map)
+          && (!('dest' in m) || (m.dest is map && m.dest.lat is number && m.dest.lon is number));
       }
 
       allow read: if signedIn() && me() in resource.data.memberUids;

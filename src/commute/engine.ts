@@ -8,21 +8,23 @@
  * budget and transfer limits never hide a valid route. Hubs are never chosen
  * greedily: MGBS only wins if the whole path through it wins.
  */
-import type { Mode } from '../lib/types'
+import { MODES, MODE_LABEL, type Mode } from '../lib/types'
 
 // ---------------------------------------------------------------- graph types
 
-type PrivateMode = 'auto' | 'bike' | 'cab'
-type PrivateSpec = { base: number; perKm: number; wait: number; speed: number; peakShare: number; maxKm: number; capacity: number }
+type PrivateSpec = { base: number; perKm: number; perMin?: number; baseKm?: number; wait: number; speed: number; peakShare: number; maxKm: number; capacity: number }
 export type GraphNode = { id: string; name: string; kind: string; lat: number; lon: number }
 type Segment = { km: number; min: number; fare: number; peak?: number }
 type Line = {
   id: string; mode: Mode; name: string; headway?: number; stops: string[]; segments: Segment[]
   departures?: { forward: string[]; reverse: string[] }
+  /** Optional official fare between stops i and j of `stops` (metro zone fares). Overrides segment fares. */
+  fareAt?: number[][]
 }
 export type GraphData = {
   peakWindows: [string, string][]
-  private: Record<PrivateMode, PrivateSpec>
+  /** Road vehicles that can be hired door to door (auto, bike taxi, cab, SUV, shared auto, …). */
+  private: Partial<Record<Mode, PrivateSpec>>
   walk: { kmh: number; maxKm: number }
   nodes: GraphNode[]
   roads: { a: string; b: string; km: number; min: number; peak: number }[]
@@ -36,6 +38,8 @@ type Arc =
   | {
       kind: 'line'; from: string; to: string; km: number; min: number; fare: number; peak: number
       mode: Mode; key: string; name: string; origin: string; headway?: number; departures?: number[]; offset: number
+      /** position of `from` along this direction, and the fare between two positions (boarding → alighting) */
+      index: number; fareBetween?: (a: number, b: number) => number
     }
 
 export type Graph = { data: GraphData; nodes: Map<string, GraphNode>; out: Map<string, Arc[]>; peak: [number, number][] }
@@ -69,12 +73,15 @@ export function buildGraph(data: GraphData): Graph {
       const stops = dir === 'forward' ? line.stops : [...line.stops].reverse()
       const segs = dir === 'forward' ? line.segments : [...line.segments].reverse()
       let offset = 0
+      const n = stops.length
+      const fa = line.fareAt
+      const fareBetween = fa ? (a: number, b: number) => (dir === 'forward' ? fa[a][b] : fa[n - 1 - a][n - 1 - b]) : undefined
       stops.slice(0, -1).forEach((s, i) => {
         const seg = segs[i]
         add({
           kind: 'line', from: s, to: stops[i + 1], km: seg.km, min: seg.min, fare: seg.fare, peak: seg.peak ?? 1,
           mode: line.mode, key: `${line.id}:${dir}`, name: line.name, origin: stops[0], headway: line.headway,
-          departures: line.departures?.[dir].map(toMin), offset,
+          departures: line.departures?.[dir].map(toMin), offset, index: i, fareBetween,
         })
         offset += seg.min
       })
@@ -96,30 +103,38 @@ export type Objective = 'cost' | 'time' | 'changes' | 'general'
 export type Query = {
   from: string; to: string; depart: number; modes: Mode[]
   budget?: number | null; maxTransfers?: number | null
+  /** Travellers going together; auto/cab fares are split per vehicle, results are per person. */
+  people?: number
 }
 
 type Label = {
   node: string; t: number; fare: number; changes: number; boardings: number
   vehicle: string; rideKm: number; prev: Label | null; step: Step | null
+  /** stop position where the current line was boarded (fare is by boarding → alighting) */
+  board?: number
 }
 type Step = { arc: Arc; mode: Mode; key: string; depart: number; wait: number; minutes: number; fare: number; peakDelay: number }
 
 /** Value of time used only to rank group split points (₹ per person-minute). */
 export const VALUE_OF_TIME = 5
 
-const PRIVATE: PrivateMode[] = ['auto', 'bike', 'cab']
+/** Comfort cost of one change of vehicle, ₹ per person (carrying bags, waiting, finding the stop). */
+export const CHANGE_PENALTY = 25
+/** Minutes of friction per change when ranking the fastest route. */
+export const TRANSFER_FRICTION = 4
 
 function priority(l: Label, obj: Objective, depart: number, size: number): number[] {
   if (obj === 'cost') return [l.fare, l.t, l.changes]
   if (obj === 'changes') return [l.changes, l.t, l.fare]
-  if (obj === 'general') return [l.fare + VALUE_OF_TIME * size * (l.t - depart), l.t]
-  return [l.t, l.fare, l.changes]
+  if (obj === 'general') return [l.fare + VALUE_OF_TIME * size * (l.t - depart) + CHANGE_PENALTY * size * l.changes, l.t]
+  // fastest: every change costs a few real minutes (walking between platforms, finding the vehicle)
+  return [l.t + TRANSFER_FRICTION * l.changes, l.fare, l.changes]
 }
 const less = (a: number[], b: number[]) => {
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]
   return false
 }
-const dominates = (a: Label, b: Label) => a.t <= b.t && a.fare <= b.fare && a.changes <= b.changes && a.rideKm <= b.rideKm
+const dominates = (a: Label, b: Label) => a.t <= b.t && a.fare <= b.fare && a.changes <= b.changes && a.rideKm <= b.rideKm && a.board === b.board
 
 /** Expand one label along one arc for every allowed way of travelling it. */
 function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): Label[] {
@@ -140,16 +155,19 @@ function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): L
     if (modes.has('walk') && arc.km <= g.data.walk.maxKm) {
       res.push(next('walk', 'walk', 0, (arc.km / g.data.walk.kmh) * 60, 0, 0, 0, false))
     }
-    for (const m of PRIVATE) {
+    for (const m of Object.keys(g.data.private) as Mode[]) {
       if (!modes.has(m)) continue
-      const p = g.data.private[m]
+      // you hail an auto/cab where you are; walking to a transit stop first only to hail one there is never useful
+      if (l.vehicle === 'walk' && l.boardings === 0 && l.vehicle !== m) continue
+      const p = g.data.private[m]!
       const cont = l.vehicle === m
       const rideKm = (cont ? l.rideKm : 0) + arc.km
       if (rideKm > p.maxKm) continue
       const free = arc.min * p.speed
       const minutes = free * (1 + (mult(arc.peak) - 1) * p.peakShare)
-      const vehicles = m === 'bike' ? size : Math.ceil(size / p.capacity)
-      const fare = ((cont ? 0 : p.base) + p.perKm * arc.km) * vehicles
+      const vehicles = Math.ceil(size / p.capacity)
+      const billKm = cont ? arc.km : Math.max(0, arc.km - (p.baseKm ?? 0))
+      const fare = ((cont ? 0 : p.base) + p.perKm * billKm + (p.perMin ?? 0) * free) * vehicles
       res.push(next(m, m, cont ? 0 : p.wait, minutes, fare, rideKm, minutes - free, !cont))
     }
     return res
@@ -166,7 +184,11 @@ function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): L
     } else wait = (arc.headway ?? 10) / 2
   }
   const minutes = arc.min * mult(arc.peak)
-  res.push(next(arc.mode, arc.key, wait, minutes, arc.fare * size, 0, minutes - arc.min, !cont))
+  const board = cont ? l.board ?? arc.index : arc.index
+  const fare = arc.fareBetween ? arc.fareBetween(board, arc.index + 1) - (cont ? arc.fareBetween(board, arc.index) : 0) : arc.fare
+  const out = next(arc.mode, arc.key, wait, minutes, fare * size, 0, minutes - arc.min, !cont)
+  out.board = board
+  res.push(out)
   return res
 }
 
@@ -262,7 +284,7 @@ function toRoute(g: Graph, end: Label, groupSize: number): Route {
 }
 
 const round1 = (x: number) => Math.round(x * 10) / 10
-const labelOf = (m: Mode) => ({ walk: 'Walk', auto: 'Auto', bike: 'Bike taxi', cab: 'Cab', citybus: 'City bus', metro: 'Metro', ibus: 'Intercity bus', train: 'Train' })[m]
+const labelOf = (m: Mode) => MODE_LABEL[m] ?? m
 
 // ---------------------------------------------------------------- plan
 
@@ -322,7 +344,7 @@ export function plan(g: Graph, q: Query): PlanResult {
   if (q.from === q.to) return { routes: [], message: 'Start and destination are the same place.', suggestions: [] }
   const byId = new Map<string, Route>()
   for (const [obj, label] of OBJECTIVES) {
-    const r = search(g, q, obj)
+    const r = search(g, q, obj, q.people ?? 1)
     if (!r) continue
     const seen = byId.get(r.id)
     if (seen) seen.labels.push(label)
@@ -333,7 +355,11 @@ export function plan(g: Graph, q: Query): PlanResult {
     const fastest = routes.find((r) => r.labels.includes('Fastest'))
     const b = greedyBaseline(g, q)
     const baseline = b && fastest && !fastest.segments.some((s) => s.a === b.hub) && b.totalMin > fastest.totalMin ? b : undefined
-    routes.forEach((r) => (r.why = explain(g, r, routes, baseline)))
+    routes.forEach((r) => {
+      r.why = explain(g, r, routes, baseline)
+      const shared = r.legs.find((l) => (l.mode === 'cab' || l.mode === 'suv' || l.mode === 'auto') && l.km > 3)
+      if ((q.people ?? 1) >= 3 && shared) r.why += ` · ${MODE_LABEL[shared.mode]} split ${q.people} ways: ₹${shared.fare} each`
+    })
     return { routes, suggestions: [], baseline }
   }
   return { routes: [], ...noRoute(g, q) }
@@ -344,17 +370,17 @@ function noRoute(g: Graph, q: Query): { message: string; suggestions: Suggestion
   const a = g.nodes.get(q.from)?.name ?? q.from
   const b = g.nodes.get(q.to)?.name ?? q.to
   const loose = { ...q, budget: null, maxTransfers: null }
-  const unconstrained = search(g, loose, 'cost')
+  const unconstrained = search(g, loose, 'cost', q.people ?? 1)
   if (unconstrained) {
     const parts: string[] = []
     if (q.budget != null && unconstrained.fare > q.budget) parts.push(`the cheapest route costs ₹${unconstrained.fare}, above your budget of ₹${q.budget}`)
     if (q.maxTransfers != null) parts.push(`max ${q.maxTransfers} transfer${q.maxTransfers === 1 ? '' : 's'}`)
     return { message: `No route fits your limits: ${parts.join(' and ') || 'budget and transfers'}. Try raising the budget or allowing more transfers.`, suggestions: [] }
   }
-  const all: Mode[] = ['walk', 'auto', 'bike', 'cab', 'citybus', 'metro', 'ibus', 'train']
+  const all: Mode[] = [...MODES]
   const suggestions = all
     .filter((m) => !q.modes.includes(m))
-    .filter((m) => search(g, { ...loose, modes: [...q.modes, m] }, 'time'))
+    .filter((m) => search(g, { ...loose, modes: [...q.modes, m] }, 'time', q.people ?? 1))
     .map((m) => ({ mode: m, text: `Try with ${labelOf(m).toLowerCase()} added` }))
   const picked = q.modes.length ? q.modes.map((m) => labelOf(m).toLowerCase()).join(', ') : 'no modes'
   return {
@@ -395,10 +421,16 @@ export function explain(g: Graph, r: Route, all: Route[], baseline?: Baseline): 
 // ---------------------------------------------------------------- group split
 
 export type GroupMember = { id: string; name: string; to: string }
+export type TogetherPlan = {
+  mode: Mode; stops: { id: string; name: string; to: string; route: Route; perPerson: number; arrive: number }[]
+  totalPerPerson: number; recommended: boolean; why: string
+}
 export type GroupPlan = {
   split: string; splitName: string; shared: Route | null; sharedPerPerson: number
   members: { id: string; name: string; to: string; route: Route | null; perPerson: number }[]
   totalPerPerson: number; message?: string
+  /** Everyone in one cab (or SUV), dropped nearest-first — the comfortable option for groups. */
+  together?: TogetherPlan
 }
 
 /**
@@ -417,14 +449,18 @@ export function planGroup(g: Graph, q: { from: string; depart: number; modes: Mo
     const shared = S === q.from ? null : search(g, { from: q.from, to: S, depart: q.depart, modes: q.modes }, 'general', n)
     if (S !== q.from && !shared) continue
     const tS = shared?.arrive ?? q.depart
-    let cost = shared ? shared.fare * n + VALUE_OF_TIME * n * (shared.arrive - shared.depart) : 0
+    let cost = shared ? shared.fare * n + VALUE_OF_TIME * n * (shared.arrive - shared.depart) + CHANGE_PENALTY * n * shared.changes : 0
     const legs: (Route | null)[] = []
     let ok = true
     for (const m of members) {
       if (m.to === S) { legs.push(null); continue }
       const r = search(g, { from: S, to: m.to, depart: tS, modes: q.modes }, 'general', 1)
       if (!r) { ok = false; break }
-      cost += r.fare + VALUE_OF_TIME * (r.arrive - r.depart)
+      // getting off the shared vehicle at S and onto another one is a change too
+      const lastShared = shared?.legs.filter((l) => l.mode !== 'walk').at(-1)
+      const firstOwn = r.legs.find((l) => l.mode !== 'walk')
+      const splitChange = lastShared && firstOwn && (lastShared.mode !== firstOwn.mode || lastShared.name !== firstOwn.name) ? 1 : 0
+      cost += r.fare + VALUE_OF_TIME * (r.arrive - r.depart) + CHANGE_PENALTY * (r.changes + splitChange)
       legs.push(r)
     }
     if (!ok) continue
@@ -439,9 +475,60 @@ export function planGroup(g: Graph, q: { from: string; depart: number; modes: Mo
     const r = best!.legs[i]
     return { id: m.id, name: m.name, to: m.to, route: r, perPerson: sharedPerPerson + (r?.fare ?? 0) }
   })
-  return {
+  const plan: GroupPlan = {
     split: best.split, splitName: g.nodes.get(best.split)?.name ?? best.split,
     shared: best.shared, sharedPerPerson, members: out,
     totalPerPerson: Math.round(out.reduce((a, m) => a + m.perPerson, 0) / n),
   }
+  const together = rideTogether(g, q, members)
+  if (together) {
+    const splitTime = out.reduce((a, m) => a + ((m.route?.arrive ?? best!.shared?.arrive ?? q.depart) - q.depart), 0)
+    const togetherTime = together.stops.reduce((a, st) => a + (st.arrive - q.depart), 0)
+    const changes = out.reduce((a, m) => a + (m.route?.changes ?? 0), 0) + (best.shared ? best.shared.changes * n : 0)
+    const togetherCost = together.totalPerPerson * n + VALUE_OF_TIME * togetherTime
+    together.recommended = togetherCost < best.cost
+    const dMoney = plan.totalPerPerson - together.totalPerPerson
+    const dMin = Math.round((splitTime - togetherTime) / n)
+    together.why = [
+      dMoney > 0 ? `₹${dMoney} cheaper per person` : dMoney < 0 ? `₹${-dMoney} more per person` : 'Same cost per person',
+      dMin > 0 ? `${dMin} min faster on average` : dMin < 0 ? `${-dMin} min slower on average` : '',
+      changes > 0 ? `no changes instead of ${changes}` : '',
+    ].filter(Boolean).join(' · ')
+    plan.together = together
+  }
+  return plan
+}
+
+/** One vehicle for the whole group, dropping members nearest-first; each segment's fare is shared by those still on board. */
+function rideTogether(g: Graph, q: { from: string; depart: number; modes: Mode[] }, members: GroupMember[]): TogetherPlan | undefined {
+  const n = members.length
+  if (n < 2) return undefined
+  const mode: Mode | undefined = n <= 4 && q.modes.includes('cab') ? 'cab' : n <= 6 && q.modes.includes('suv') ? 'suv' : n <= 6 && q.modes.includes('cab') ? 'cab' : undefined
+  if (!mode || !g.data.private[mode]) return undefined
+  const left = [...members]
+  let at = q.from, t = q.depart
+  const paid = new Map(members.map((m) => [m.id, 0]))
+  const stops: TogetherPlan['stops'] = []
+  while (left.length) {
+    // nearest next drop by road time from the current point
+    let pick: { m: GroupMember; r: Route } | null = null
+    for (const m of left) {
+      if (m.to === at) { pick = { m, r: { ...emptyRoute(at, t) } }; break }
+      const r = search(g, { from: at, to: m.to, depart: t, modes: [mode, 'walk'] }, 'time', left.length)
+      if (r && (!pick || r.arrive < pick.r.arrive)) pick = { m, r }
+    }
+    if (!pick) return undefined
+    const segFareTotal = pick.r.fare * left.length // search returns per-head fare for the riders on board
+    for (const m of left) paid.set(m.id, (paid.get(m.id) ?? 0) + segFareTotal / left.length)
+    stops.push({ id: pick.m.id, name: pick.m.name, to: pick.m.to, route: pick.r, perPerson: 0, arrive: pick.r.arrive })
+    at = pick.m.to
+    t = pick.r.arrive
+    left.splice(left.indexOf(pick.m), 1)
+  }
+  stops.forEach((st) => (st.perPerson = Math.round(paid.get(st.id) ?? 0)))
+  return { mode, stops, totalPerPerson: Math.round([...paid.values()].reduce((a, b) => a + b, 0) / n), recommended: false, why: '' }
+}
+
+function emptyRoute(at: string, t: number): Route {
+  return { id: 'here', labels: [], legs: [], from: at, to: at, depart: t, arrive: t, totalMin: 0, fare: 0, km: 0, changes: 0, why: '', segments: [] }
 }

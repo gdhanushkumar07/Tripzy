@@ -6,25 +6,31 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useAuth } from '../lib/auth'
 import { createGroup, newId, setGroup, tripDoc, updateMember, write } from '../lib/db'
-import { request } from '../lib/request'
+import { api, type GeoPoint } from '../lib/api'
+import { logEvent, useTaste } from '../lib/history'
+import { toFriendly } from '../lib/request'
+import { LocationInput } from '../ui/LocationInput'
 import { ErrorBox, SaveStatus, Skeleton, useAction, useStatus } from '../lib/status'
 import { useDraft } from '../lib/useDraft'
 import { GroupPanel, ModeToggle, useGroup } from '../lib/useGroup'
-import { generateBasic, isTrip, type Trip } from './generate'
+import { generateBasic, type Trip } from './generate'
 import { isAnswered, mergeAnswers, questionsFor, QUESTIONS, type Answers, type Question } from './questions'
 
 export type TourDraft = { answers: Answers; groupCode: string | null; doneTripId: string | null }
 const EMPTY: TourDraft = { answers: {}, groupCode: null, doneTripId: null }
-const AI_URL = import.meta.env.VITE_AI_PLANNER_URL as string | undefined
-
-/** Optional AI planner behind request(); the app works fully without it. */
-async function aiPlan(answers: Answers, groupSize: number): Promise<Trip> {
-  const res = await fetch(AI_URL!, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, groupSize }) })
-  if (!res.ok) throw Object.assign(new Error(`AI ${res.status}`), { code: res.status >= 500 ? 'unavailable' : 'invalid-argument' })
-  const trip = await res.json()
-  if (!isTrip(trip)) throw Object.assign(new Error('bad plan'), { code: 'unavailable' })
-  return { ...trip, source: 'ai' }
+/** Offline sample cities (the bundled "Basic plan" data). Everything else is planned live. */
+const SAMPLE: Record<string, GeoPoint> = {
+  hyderabad: { name: 'Hyderabad', lat: 17.385, lon: 78.4867, state: 'Telangana' },
+  jaipur: { name: 'Jaipur', lat: 26.9124, lon: 75.7873, state: 'Rajasthan' },
 }
+const sampleKey = (p: { name: string; lat: number; lon: number }) =>
+  Object.keys(SAMPLE).find((k) => Math.hypot(SAMPLE[k].lat - p.lat, SAMPLE[k].lon - p.lon) < 0.3 || p.name.toLowerCase().includes(k))
+const QUICK: GeoPoint[] = [
+  { name: 'Goa', lat: 15.4909, lon: 73.8278, state: 'Goa' }, { name: 'Mysuru', lat: 12.2958, lon: 76.6394, state: 'Karnataka' },
+  { name: 'Varanasi', lat: 25.3176, lon: 82.9739, state: 'Uttar Pradesh' }, { name: 'Udaipur', lat: 24.5854, lon: 73.7125, state: 'Rajasthan' },
+  { name: 'Kochi', lat: 9.9312, lon: 76.2673, state: 'Kerala' }, { name: 'Delhi', lat: 28.6139, lon: 77.209, state: 'Delhi' },
+  { name: 'Hampi', lat: 15.335, lon: 76.46, state: 'Karnataka' }, { name: 'Rishikesh', lat: 30.0869, lon: 78.2676, state: 'Uttarakhand' },
+]
 
 type GroupResult = Trip & { at: number }
 
@@ -58,7 +64,14 @@ export default function TourPage() {
     setParams(p, { replace })
   }
 
-  const answer = (id: keyof Answers, v: unknown) => draft.update((p) => ({ ...p, doneTripId: null, answers: { ...p.answers, [id]: v } }))
+  const answer = (id: keyof Answers, v: unknown) => draft.update((p) => {
+    if (id === 'city' && v && typeof v === 'object') {
+      const place = v as GeoPoint
+      return { ...p, doneTripId: null, answers: { ...p.answers, place: { name: place.name, lat: place.lat, lon: place.lon, state: place.state }, city: sampleKey(place) ?? place.name } }
+    }
+    return { ...p, doneTripId: null, answers: { ...p.answers, [id]: v } }
+  })
+  const taste = useTaste(user?.uid)
 
   const startGroup = useAction(async () => {
     if (!user) return
@@ -83,14 +96,21 @@ export default function TourPage() {
       size = people.length
     }
     let trip: Trip
-    if (AI_URL && !basic) {
+    const place = merged.place ?? (merged.city ? SAMPLE[merged.city] : undefined)
+    if (!basic) {
+      // live: real places, opening hours, weather, air quality, AI web checks, your history weights
       try {
-        trip = await request(() => aiPlan(merged, size), { key: 'ai-plan', timeoutMs: 20000 })
+        trip = await api.post<Trip>('/api/tour/plan', { answers: merged, groupSize: size, place, boost: taste?.boost, boostWhy: taste?.boostWhy }, `tour:${JSON.stringify(merged)}`)
       } catch (e) {
-        setAiFailed((e as Error).message)
+        setAiFailed(toFriendly(e).message)
         return
       }
-    } else trip = generateBasic(merged, size)
+    } else {
+      const key = merged.city && SAMPLE[merged.city] ? merged.city : place ? sampleKey(place) : undefined
+      if (!key) throw Object.assign(new Error('basic'), { code: 'failed-precondition' })
+      trip = generateBasic({ ...merged, city: key }, size)
+    }
+    logEvent(user.uid, { type: 'trip_created', at: Date.now(), city: place?.name ?? merged.city ?? '', interests: merged.interests ?? [], days: merged.days ?? 1, budget: merged.budget })
 
     if (groupCode) {
       const result: GroupResult = { ...trip, groupCode, at: Date.now() }
@@ -124,7 +144,7 @@ export default function TourPage() {
         <div>
           <div className="tz-chapter">Not another generic itinerary.</div>
           <h1 className="tz-h1 mt-2 text-content">Tourist Planner</h1>
-          <p className="mt-3 max-w-xl text-[16px] text-content-muted">12 quick questions, then a day-by-day plan you can edit. <span className="sample">Sample data</span></p>
+          <p className="mt-3 max-w-xl text-[16px] text-content-muted">12 quick questions, then a day-by-day plan anywhere in India — real places, opening hours, weather and air quality, shaped by your past trips.</p>
         </div>
         <div className="flex items-center gap-3">
           <SaveStatus status={draft.status} onRetry={() => void draft.retry()} />
@@ -184,8 +204,8 @@ export default function TourPage() {
             ))}
           </ul>
           {aiFailed && (
-            <ErrorBox message="The AI planner didn't respond. You can try again, or get a basic plan built from the local sample data right now." onRetry={() => void generate.run(false)}>
-              <button className="btn-secondary" onClick={() => void generate.run(true)}>Basic plan</button>
+            <ErrorBox message={`The live planner couldn't finish: ${aiFailed} You can try again${a.place && sampleKey(a.place) ? ', or get a basic plan from the offline sample data right now' : ''}.`} onRetry={() => void generate.run(false)}>
+              {(!a.place || sampleKey(a.place)) && <button className="btn-secondary" onClick={() => void generate.run(true)}>Basic plan (offline)</button>}
             </ErrorBox>
           )}
           {generate.error && <ErrorBox message={generate.error} onRetry={() => void generate.retry()} />}
@@ -229,6 +249,7 @@ export default function TourPage() {
 function display(q: Question, a: Answers): string {
   const v = a[q.id]
   if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)) return ''
+  if (q.id === 'city') return a.place?.name ?? (q.options?.find((o) => o.value === v)?.label ?? String(v))
   if (q.kind === 'date') return new Date(`${v}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
   if (Array.isArray(v)) return v.map((x) => q.options?.find((o) => o.value === x)?.label ?? x).join(', ')
   return q.options?.find((o) => o.value === v)?.label ?? String(v)
@@ -259,7 +280,30 @@ function QuestionCard({ q, index, total, answers, onAnswer, onBack, onNext }: {
       </div>
 
       <div key={q.id} className="tz-rise mt-8 flex-1">
-        {q.kind === 'date' ? (
+        {q.kind === 'place' ? (
+          <div className="space-y-5">
+            <LocationInput label="Destination" value={answers.place ?? null} onChange={(p) => p && onAnswer(p, false)} placeholder="Search a city, town or region — e.g. Hampi, Munnar, Varanasi" allowLocate={false} />
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              {(['hyderabad', 'jaipur'] as const).map((k) => {
+                const on = answers.city === k
+                return (
+                  <button key={k} type="button" role="radio" aria-checked={on} onClick={() => onAnswer(SAMPLE[k], true)}
+                    className={`group relative min-h-[180px] overflow-hidden rounded-[24px] border-2 text-start transition ${on ? 'border-[var(--accent)]' : 'border-transparent hover:-translate-y-0.5'}`}>
+                    <img src={photoSrc(CITY_TILE[k], true)} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]" />
+                    <span className="absolute inset-0 bg-gradient-to-t from-[#18211F]/85 via-[#18211F]/20 to-transparent" />
+                    {on && <span className="absolute end-3 top-3 grid h-7 w-7 place-items-center rounded-full bg-accent text-accent-text"><Check className="h-4 w-4" /></span>}
+                    <span className="absolute bottom-4 left-5 font-serif text-[32px] leading-none text-white">{SAMPLE[k].name}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {QUICK.map((p) => (
+                <button key={p.name} type="button" onClick={() => onAnswer(p, true)} className={`chip ${answers.place?.name === p.name ? 'chip-on' : 'chip-off'}`}>{p.name}</button>
+              ))}
+            </div>
+          </div>
+        ) : q.kind === 'date' ? (
           <div className="max-w-xs">
             <label htmlFor="date" className="label">Start date</label>
             <input id="date" type="date" min={today} className="tz-input" value={(v as string) ?? ''} onChange={(e) => onAnswer(e.target.value, false)} />

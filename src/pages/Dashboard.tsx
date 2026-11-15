@@ -2,7 +2,9 @@ import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestor
 import { ArrowRight, ArrowUpRight, CalendarDays, Luggage, Plus, Route as RouteIcon, Trash2, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { commuteUrl, graph, type CommuteForm } from '../commute/CommutePage'
+import { commuteUrl, type CommuteForm } from '../commute/CommutePage'
+import type { GeoPoint } from '../lib/api'
+import { useTaste } from '../lib/history'
 import { useAuth } from '../lib/auth'
 import { removeDoc, routeDoc, savePrefs, tripDoc } from '../lib/db'
 import { db } from '../lib/firebase'
@@ -16,7 +18,8 @@ import { Skeleton } from '../ui/kit'
 import { useDocumentScroll, useReveal } from '../ui/motion'
 import { ALT_CITY_PHOTO, CITY_PHOTO, photoSrc } from '../ui/photos'
 
-type SavedRoute = { id: string; from: string; to: string; time: string; modes: Mode[]; budget: number | null; maxTransfers: number | null; title: string; summary?: string }
+type SavedRoute = { id: string; from: string; to: string; fromPt?: GeoPoint; toPt?: GeoPoint; time: string; modes: Mode[]; budget: number | null; maxTransfers: number | null; people?: number; title: string; summary?: string }
+const routeUrl = (r: SavedRoute) => (r.fromPt && r.toPt ? commuteUrl({ ...r, from: r.fromPt, to: r.toPt }) : '/commute')
 type SavedTrip = { id: string; title: string; start?: string; city?: string; groupCode?: string; days?: unknown[] }
 
 function useList<T>(uid: string, sub: 'routes' | 'trips', order: string) {
@@ -55,7 +58,8 @@ export default function Dashboard() {
   const commuteDraft = readLocalDraft<CommuteForm>(uid, 'commute')?.value
   const tourDraft = readLocalDraft<TourDraft>(uid, 'tour')?.value
   const answered = tourDraft ? Object.values(tourDraft.answers).filter((v) => (Array.isArray(v) ? v.length : v !== undefined && v !== '')).length : 0
-  const showCommute = !!(commuteDraft?.touched && commuteDraft.from)
+  const showCommute = !!(commuteDraft?.touched && commuteDraft.from && typeof commuteDraft.from === 'object')
+  const taste = useTaste(uid)
   const showTour = answered > 0 && !tourDraft?.doneTripId
 
   const del = async (kind: 'route' | 'trip', id: string, title: string) => {
@@ -94,10 +98,10 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col justify-center gap-4 p-6 md:p-10">
               {showCommute && commuteDraft && (
-                <Link to={commuteDraft.groupCode ? `/commute?group=${commuteDraft.groupCode}` : commuteDraft.to ? commuteUrl(commuteDraft) : '/commute'} className="group block border-b border-white/10 pb-4">
+                <Link to={commuteDraft.groupCode ? `/commute?group=${commuteDraft.groupCode}` : commuteDraft.from && commuteDraft.to ? commuteUrl({ ...commuteDraft, from: commuteDraft.from, to: commuteDraft.to }) : '/commute'} className="group block border-b border-white/10 pb-4">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#D98955]">Daily Traveller</div>
                   <div className="mt-1 flex items-center justify-between gap-3 text-[17px]">
-                    {graph.nodes.get(commuteDraft.from)?.name}{commuteDraft.to ? ` → ${graph.nodes.get(commuteDraft.to)?.name}` : ''}
+                    {commuteDraft.from?.name}{commuteDraft.to ? ` → ${commuteDraft.to.name}` : ''}
                     <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
                   </div>
                 </Link>
@@ -129,6 +133,15 @@ export default function Dashboard() {
           icon={<Luggage className="h-4 w-4" />} cta="Plan a journey"
         />
       </section>
+
+      {taste && taste.summary.length > 0 && (
+        <section className="mt-14 rounded-[22px] border border-edge bg-surface-card p-6" aria-labelledby="taste">
+          <div className="tz-kicker">Personalised for you</div>
+          <h2 id="taste" className="tz-h3 mt-2 text-content">What Tripzy has learned</h2>
+          <ul className="mt-3 space-y-1 text-[15px] text-content-secondary">{taste.summary.map((t) => <li key={t}>· {t}</li>)}</ul>
+          <p className="mt-3 text-caption text-content-faint">From {taste.events} actions in your own history (kept, removed and swapped stops, saved routes). New plans rank places with these weights, and each boosted stop says why.</p>
+        </section>
+      )}
 
       <section className="mt-20" aria-labelledby="journeys">
         <SectionHead id="journeys" kicker="My journeys" title="Your saved trips" />
@@ -175,12 +188,12 @@ export default function Dashboard() {
               {routes.items.map((r) => (
                 <li key={r.id} className="group flex items-center gap-4 border-b border-edge py-4">
                   <RouteIcon className="h-4 w-4 shrink-0 text-[var(--tz-sun)]" />
-                  <button type="button" className="min-w-0 flex-1 text-start" onClick={() => nav(commuteUrl(r))}>
+                  <button type="button" className="min-w-0 flex-1 text-start" onClick={() => nav(routeUrl(r))}>
                     <div className="truncate text-[16px] text-content">{r.title} <span className="text-content-muted">· {r.time}</span></div>
                     {r.summary && <div className="mt-0.5 truncate text-[13px] text-content-muted">{r.summary}</div>}
                   </button>
                   <button type="button" onClick={() => void del('route', r.id, r.title)} aria-label={`Delete ${r.title}`} className="grid h-9 w-9 place-items-center rounded-full text-content-faint transition hover:bg-danger-soft hover:text-danger"><Trash2 className="h-4 w-4" /></button>
-                  <button type="button" onClick={() => nav(commuteUrl(r))} aria-label={`Open ${r.title}`}><ArrowUpRight className="h-5 w-5 text-content-faint transition group-hover:text-content" /></button>
+                  <button type="button" onClick={() => nav(routeUrl(r))} aria-label={`Open ${r.title}`}><ArrowUpRight className="h-5 w-5 text-content-faint transition group-hover:text-content" /></button>
                 </li>
               ))}
             </ol>
@@ -193,7 +206,7 @@ export default function Dashboard() {
       </div>
 
       <footer className="mt-20 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-edge pt-6 text-[13px] text-content-muted">
-        <span>Places, routes and fares are sample data (estimates).</span>
+        <span>Live data: OpenStreetMap, Wikipedia, Open-Meteo and city transit timetables. Fares marked “est.” are estimates.</span>
         <Link to="/credits" className="hover:text-content">Photo credits</Link>
       </footer>
     </div>

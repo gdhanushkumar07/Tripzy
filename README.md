@@ -33,21 +33,24 @@ Other apps plan in one mode and pick the nearest hub greedily, one leg at a time
 
 ## Architecture (in a few lines)
 
-- **React 19 + TypeScript + Vite + Tailwind + react-router + GSAP + lucide icons**, one small app at the repo root, with **Firebase Auth + Firestore** as the only backend. Firestore offline persistence is on.
-- `src/commute/engine.ts` — pure routing engine, no UI. The graph is one JSON file. Unselected modes are removed, then a time-dependent, label-setting Dijkstra runs. A state is (node, arrival time, current vehicle), and the Pareto labels cover time, fare, changes and the distance on the current vehicle. Road legs get a peak multiplier from 08:00–11:00 and 17:00–21:00; metro and train legs don't. The search runs once for each objective, and `planGroup()` picks the split node.
-- `src/tour/generate.ts` — pure rule-based planner ("Basic plan"), ported from the old Python engine. It respects opening hours, weekly closures, fixed show slots, meals, diet, effort and budget. `questions.ts` holds the 12 questions and the group merge.
-- Shared mechanisms, each built once: `RequireAuth` (`lib/auth.tsx`), `useDraft(key)` (`lib/useDraft.ts`), `request(fn)` (`lib/request.ts`: timeout, 2 retries with backoff, de-duplication, plain-language errors), and one status module (`lib/status.tsx`: banner, save status, toasts, skeletons, confirm dialog, `useAction` for submit buttons).
-- Data model: `users/{uid}` (name, prefs), `users/{uid}/drafts/{commute|tour}`, `users/{uid}/routes/{id}`, `users/{uid}/trips/{id}`, and `groups/{code}` (type, ownerUid, memberUids, members, settings, result). Rules are in `firestore.rules`.
+- **React 19 + TypeScript + Vite + Tailwind + react-router + GSAP + Leaflet**, plus a small **Node API server** (`server/`, Express) that keeps provider keys out of the browser, caches every upstream call and falls back to keyless sources. **Firebase Auth (email + Google) + Firestore** store users, drafts, routes, trips, groups and history. Firestore offline persistence is on.
+- **Where algorithms are used and where AI is used** — see [docs/REALTIME_PLAN.md](docs/REALTIME_PLAN.md). In short: routing, fares, group splitting, opening hours, weather suitability, itinerary building and personalisation are deterministic algorithms; AI (Gemini) only reads fresh web search results (Tavily) to flag closures, festivals or crowds for a place on your date, with cited sources. AI never invents places, times or prices.
+- `src/commute/engine.ts` — pure routing engine (tested). Time-dependent multi-label Dijkstra over whole door-to-door paths: state = (node, arrival time, current vehicle), Pareto labels on time, fare, changes and km on the current vehicle. Metro fares are priced boarding → alighting from the official fare table. Party size splits auto/cab fares per vehicle; `planGroup()` picks the split point and compares it with **one cab / SUV for everyone**.
+- `server/plan/commute.ts` — builds that graph live for each query, anywhere in India: city railway junctions and bus terminals (OpenStreetMap via Photon), metro/bus stations from **GTFS timetables** with that day's real departures, one road-time matrix (OSRM or Ola Maps) between all points with a peak-hour calibration, trains (Indian Rail API when keyed, else a labelled estimate) and intercity buses (labelled estimates), plus booking links for Uber, Ola, Rapido, Namma Yatri, redBus, AbhiBus, the state RTC and IRCTC.
+- `src/tour/generate.ts` — one itinerary algorithm for live and offline data. `server/plan/tour.ts` feeds it real places (Wikipedia + OpenStreetMap, OpenTripMap popularity when keyed), per-date opening hours (OSM `opening_hours`, or typical hours flagged), hourly weather, air quality and real sunrise/sunset (Open-Meteo), optional AI web checks, and your history weights.
+- `src/lib/taste.ts` — personalisation: interest boosts and preferred modes from your own `users/{uid}/history` (kept, removed and swapped stops, saved routes), decaying over 60 days; each boost is shown with its reason.
+- Shared mechanisms, each built once: `RequireAuth`, `useDraft(key)`, `request(fn)` (timeout, retries, de-duplication, plain-language errors), one status module, `LocationInput` (India-wide search) and `LiveMap` (numbered markers with popups).
 
 ```
+server/                API: index.ts, providers/ (geo, route, weather, places, hubs, ai, rail), plan/ (commute, tour), transit/ (GTFS), fares.ts
+scripts/gtfs-import.ts download + index public GTFS feeds (metro, city buses)
 src/
-  App.tsx              routes + shared header
-  lib/                 firebase, auth guard, useDraft, request, status, db, validate, useGroup
-  commute/             engine.ts (+ tests), CommutePage, RouteView, RouteMap
+  commute/             engine.ts (+ tests), CommutePage, RouteView
   tour/                questions.ts, generate.ts (+ tests), TourPage, TripPage
+  lib/                 firebase, auth, api, history/taste, useDraft, request, status, db, useGroup
   pages/               HomePage (intro), LoginPage, Dashboard, JoinPage, CreditsPage
-  ui/                  original Tripzy UI kit, motion (GSAP), photos, public layout, app shell
-  data/                hyderabad-graph.json, places.json   ← sample data
+  ui/                  Tripzy UI kit, LiveMap, LocationInput, motion, photos, layouts
+  data/                sample data for tests and the offline "Basic plan"
 ```
 
 ## Setup
@@ -62,26 +65,32 @@ npm install
 npm install -g firebase-tools
 ```
 
-### Option A — fully local, no Firebase project needed (recommended for judging)
+Download and index the public transit timetables (Hyderabad Metro + TGSRTC by default; add `bmtc chennai best pmpml amd` for more cities):
 
-With no keys in `.env`, the app talks to the **Firebase emulators** (Auth + Firestore) on your machine. Run them in one terminal:
+```bash
+npm run gtfs -- hmrl tgsrtc
+```
+
+### Option A — fully local, no Firebase project needed
+
+Run the Firebase emulators in one terminal:
 
 ```bash
 npm run emulators
 ```
 
-Run the app in a second terminal:
+Run the web app and the API server together in a second terminal:
 
 ```bash
 npm run dev
 ```
 
-Open http://localhost:5173 and register any email (for example `you@tripzy.test`). Emulator accounts and data reset when the emulators stop. Password-reset links appear in the emulator UI at http://localhost:4000 (Auth tab) instead of being emailed.
+Open http://localhost:5173. Everything works without any API key using OpenStreetMap, Wikipedia, Open-Meteo and the GTFS timetables. In local mode "Continue with Google" shows the emulator's test-account screen.
 
-### Option B — your Firebase project
+### Option B — your Firebase project (needed for real Google sign-in)
 
-1. In the Firebase console, create a web app and enable **Authentication → Email/Password** and **Firestore**.
-2. Copy the env file and fill in the web config:
+1. Firebase console → create a project and a **Web app**. Enable **Authentication → Email/Password and Google**, create **Firestore**, and add your domain under Authentication → Settings → Authorised domains.
+2. Copy the env file and fill in the web config and any provider keys:
    ```bash
    cp .env.example .env
    ```
@@ -89,18 +98,20 @@ Open http://localhost:5173 and register any email (for example `you@tripzy.test`
    ```bash
    firebase deploy --only firestore:rules --project <your-project-id>
    ```
-4. Start the app:
+4. Start:
    ```bash
    npm run dev
    ```
 
 ### Environment variables (`.env`, never committed)
 
-| Variable | Purpose |
-|---|---|
-| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | Firebase web config. Leave the API key empty to use the emulators |
-| `VITE_USE_EMULATORS` | `true` forces emulators even when keys are set |
-| `VITE_AI_PLANNER_URL` | Optional AI itinerary endpoint (POST answers → trip JSON). Empty = rule-based planner only. The app works fully without it |
+| Variable | Used by | Purpose (all free tiers) |
+|---|---|---|
+| `VITE_FIREBASE_*` | web | Firebase web config. Empty API key = emulators |
+| `OLA_MAPS_API_KEY` | server | India geocoding/places and traffic-aware directions (else Photon + OSRM) |
+| `GEMINI_API_KEY`, `TAVILY_API_KEY` | server | Live "good day to visit?" notices from web news, with sources |
+| `OPENTRIPMAP_API_KEY` | server | Attraction popularity ratings |
+| `RAIL_API_KEY` | server | Real trains between stations (else a labelled estimate) |
 
 ## Test
 
@@ -108,12 +119,7 @@ Open http://localhost:5173 and register any email (for example `you@tripzy.test`
 npm test
 ```
 
-This runs the engine and planner unit tests (Vitest). Among other things it checks that:
-- at 18:00 the **Fastest** Kokapet → Warangal route goes via Raidurg metro and Uppal, not MGBS, and explains the skipped MGBS → Uppal traffic;
-- with metro deselected, the Fastest route goes via MGBS;
-- with every mode filtered out, it returns the no-route message;
-- limits, seat-risk notes, the group split at Uppal, and shared cab fares split across the group;
-- the planner's budget, diet, closures and edits, and the group merge rules.
+Engine, live-graph and planner unit tests (Vitest), including: Fastest via Raidurg metro and Uppal on the reference graph; MGBS when metro is deselected; no-route messages; metro fares by boarding → alighting; cab fares split per person; one cab for a group; opening intervals and rain on live trips; personalisation boosts and decay.
 
 ```bash
 npm run lint
@@ -123,11 +129,15 @@ npm run lint
 npm run build
 ```
 
-## Sample data
+## Data honesty
 
-Everything in `src/data/` is **self-generated sample data, and the UI labels it that way**:
-- `hyderabad-graph.json` — 17 places and hubs (Kokapet, CBIT, Raidurg, Ameerpet, Parade Ground, Uppal, MGBS, Dilsukhnagar, LB Nagar, Secunderabad station, Warangal bus and rail, Hanamkonda), with road links, peak factors, metro, city-bus, intercity-bus and train lines, fares and headways. The figures are rounded estimates seeded from the example above. Keep the same shape to swap in real data (GTFS, OSM distances, fare tables).
-- `places.json` — 45 curated places in Hyderabad and Jaipur with hours, closures, dwell time, cost, tags and diet. Re-verify before real use.
+| Data | Kind |
+|---|---|
+| Road times, places, stations, weather, air quality, sunrise/sunset | Live |
+| Metro and city-bus departures and metro fares | Official/public timetables (GTFS), date shown in the app |
+| Auto/cab/bike-taxi fares, intercity bus times and fares, trains without a rail key | Estimates from published tariffs and distance, marked "est." |
+| Ride-hailing and bus booking | Link-out: Uber, Ola, Rapido, Namma Yatri, redBus, AbhiBus, state RTCs and IRCTC publish no public price API |
+| `src/data/` | Self-generated sample data for tests and the offline "Basic plan" |
 
 ## 5-minute demo script
 

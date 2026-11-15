@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword, updateProfile } from 'firebase/auth'
+import { createUserWithEmailAndPassword, getAdditionalUserInfo, GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, updateProfile } from 'firebase/auth'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router'
 import { credit } from '../ui/photos'
@@ -39,6 +39,32 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false)
 
   if (user) return <Navigate to={next.startsWith('/') ? next : '/'} replace />
+
+  const google = async () => {
+    if (busy) return
+    setError('')
+    setBusy(true)
+    try {
+      const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({ prompt: 'select_account' })
+      const cred = await signInWithPopup(auth, provider).catch(async (e) => {
+        // popups blocked (some mobile browsers): fall back to a full-page redirect
+        if (String((e as { code?: string }).code).includes('popup-blocked')) { await signInWithRedirect(auth, provider); return null }
+        throw e
+      })
+      if (cred && getAdditionalUserInfo(cred)?.isNewUser) {
+        await savePrefs(cred.user.uid, (cred.user.displayName ?? cred.user.email?.split('@')[0] ?? 'Traveller').slice(0, 40), DEFAULT_PREFS).catch(() => undefined)
+      }
+    } catch (err) {
+      const code = String((err as { code?: string }).code ?? '')
+      setError(code.includes('popup-closed') || code.includes('cancelled-popup') ? 'Google sign-in was closed before it finished.'
+        : code.includes('operation-not-allowed') ? 'Google sign-in is not enabled for this Firebase project yet (Authentication → Sign-in method → Google).'
+        : code.includes('unauthorized-domain') ? 'This domain is not authorised for Google sign-in (Firebase → Authentication → Settings → Authorised domains).'
+        : authMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -129,7 +155,16 @@ export default function LoginPage() {
             {tabBtn('register', 'Register')}
             {tabBtn('reset', 'Forgot?')}
           </div>
-          <form onSubmit={submit} noValidate className="mt-6 space-y-4">
+          {tab !== 'reset' && (
+            <>
+              <button type="button" onClick={() => void google()} disabled={busy} className="btn-secondary mt-6 h-12 w-full">
+                <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" /><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" /><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" /><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" /></svg>
+                Continue with Google
+              </button>
+              <div className="my-5 flex items-center gap-3 text-caption text-content-faint"><span className="h-px flex-1 bg-[var(--border-primary)]" />or with email<span className="h-px flex-1 bg-[var(--border-primary)]" /></div>
+            </>
+          )}
+          <form onSubmit={submit} noValidate className={tab === 'reset' ? 'mt-6 space-y-4' : 'space-y-4'}>
             {tab === 'register' && (
               <div>
                 <label className="label" htmlFor="name">Your name</label>

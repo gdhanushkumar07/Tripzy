@@ -15,3 +15,8 @@ backend/
 platform/
 .DS_Store
 Thumbs.db
+
+# generated data
+.gtfs-cache/
+server/data/gtfs/
+server/data/cache/

@@ -13,7 +13,7 @@ export const usingEmulators = env.VITE_USE_EMULATORS === 'true' || !env.VITE_FIR
 
 const app = initializeApp(
   usingEmulators
-    ? { apiKey: 'demo-key', authDomain: 'localhost', projectId: 'demo-tripzy', appId: 'demo-app' }
+    ? { apiKey: 'demo-key', authDomain: window.location.host, projectId: 'demo-tripzy', appId: 'demo-app' }
     : {
         apiKey: env.VITE_FIREBASE_API_KEY,
         authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,

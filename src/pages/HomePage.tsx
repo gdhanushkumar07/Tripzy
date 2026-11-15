@@ -511,7 +511,7 @@ function BeReady() {
   useEffect(() => {
     let off = false
     // Public ECB reference rate (Frankfurter, no key). If it fails the card keeps its static label.
-    fetch('https://api.frankfurter.app/latest?from=INR&to=USD')
+    fetch('/api/fx')
       .then((r) => (r.ok ? r.json() : null))
       .then((f: { rates?: { USD?: number }; date?: string } | null) => { if (!off && f?.rates?.USD) setRate({ usd: f.rates.USD, date: f.date ?? null }) })
       .catch(() => undefined)

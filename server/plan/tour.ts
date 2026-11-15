@@ -66,6 +66,7 @@ export async function planTour(q: TourQuery): Promise<Trip> {
     weather(center.lat, center.lon).catch(() => null),
   ])
   if (pop.size) sources.push('Popularity: OpenTripMap')
+  if (live.some((l) => l.source.startsWith('Geoapify'))) sources.push('Restaurants: Geoapify (OpenStreetMap)')
   for (const l of live) if (l.wikidata && pop.has(l.wikidata)) l.rating = 2 + pop.get(l.wikidata)!
   const city = slug(center.name)
   const places = live.filter((l) => haversineKm(center, l) <= radius).map((l) => toPlace(l, city, dates))

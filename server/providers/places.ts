@@ -52,7 +52,30 @@ async function wikiAround(lat: number, lon: number): Promise<LivePlace[]> {
 }
 
 type Feature = { geometry: { coordinates: [number, number] }; properties: Record<string, string> }
+type GeoFeature = { properties: { name?: string; lat: number; lon: number; place_id: string; categories: string[]; opening_hours?: string; catering?: { diet?: { vegetarian?: boolean; vegan?: boolean } }; datasource?: { raw?: Record<string, string> } } }
+
+/** Restaurants + cafés with diet tags and opening hours (Geoapify Places, free 3,000 credits/day). */
+async function geoapifyFood(lat: number, lon: number, key: string): Promise<LivePlace[]> {
+  const j = await fetchJson<{ features: GeoFeature[] }>(`https://api.geoapify.com/v2/places?categories=catering.restaurant,catering.cafe,catering.fast_food&filter=circle:${lon},${lat},6000&bias=proximity:${lon},${lat}&limit=120&apiKey=${key}`)
+  const pureVeg = /veg|bhavan|udupi|sagar|saravana|annapurna|thali|jain|sweets/i
+  return j.features.filter((f) => f.properties.name).map(({ properties: p }) => {
+    const cafe = p.categories.includes('catering.cafe')
+    const raw = p.datasource?.raw ?? {}
+    const diet: LivePlace['diet'] = raw['diet:vegetarian'] === 'only' || (pureVeg.test(p.name!) && raw['diet:meat'] !== 'yes') ? 'veg' : 'both'
+    return {
+      id: `geo:${p.place_id}`, name: p.name!, lat: p.lat, lon: p.lon, cat: cafe ? 'cafe' : 'food', tags: ['food'],
+      dwell: cafe ? 35 : 55, intensity: 1, cost: cafe ? 200 : p.categories.includes('catering.fast_food') ? 150 : 350, indoor: true, diet,
+      meal: cafe ? ['breakfast', 'snack'] : ['breakfast', 'lunch', 'dinner'], hours: p.opening_hours, source: 'Geoapify (OpenStreetMap)',
+    }
+  })
+}
+
 async function foodAround(lat: number, lon: number): Promise<LivePlace[]> {
+  const gkey = env('GEOAPIFY_API_KEY')
+  if (gkey) {
+    const got = await geoapifyFood(lat, lon, gkey).catch(() => [])
+    if (got.length >= 5) return got
+  }
   const take = async (tag: string) => (await fetchJson<{ features: Feature[] }>(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&osm_tag=${tag}&radius=6&limit=40`)).features
   const [rest, cafe] = await Promise.all([take('amenity:restaurant').catch(() => []), take('amenity:cafe').catch(() => [])])
   const veg = /veg|bhavan|udupi|sagar|saravana|annapurna|thali|jain|sweets/i
@@ -78,7 +101,7 @@ async function overpassExtras(lat: number, lon: number, r: number): Promise<Map<
 
 /** Attractions and restaurants within radiusKm of a centre (any Indian city or town). */
 export function placesAround(lat: number, lon: number, radiusKm = 12): Promise<LivePlace[]> {
-  return cached(`places3:${lat.toFixed(2)},${lon.toFixed(2)}:${radiusKm}`, 7 * DAY, async () => {
+  return cached(`places4:${lat.toFixed(2)},${lon.toFixed(2)}:${radiusKm}`, 7 * DAY, async () => {
     // Wikipedia geosearch covers 10 km per call: probe the centre plus a ring for bigger trips
     const probes = [[lat, lon]]
     if (radiusKm > 11) for (const [dy, dx] of [[0.08, 0], [-0.08, 0], [0, 0.09], [0, -0.09]]) probes.push([lat + dy, lon + dx])

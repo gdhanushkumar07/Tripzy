@@ -6,6 +6,8 @@ process.env.TZ = 'Asia/Kolkata'
 try { process.loadEnvFile('.env') } catch { /* no .env: keyless mode */ }
 
 import express, { type NextFunction, type Request, type Response } from 'express'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { MODES, type Mode } from '../src/lib/types'
 import { cached, env, fetchJson, HOUR, UpstreamError } from './lib'
 import { aiEnabled, liveCheck } from './providers/ai'
@@ -16,6 +18,7 @@ import { planTour } from './plan/tour'
 import { loadFeeds } from './transit/gtfs'
 
 const app = express()
+app.set('trust proxy', 1) // behind Render/Railway proxies: real client IP for the rate limit
 app.use(express.json({ limit: '200kb' }))
 
 // small per-IP rate limit: protects the free quotas of the upstream APIs
@@ -46,7 +49,7 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     providers: {
       olaMaps: !!env('OLA_MAPS_API_KEY'), gemini: !!env('GEMINI_API_KEY'), tavily: !!env('TAVILY_API_KEY'),
-      openTripMap: !!env('OPENTRIPMAP_API_KEY'), rail: !!env('RAIL_API_KEY'), ai: aiEnabled(),
+      openTripMap: !!env('OPENTRIPMAP_API_KEY'), rail: !!env('RAIL_API_KEY'), geoapify: !!env('GEOAPIFY_API_KEY'), ai: aiEnabled(),
     },
     feeds: loadFeeds().map((f) => ({ id: f.id, name: f.name, city: f.city, builtAt: f.builtAt })),
   })
@@ -91,8 +94,16 @@ app.use((err: Error & { status?: number }, _req: Request, res: Response, _next: 
   res.status(status).json({ error: status >= 500 && !(err instanceof UpstreamError) ? 'The planner hit an error. Please try again.' : err.message })
 })
 
-const port = Number(env('API_PORT') ?? 8787)
-app.listen(port, '127.0.0.1', () => {
-  const keys = ['OLA_MAPS_API_KEY', 'GEMINI_API_KEY', 'TAVILY_API_KEY', 'OPENTRIPMAP_API_KEY', 'RAIL_API_KEY'].filter((k) => env(k))
-  console.log(`Tripzy API on http://127.0.0.1:${port} · feeds: ${loadFeeds().map((f) => f.id).join(', ') || 'none (run npm run gtfs)'} · keys: ${keys.join(', ') || 'none (no-key mode)'}`)
+// In production the same server also serves the built web app (one URL, no CORS).
+const dist = resolve('dist')
+if (existsSync(dist)) {
+  app.use(express.static(dist, { maxAge: '1h', index: false }))
+  app.get(/^\/(?!api\/).*/, (_req, res) => res.sendFile(resolve(dist, 'index.html')))
+}
+
+const port = Number(env('PORT') ?? env('API_PORT') ?? 8787)
+const host = env('HOST') ?? '127.0.0.1'
+app.listen(port, host, () => {
+  const keys = ['OLA_MAPS_API_KEY', 'GEOAPIFY_API_KEY', 'GEMINI_API_KEY', 'TAVILY_API_KEY', 'OPENTRIPMAP_API_KEY', 'RAIL_API_KEY'].filter((k) => env(k))
+  console.log(`Tripzy API on http://${host}:${port} · feeds: ${loadFeeds().map((f) => f.id).join(', ') || 'none (run npm run gtfs)'} · keys: ${keys.join(', ') || 'none (no-key mode)'}`)
 })

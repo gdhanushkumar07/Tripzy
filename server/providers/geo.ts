@@ -42,6 +42,17 @@ async function ola(q: string, near?: { lat: number; lon: number }): Promise<Plac
   }))
 }
 
+type GeoapifyResult = { features: { properties: { name?: string; formatted: string; lat: number; lon: number; state?: string; city?: string; result_type?: string; place_id: string } }[] }
+
+async function geoapify(q: string, near?: { lat: number; lon: number }): Promise<Place[]> {
+  const bias = near ? `&bias=proximity:${near.lon},${near.lat}` : ''
+  const j = await fetchJson<GeoapifyResult>(`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(q)}&filter=countrycode:in${bias}&limit=8&apiKey=${env('GEOAPIFY_API_KEY')}`)
+  return j.features.map(({ properties: p }) => ({
+    id: `geo:${p.place_id}`, name: p.name ?? p.formatted.split(',')[0], label: p.formatted, lat: p.lat, lon: p.lon,
+    kind: p.result_type, state: p.state, city: p.city, source: 'Geoapify (OpenStreetMap)',
+  }))
+}
+
 export function geocode(q: string, near?: { lat: number; lon: number }): Promise<Place[]> {
   const term = q.trim().slice(0, 120)
   if (!term) return Promise.resolve([])
@@ -50,7 +61,13 @@ export function geocode(q: string, near?: { lat: number; lon: number }): Promise
     if (env('OLA_MAPS_API_KEY')) {
       try { const r = await ola(term, near); if (r.length) return r } catch { /* fall back to OSM */ }
     }
-    return photon(term, near)
+    try {
+      const r = await photon(term, near)
+      if (r.length || !env('GEOAPIFY_API_KEY')) return r
+    } catch (e) {
+      if (!env('GEOAPIFY_API_KEY')) throw e // the public Photon server throttles at times
+    }
+    return geoapify(term, near)
   }, true)
 }
 

@@ -1,8 +1,12 @@
 # 🌍 Tripzy — Smarter Travel, Better Experience
 
 > **Accurate Hackathon 2026 · Problem Statement 2 · CBIT Nirvana**  
-> 🌐 **Live Web Application (Vercel):** [https://tripzy-five-ashen.vercel.app/](https://tripzy-five-ashen.vercel.app/)  
-> 🎬 **Project Walkthrough Video:** [`tripzy-explainer.mp4`](./tripzy-explainer.mp4) *(Included in repository)*
+> 🌐 **Live Web Application (Vercel):** [Open Tripzy](https://tripzy-five-ashen.vercel.app/)  
+> <br>
+> 🎬 **Project Walkthrough Video:** [`tripzy-explainer.mp4`](./tripzy-explainer.mp4) *(Included in repository)*  
+> <br>
+> 🎬 **Demo Video:** [▶ Watch Demo Video](https://drive.google.com/file/d/1mQ2tAFtp4P8ZbKVimpBHJZ1Ldqmj50c7/view)
+
 
 One unified travel web application featuring two intelligent modules, each fully usable **solo or as a group** from a single screen:
 
@@ -176,6 +180,15 @@ npm run build
 Optional extras: set `VITE_AI_PLANNER_URL=http://127.0.0.1:9/plan` to show the AI-failure path (Retry / **Basic plan**). Stop the emulators mid-edit to show the Firestore-outage path (draft kept locally, Retry).
 
 ## Team — CBIT Nirvana
+##Team members:
+1. Vanaparthy Sai Charan
+2. Golconda Dhanush Kumar
+3. Hazari Nikhil
+4. Vakulabharanam Ruthvik Bhasker
+5. Irfan Shaik
+6. Alimela Dheeran Reddy
+7. Anachi Praval
+
 
 * **Hackathon:** Accurate Hackathon 2026
 * **Problem Statement:** Problem Statement 2 (Smart Travel & Mobility)

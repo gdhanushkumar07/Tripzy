@@ -1,5 +1,5 @@
 /** Road routing: Ola Maps Directions when a key is set, else the public OSRM server. */
-import { cached, DAY, env, fetchJson, HOUR, type LatLon } from '../lib'
+import { cached, DAY, env, fetchJson, HOUR, providerFailed, providerUp, type LatLon } from '../lib'
 
 export type RoadLeg = { km: number; min: number; geometry?: [number, number][]; source: string }
 
@@ -7,13 +7,13 @@ const r5 = (x: number) => x.toFixed(5)
 
 export function road(a: LatLon, b: LatLon, profile: 'driving' | 'walking' | 'cycling' = 'driving'): Promise<RoadLeg> {
   return cached(`road:${profile}:${r5(a.lat)},${r5(a.lon)}>${r5(b.lat)},${r5(b.lon)}`, 7 * DAY, async () => {
-    if (profile === 'driving' && env('OLA_MAPS_API_KEY')) {
+    if (profile === 'driving' && env('OLA_MAPS_API_KEY') && providerUp('ola')) {
       try {
         const u = `https://api.olamaps.io/routing/v1/directions/basic?origin=${a.lat},${a.lon}&destination=${b.lat},${b.lon}&api_key=${env('OLA_MAPS_API_KEY')}`
         const j = await fetchJson<{ routes: { legs: { distance: number; duration: number }[]; overview_polyline?: string }[] }>(u, { method: 'POST', headers: { 'X-Request-Id': crypto.randomUUID() } })
         const leg = j.routes?.[0]?.legs?.[0]
         if (leg) return { km: leg.distance / 1000, min: leg.duration / 60, geometry: decodePolyline(j.routes[0].overview_polyline), source: 'Ola Maps' }
-      } catch { /* fall back to OSRM */ }
+      } catch (e) { providerFailed('ola', e) /* fall back to OSRM */ }
     }
     const host = profile === 'driving' ? 'https://router.project-osrm.org/route/v1/driving' : `https://routing.openstreetmap.de/routed-${profile === 'walking' ? 'foot' : 'bike'}/route/v1/driving`
     const j = await fetchJson<{ routes: { distance: number; duration: number; geometry: { coordinates: [number, number][] } }[] }>(

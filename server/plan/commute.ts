@@ -8,7 +8,7 @@
  *  - one OSRM road matrix between every point (drive times), peak multiplier by hour
  *  - road vehicles priced from published tariffs (estimates) with booking links
  */
-import { buildGraph, plan, planGroup, type GraphData, type GroupMember, type Leg, type PlanResult, type GroupPlan, type Route } from '../../src/commute/engine'
+import { buildGraph, plan, planGroup, planMeet, type GraphData, type GroupMember, type Leg, type PlanResult, type GroupPlan, type Route } from '../../src/commute/engine'
 import type { Mode, Vehicles } from '../../src/lib/types'
 import { busLinks, ownPerKm, rideLinks, tariffs, trainLinks, type Link } from '../fares'
 import { haversineKm, type LatLon } from '../lib'
@@ -28,12 +28,14 @@ const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${Str
 const BIG_METROS = /hyderabad|bengaluru|bangalore|mumbai|delhi|gurugram|noida|chennai|kolkata|pune|ahmedabad/i
 const feedsAround = (pts: LatLon[]) => [...new Set(pts.flatMap((p) => feedsNear(p)))]
 
-export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = []) {
+/** extraOrig: more starting points (O1, O2, …) — used to find a meeting point for people starting in different places. */
+export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = [], extraOrig: Point[] = []) {
   const day = dayType(new Date(`${q.date}T12:00:00`))
   const depart = toMin(q.time)
   const dests = [q.to, ...extraDest]
-  const allEnds = [q.from, ...dests]
-  const intercity = Math.max(...dests.map((d) => haversineKm(q.from, d))) > 60
+  const origins = [q.from, ...extraOrig]
+  const allEnds = [...origins, ...dests]
+  const intercity = Math.max(...origins.flatMap((o) => dests.map((d) => haversineKm(o, d)))) > 60
   const cityName = cityOf(q.from)?.name ?? q.from.city ?? q.from.name
   const T = tariffs(cityName)
   // evening/morning peak multiplier on free-flow road times: OSRM is optimistic for Indian metros
@@ -49,6 +51,7 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = []) {
   const add = (n: Node) => { if (!nodes.some((x) => x.id === n.id)) nodes.push(n) }
   add({ id: 'O', name: q.from.name, kind: 'place', lat: q.from.lat, lon: q.from.lon })
   dests.forEach((d, i) => add({ id: i === 0 ? 'D' : `D${i}`, name: d.name, kind: 'place', lat: d.lat, lon: d.lon }))
+  extraOrig.forEach((o, i) => add({ id: `O${i + 1}`, name: o.name, kind: 'place', lat: o.lat, lon: o.lon }))
 
   // ---------------- intercity terminals first, so city transit can feed them
   const hubsO: Hub[] = [], hubsD: Hub[] = []
@@ -86,7 +89,7 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = []) {
 
   // ---------------- city transit from GTFS timetables
   // journeys to wire: origin → (destinations + origin-side terminals), destination-side terminals → destinations
-  const wire: [LatLon[], LatLon[]][] = [[[q.from], [...dests, ...hubsO]]]
+  const wire: [LatLon[], LatLon[]][] = [[origins, [...dests, ...hubsO]]]
   if (hubsD.length) wire.push([hubsD, dests])
   for (const feed of feedsAround([...allEnds, ...hubsO, ...hubsD])) {
     // metro: people take an auto/bike/cab to a station up to ~10 km away; buses: walkable stops
@@ -201,13 +204,13 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = []) {
 type LegOut = Leg & { source: string; estimate: boolean; links: Link[]; geometry?: [number, number][]; color?: string; from_ll: [number, number]; to_ll: [number, number] }
 const ROAD_MODES = ['auto', 'shareauto', 'erick', 'bike', 'cab', 'suv', 'cycle', 'walk', 'ownscooter', 'owncar']
 
-async function enrich(r: Route, g: ReturnType<typeof buildGraph>, meta: Record<string, LineMeta>, q: CommuteQuery) {
+export async function enrich(r: Route, g: ReturnType<typeof buildGraph>, meta: Record<string, LineMeta>, q: CommuteQuery, shapes = true) {
   const ll = (id: string): [number, number] => { const n = g.nodes.get(id)!; return [n.lat, n.lon] }
   const legs: LegOut[] = await Promise.all(r.legs.map(async (l) => {
     const a = g.nodes.get(l.from)!, b = g.nodes.get(l.to)!
     const m = meta[l.name]
     let geometry: [number, number][] | undefined = m?.stops
-    if (ROAD_MODES.includes(l.mode)) geometry = await road(a, b, l.mode === 'walk' ? 'walking' : l.mode === 'cycle' ? 'cycling' : 'driving').then((x) => x.geometry).catch(() => undefined)
+    if (shapes && ROAD_MODES.includes(l.mode)) geometry = await road(a, b, l.mode === 'walk' ? 'walking' : l.mode === 'cycle' ? 'cycling' : 'driving').then((x) => x.geometry).catch(() => undefined)
     return {
       ...l, geometry, color: m?.color, from_ll: ll(l.from), to_ll: ll(l.to),
       source: m?.source ?? (l.mode === 'walk' ? 'Walking time (OSRM)' : l.mode.startsWith('own') ? 'Road time (OSRM/Ola Maps) · fuel from your saved mileage + parking' : 'Road time (OSRM/Ola Maps) · fare from published tariff'),
@@ -256,4 +259,26 @@ export async function planGroupCommute(q: CommuteQuery & { members: (GroupMember
     } : undefined,
     sources: [roadSource, ...new Set(Object.values(meta).map((m) => m.source))],
   }
+}
+
+/** Different starts, one destination: find where to meet and ride on together (live graph). */
+export async function planMeetCommute(q: Omit<CommuteQuery, 'from'> & { members: { id: string; name: string; point: Point }[] }) {
+  const pts = q.members.map((m) => m.point)
+  const n = pts.length
+  const centre: Point = { name: 'Group centre', lat: pts.reduce((s, p) => s + p.lat, 0) / n, lon: pts.reduce((s, p) => s + p.lon, 0) / n, state: pts[0].state, city: pts[0].city }
+  const { graph, meta, depart, roadSource } = await buildLiveGraph({ ...q, from: centre, people: n }, [], pts)
+  const res = planMeet(graph, { to: 'D', depart, modes: q.modes, members: q.members.map((m, i) => ({ id: m.id, name: m.name, from: `O${i + 1}` })) })
+  if (!res) throw Object.assign(new Error('No way for everyone to reach the destination with these modes. Add more modes and try again.'), { status: 404 })
+  const node = (id: string) => graph.nodes.get(id)!
+  // road shapes only for the recommended plan: alternatives draw straight lines until chosen
+  const out = async (p: NonNullable<typeof res>['best'], shapes: boolean) => {
+    const at = node(p.at)
+    const atPt: Point = { name: p.atName, lat: at.lat, lon: at.lon }
+    return {
+      ...p, atLL: [at.lat, at.lon] as [number, number],
+      together: p.together ? await enrich(p.together, graph, meta, { ...q, from: atPt }, shapes) : null,
+      members: await Promise.all(p.members.map(async (m, i) => ({ ...m, from: pts[i].name, route: m.route.legs.length ? await enrich(m.route, graph, meta, { ...q, from: pts[i], to: atPt }, shapes) : null }))),
+    }
+  }
+  return { best: await out(res.best, true), alternatives: await Promise.all(res.alternatives.map((p) => out(p, false))), toName: q.to.name, sources: [roadSource, ...new Set(Object.values(meta).map((m) => m.source))] }
 }

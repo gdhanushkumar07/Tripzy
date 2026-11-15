@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import data from '../data/hyderabad-graph.json'
 import type { Mode } from '../lib/types'
-import { buildGraph, plan, planGroup, toMin, type GraphData, type Route } from './engine'
+import { buildGraph, plan, planGroup, planMeet, toMin, type GraphData, type Route } from './engine'
 
 const g = buildGraph(data as unknown as GraphData)
 const ALL: Mode[] = ['walk', 'auto', 'bike', 'cab', 'citybus', 'metro', 'ibus', 'train']
@@ -136,5 +136,29 @@ describe('own vehicle (park-and-ride)', () => {
     const without = plan(g2, { ...at6pm, modes: ['walk', 'metro', 'citybus', 'ibus'] }).routes.find((r) => r.labels.includes('Fastest'))
     expect(withOwn.legs[0].mode).toBe('ownscooter')
     if (without) expect(withOwn.totalMin).toBeLessThanOrEqual(without.totalMin)
+  })
+})
+
+describe('meeting point for people starting in different places', () => {
+  const members = [{ id: 'a', name: 'Asha', from: 'kokapet' }, { id: 'b', name: 'Ravi', from: 'lbnagar' }, { id: 'c', name: 'Meena', from: 'dsnr' }]
+  const res = planMeet(g, { to: 'wgl', depart: toMin('18:00'), modes: ALL, members })!
+
+  it('finds a plan and never does worse than everyone going separately', () => {
+    expect(res).toBeTruthy()
+    const alone = [res.best, ...res.alternatives].find((p) => p.at === 'wgl')
+    if (alone) expect(res.best.score).toBeLessThanOrEqual(alone.score)
+    expect(res.best.members).toHaveLength(3)
+  })
+
+  it('everyone reaches the meeting point before the shared leg leaves', () => {
+    const b = res.best
+    if (b.together) {
+      for (const m of b.members) expect(m.route.arrive).toBeLessThanOrEqual(b.together.depart)
+      expect(b.together.legs[b.together.legs.length - 1].to).toBe('wgl')
+    }
+  })
+
+  it('early arrivers are told to leave later rather than wait', () => {
+    for (const m of res.best.members) expect(m.leaveBy).toBeGreaterThanOrEqual(toMin('18:00'))
   })
 })

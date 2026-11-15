@@ -1,5 +1,5 @@
 /** Geocoding worldwide (biased to where the user is): Ola Maps for India when its key works, else Photon (OSM), else Geoapify. */
-import { cached, DAY, env, fetchJson } from '../lib'
+import { cached, DAY, env, fetchJson, providerFailed, providerUp } from '../lib'
 
 export type Place = { id: string; name: string; label: string; lat: number; lon: number; kind?: string; state?: string; city?: string; country?: string; source: string }
 
@@ -56,8 +56,8 @@ export function geocode(q: string, near?: { lat: number; lon: number }): Promise
   if (!term) return Promise.resolve([])
   const key = `geo2:${term.toLowerCase()}:${near ? `${near.lat.toFixed(2)},${near.lon.toFixed(2)}` : ''}`
   return cached(key, 30 * DAY, async () => {
-    if (env('OLA_MAPS_API_KEY') && (!near || inIndia(near))) {
-      try { const r = await ola(term, near); if (r.length) return r } catch { /* fall back to OSM */ }
+    if (env('OLA_MAPS_API_KEY') && providerUp('ola') && (!near || inIndia(near))) {
+      try { const r = await ola(term, near); if (r.length) return r } catch (e) { providerFailed('ola', e) /* fall back to OSM */ }
     }
     try {
       const r = await photon(term, near)

@@ -27,7 +27,12 @@ Four options are tagged: **Fastest**, **Cheapest**, **Most comfortable** and **B
 
 1. **Solo flight with airport access/egress:** flight options carry the cab to the airport, the airport buffer, the flight and the onward cab, with prefilled MakeMyTrip, Google Flights and Skyscanner searches.
 2. **Family of 4 comparing modes:** flight, train, bus, own car and outstation cab. The car shows fuel and tolls shared by 4 and needs no luggage limit. Each option shows comfort with heavy bags and children.
-3. **Group:** the existing group mode (shared start, different destinations, one cab vs splitting). *Not done yet:* different origins converging on a meeting point.
+3. **Group from different origins:** in Group mode the organiser picks *Different starts, one destination*. Each member sets where they start. Tripzy then finds the meeting point:
+   - **Candidates:** metro stations, bus stands and railway stations on the live graph, plus "meet at the destination", so the plan is never worse than going separately.
+   - **Score:** Σ fares + value of time for every person's minutes + a cost per change. Shared cabs are split across the group.
+   - **Timing:** early arrivers are re-planned to leave later, so nobody waits at the meeting point.
+   - **Example (Kokapet, LB Nagar and Secunderabad → Warangal):** meet at Uppal Metro, then auto + bus together, ₹304 each instead of separate cabs.
+   - The existing *Same start, different destinations* mode (split point or one cab) stays.
 4. **Own vehicle + public transport:** `ownscooter`/`owncar` modes can only be the first ride (tested). Fuel comes from the profile, with parking at the station.
 5. **Smart last mile:** the engine uses real departure times, so a bus leaving in 2 min beats a cab when it is faster or cheaper. Legs show "next one in N min".
 6. **Missed connection:** "Replan from where I am now" takes your live location and the current time and plans again.

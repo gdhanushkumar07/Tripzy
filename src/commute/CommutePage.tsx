@@ -66,7 +66,14 @@ type LiveGroup = Omit<GroupPlan, 'shared' | 'members' | 'together'> & {
   together?: Omit<TogetherPlan, 'stops'> & { stops: { id: string; name: string; to: string; route: LiveRoute; perPerson: number; arrive: number }[] }
   sources?: string[]
 }
-type GroupResult = LiveGroup & { at: number; fromName: string; time: string }
+type GroupResult = (LiveGroup & { kind?: 'split'; at: number; fromName: string; time: string }) | (LiveMeet & { kind: 'meet'; at: number; time: string })
+type MeetOut = {
+  at: string; atName: string; atLL: [number, number]; meetTime: number; arrive: number; totalPerPerson: number; why: string
+  members: { id: string; name: string; from: string; route: LiveRoute | null; leaveBy: number; perPerson: number }[]
+  together: LiveRoute | null
+}
+type LiveMeet = { best: MeetOut; alternatives: MeetOut[]; toName: string; sources?: string[] }
+const storableMeet = (p: MeetOut): MeetOut => ({ ...p, together: p.together ? storable(p.together) : null, members: p.members.map((m) => ({ ...m, route: m.route ? storable(m.route) : null })) })
 
 export default function CommutePage() {
   const { user, profile } = useAuth()
@@ -184,12 +191,32 @@ export default function CommutePage() {
 
   // ------------------------------------------------------------ group mode
   const { group, error: groupError } = useGroup<GroupResult>(groupCode, (r) =>
-    toast(r.together?.recommended ? `Group plan ready — one ${r.together.mode === 'suv' ? 'SUV' : 'cab'} for everyone` : `Group plan ready — split at ${r.splitName}`, 'success'),
+    toast(r.kind === 'meet' ? (r.best.at === 'D' ? 'Group plan ready — everyone travels separately' : `Group plan ready — meet at ${r.best.atName}`)
+      : r.together?.recommended ? `Group plan ready — one ${r.together.mode === 'suv' ? 'SUV' : 'cab'} for everyone` : `Group plan ready — split at ${r.splitName}`, 'success'),
   )
   const isOwner = !!group && group.ownerUid === user?.uid
   const groupLocked = mode === 'group' && !isOwner
-  const me = user ? (group?.members[user.uid] as { dest?: GeoPoint } | undefined) : undefined
-  const settings = group?.settings as { from?: GeoPoint; time?: string; date?: string; modes?: Mode[] } | undefined
+  const me = user ? (group?.members[user.uid] as { dest?: GeoPoint; origin?: GeoPoint } | undefined) : undefined
+  const settings = group?.settings as { from?: GeoPoint; to?: GeoPoint; time?: string; date?: string; modes?: Mode[]; kind?: 'split' | 'meet' } | undefined
+  const meet = mode === 'group' && settings?.kind === 'meet'
+
+  // "Different starts, one destination": the organiser switches the group kind; each member sets where they start
+  const setKind = async (kind: 'split' | 'meet') => {
+    if (!groupCode || !isOwner) return
+    try {
+      await setGroup(groupCode, { settings: { ...settings, from: f.from, time: f.time, date: f.date, modes: f.modes, kind, ...(f.to ? { to: f.to } : {}) }, result: null })
+      if (kind === 'meet' && user && f.from && !me?.origin) await updateMember(groupCode, user.uid, { origin: f.from, ready: true } as never)
+    } catch (e) { toast((e as Error).message, 'error') }
+  }
+  const setOrigin = async (p: GeoPoint | null) => {
+    if (!user || !groupCode) return
+    if (isOwner) set({ from: p })
+    try { await updateMember(groupCode, user.uid, { origin: p ?? undefined, ready: !!p } as never) } catch (e) { toast((e as Error).message, 'error') }
+  }
+  const setGroupTo = async (p: GeoPoint | null) => {
+    set({ to: p })
+    if (groupCode && isOwner && p) { try { await setGroup(groupCode, { settings: { ...settings, to: p } }) } catch (e) { toast((e as Error).message, 'error') } }
+  }
 
   const startGroup = useAction(async () => {
     if (!user) return
@@ -210,6 +237,21 @@ export default function CommutePage() {
 
   const planForGroup = useAction(async () => {
     if (!group || !groupCode) return
+    if (meet) {
+      const to = settings?.to ?? f.to
+      if (!to) throw Object.assign(new Error('Choose the destination everyone is going to.'), { code: 'invalid-argument' })
+      const members = group.memberUids
+        .map((uid) => ({ id: uid, name: group.members[uid]?.name ?? 'Member', point: (group.members[uid] as { origin?: GeoPoint })?.origin }))
+        .filter((m) => m.point)
+      if (members.length < 2) throw Object.assign(new Error('At least two members need to set where they start.'), { code: 'failed-precondition' })
+      const modes = f.modes.length ? f.modes : profile.prefs.modes
+      const r = await api.post<LiveMeet>('/api/commute/meet', { to, date: f.date, time: f.time, modes, members }, `meet:${groupCode}:${Date.now()}`)
+      await setGroup(groupCode, {
+        settings: { ...settings, to, time: f.time, date: f.date, modes, kind: 'meet' },
+        result: { kind: 'meet', best: storableMeet(r.best), alternatives: r.alternatives.map(storableMeet), toName: r.toName, sources: r.sources, at: Date.now(), time: f.time },
+      })
+      return
+    }
     if (!validate(false)) return
     const members = group.memberUids
       .map((uid) => ({ id: uid, name: group.members[uid]?.name ?? 'Member', point: (group.members[uid] as { dest?: GeoPoint })?.dest }))
@@ -221,7 +263,7 @@ export default function CommutePage() {
       members: r.members.map((m) => ({ ...m, route: m.route ? storable(m.route) : null })),
       together: r.together ? { ...r.together, stops: r.together.stops.map((s) => ({ ...s, route: storable(s.route) })) } : undefined,
     }
-    await setGroup(groupCode, { settings: { from: f.from, time: f.time, date: f.date, modes: f.modes }, result: { ...safe, at: Date.now(), fromName: f.from!.name, time: f.time } })
+    await setGroup(groupCode, { settings: { ...settings, from: f.from, time: f.time, date: f.date, modes: f.modes, kind: 'split' }, result: { ...safe, kind: 'split', at: Date.now(), fromName: f.from!.name, time: f.time } })
   })
 
 
@@ -261,12 +303,16 @@ export default function CommutePage() {
         )}
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <LocationInput label="From" value={groupLocked ? settings?.from ?? null : f.from} onChange={(p) => set({ from: p })} disabled={groupLocked} autoLocate={!q && !groupCode} />
+            {meet
+              ? <LocationInput label="Where you start" value={me?.origin ?? null} onChange={(p) => void setOrigin(p)} autoLocate={!me?.origin} />
+              : <LocationInput label="From" value={groupLocked ? settings?.from ?? null : f.from} onChange={(p) => set({ from: p })} disabled={groupLocked} autoLocate={!q && !groupCode} />}
             {errors.from && <p className="field-error">{errors.from}</p>}
           </div>
           <div>
-            <LocationInput label={mode === 'group' ? 'Your destination' : 'To'} value={mode === 'group' ? me?.dest ?? null : f.to}
-              onChange={(p) => (mode === 'group' ? void setDestination(p) : set({ to: p }))} near={f.from} />
+            {meet
+              ? <LocationInput label="Destination (everyone)" value={settings?.to ?? f.to} onChange={(p) => void setGroupTo(p)} disabled={!isOwner} near={me?.origin ?? f.from} />
+              : <LocationInput label={mode === 'group' ? 'Your destination' : 'To'} value={mode === 'group' ? me?.dest ?? null : f.to}
+                  onChange={(p) => (mode === 'group' ? void setDestination(p) : set({ to: p }))} near={f.from} />}
             {errors.to && <p className="field-error">{errors.to}</p>}
           </div>
         </div>
@@ -362,9 +408,23 @@ export default function CommutePage() {
             </ErrorBox>
           ) : (
             <GroupPanel code={groupCode} group={group} type="commute">
-              <p className="text-body text-content-muted">
-                Everyone leaves together from <strong>{settings?.from?.name ?? f.from?.name ?? '…'}</strong> at <strong>{settings?.time ?? f.time}</strong>. Each member picks their own destination above. Tripzy compares splitting up on the way with one cab for everyone.
-              </p>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Kind of group trip">
+                {([['split', 'Same start, different destinations'], ['meet', 'Different starts, one destination']] as const).map(([k, label]) => (
+                  <button key={k} type="button" aria-pressed={(settings?.kind ?? 'split') === k} disabled={!isOwner}
+                    className={`chip ${(settings?.kind ?? 'split') === k ? 'chip-on' : 'chip-off'}`} onClick={() => void setKind(k)}>{label}</button>
+                ))}
+              </div>
+              {meet ? (
+                <p className="text-body text-content-muted">
+                  Everyone sets <strong>where they start</strong> above; the destination is <strong>{settings?.to?.name ?? '… (organiser picks it)'}</strong>, leaving around <strong>{settings?.time ?? f.time}</strong>.
+                  Tripzy finds the meeting point where riding on together saves the most time and money — or says if going separately is better.
+                  {group && <> Starts set: {group.memberUids.filter((u) => (group.members[u] as { origin?: GeoPoint })?.origin).length} of {group.memberUids.length}.</>}
+                </p>
+              ) : (
+                <p className="text-body text-content-muted">
+                  Everyone leaves together from <strong>{settings?.from?.name ?? f.from?.name ?? '…'}</strong> at <strong>{settings?.time ?? f.time}</strong>. Each member picks their own destination above. Tripzy compares splitting up on the way with one cab for everyone.
+                </p>
+              )}
               {isOwner ? (
                 <button className="btn" onClick={() => void planForGroup.run()} disabled={planForGroup.busy}>
                   {planForGroup.busy ? 'Planning with live data…' : group?.result ? 'Re-plan for the group' : 'Plan for the group'}
@@ -372,11 +432,11 @@ export default function CommutePage() {
               ) : (
                 <p className="text-body text-content-muted">The organiser will plan the trip. You'll get a notification here when it's ready.</p>
               )}
-              {planForGroup.error && <ErrorBox message={planForGroup.error.includes('valid') ? 'Ask members to set their destination first.' : planForGroup.error} onRetry={() => void planForGroup.retry()} />}
+              {planForGroup.error && <ErrorBox message={planForGroup.error.includes('valid') && !meet ? 'Ask members to set their destination first.' : planForGroup.error} onRetry={() => void planForGroup.retry()} />}
             </GroupPanel>
           )}
           {planForGroup.busy && <Skeleton lines={2} />}
-          {group?.result && <GroupResultView r={group.result} myUid={user?.uid ?? ''} />}
+          {group?.result && (group.result.kind === 'meet' ? <MeetResultView r={group.result} myUid={user?.uid ?? ''} /> : <GroupResultView r={group.result} myUid={user?.uid ?? ''} />)}
         </>
       )}
     </div>
@@ -420,7 +480,54 @@ function SoloResults({ result, open, setOpen, onSave, saving, onAddMode }: {
   )
 }
 
-function GroupResultView({ r, myUid }: { r: GroupResult; myUid: string }) {
+function MeetResultView({ r, myUid }: { r: LiveMeet & { time: string }; myUid: string }) {
+  const [pick, setPick] = useState(0)
+  const plans = [r.best, ...r.alternatives]
+  const p = plans[pick] ?? r.best
+  const separate = p.at === 'D'
+  return (
+    <section className="space-y-4" aria-label="Meeting plan">
+      <article className="card space-y-4 ring-2 ring-[var(--accent)]">
+        <div>
+          <div className="tz-kicker">{pick === 0 ? 'Recommended for this group' : 'Alternative'}</div>
+          <h2 className="font-serif text-[30px] leading-tight text-content">{separate ? `Travel separately to ${r.toName}` : `Meet at ${p.atName}`} · ₹{p.totalPerPerson} each on average</h2>
+          <p className="text-body text-content-muted">{p.why} Everyone arrives at {r.toName} around {fmtTime(p.arrive)}.</p>
+        </div>
+        {plans.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            {plans.map((x, i) => <button key={x.at + i} type="button" aria-pressed={pick === i} className={`chip ${pick === i ? 'chip-on' : 'chip-off'}`} onClick={() => setPick(i)}>{x.at === 'D' ? 'Go separately' : x.atName} · ₹{x.totalPerPerson}</button>)}
+          </div>
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          {p.members.map((m) => (
+            <div key={m.id} className={`rounded-2xl border p-3 ${m.id === myUid ? 'border-[var(--accent)] bg-accent-subtle' : 'border-edge'}`}>
+              <p className="mb-1 font-semibold">{m.name}{m.id === myUid ? ' (you)' : ''} · from {m.from}</p>
+              <p className="mb-2 text-body text-content-muted">
+                Leave at {fmtTime(m.leaveBy)}{!separate && m.leaveBy > Math.min(...p.members.map((x) => x.leaveBy)) + 2 ? ` (later than the others, so nobody waits at ${p.atName})` : ''}
+                {' '}· ₹{m.perPerson} in total
+              </p>
+              {m.route ? <LegList legs={m.route.legs} who={m.name} /> : <p className="text-body text-content-muted">Already at the meeting point.</p>}
+            </div>
+          ))}
+        </div>
+        {p.together && (
+          <>
+            <div className="flex items-center gap-2" role="note">
+              <span className="h-px flex-1 bg-accent" />
+              <span className="rounded-full bg-accent px-3 py-1 text-body font-bold text-accent-text">🤝 Meet at {p.atName} · {fmtTime(p.meetTime - 5)}</span>
+              <span className="h-px flex-1 bg-accent" />
+            </div>
+            <div><h3 className="mb-2 text-caption font-semibold uppercase tracking-wide text-content-muted">Together to {r.toName}</h3><LegList legs={p.together.legs} who="Group" /></div>
+          </>
+        )}
+        <MapView layers={[...p.members.flatMap((m) => (m.route ? routeLayers(m.route.legs) : [])), ...(p.together ? routeLayers(p.together.legs, '#315c4c') : [])]} />
+        <Sources list={r.sources} />
+      </article>
+    </section>
+  )
+}
+
+function GroupResultView({ r, myUid }: { r: LiveGroup & { at: number; fromName: string; time: string }; myUid: string }) {
   const t = r.together
   return (
     <section className="space-y-5" aria-label="Group plan">

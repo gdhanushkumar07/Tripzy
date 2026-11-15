@@ -91,7 +91,7 @@ export function GroupPanel({ code, group, type, children }: { code: string; grou
               <li key={uid} className="flex items-center gap-2 py-2 text-sm">
                 <span className={`h-2.5 w-2.5 rounded-full ${m.ready ? 'bg-accent' : 'bg-surface-tertiary'}`} aria-hidden />
                 <span className="font-medium">{m.name}{uid === user?.uid ? ' (you)' : ''}{uid === group.ownerUid ? ' · organiser' : ''}</span>
-                <span className="text-content-muted">{m.ready ? (type === 'commute' ? 'destination set' : 'answers in') : 'waiting…'}</span>
+                <span className="text-content-muted">{m.ready ? (type === 'commute' ? ((group?.settings as { kind?: string } | undefined)?.kind === 'meet' ? 'start set' : 'destination set') : 'answers in') : 'waiting…'}</span>
                 {isOwner && uid !== user?.uid && (
                   <button className="ml-auto text-xs font-semibold text-danger underline" onClick={() => void remove(uid, m.name)}>
                     Remove

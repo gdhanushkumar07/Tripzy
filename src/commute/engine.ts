@@ -61,7 +61,7 @@ export const fmtDur = (min: number) => {
 
 export function buildGraph(data: GraphData): Graph {
   const out = new Map<string, Arc[]>()
-  const add = (a: Arc) => out.set(a.from, [...(out.get(a.from) ?? []), a])
+  const add = (a: Arc) => { const l = out.get(a.from); if (l) l.push(a); else out.set(a.from, [a]) }
   for (const r of data.roads) {
     add({ kind: 'road', from: r.a, to: r.b, km: r.km, min: r.min, peak: r.peak })
     add({ kind: 'road', from: r.b, to: r.a, km: r.km, min: r.min, peak: r.peak })
@@ -83,7 +83,8 @@ export function buildGraph(data: GraphData): Graph {
         add({
           kind: 'line', from: s, to: stops[i + 1], km: seg.km, min: seg.min, fare: seg.fare, peak: seg.peak ?? 1,
           mode: line.mode, key: `${line.id}:${dir}`, name: line.name, origin: stops[0], headway: line.headway,
-          departures: line.departures?.[dir].map(toMin), offset, index: i, fareBetween,
+          // absolute, sorted departure times from this stop (looked up by binary search)
+          departures: line.departures?.[dir].map((d) => toMin(d) + offset).sort((a, b) => a - b), offset: 0, index: i, fareBetween,
         })
         offset += seg.min
       })
@@ -96,6 +97,14 @@ export function buildGraph(data: GraphData): Graph {
     peak: data.peakWindows.map(([a, b]) => [toMin(a), toMin(b)]),
   }
 }
+
+function firstAtOrAfter(sorted: number[], t: number): number | undefined {
+  let lo = 0, hi = sorted.length
+  while (lo < hi) { const m = (lo + hi) >> 1; if (sorted[m] < t) lo = m + 1; else hi = m }
+  return sorted[lo]
+}
+const privModes = new WeakMap<Graph, Mode[]>()
+const privOf = (g: Graph) => { let m = privModes.get(g); if (!m) { m = Object.keys(g.data.private) as Mode[]; privModes.set(g, m) } return m }
 
 const isPeak = (g: Graph, t: number) => g.peak.some(([a, b]) => t % 1440 >= a && t % 1440 < b)
 
@@ -157,7 +166,7 @@ function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): L
     if (modes.has('walk') && arc.km <= g.data.walk.maxKm) {
       res.push(next('walk', 'walk', 0, (arc.km / g.data.walk.kmh) * 60, 0, 0, 0, false))
     }
-    for (const m of Object.keys(g.data.private) as Mode[]) {
+    for (const m of privOf(g)) {
       if (!modes.has(m)) continue
       // you hail an auto/cab where you are; walking to a transit stop first only to hail one there is never useful
       if (l.vehicle === 'walk' && l.boardings === 0 && l.vehicle !== m) continue
@@ -181,7 +190,7 @@ function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): L
   let wait = 0
   if (!cont) {
     if (arc.departures) {
-      const at = arc.departures.map((d) => d + arc.offset).find((d) => d >= l.t)
+      const at = firstAtOrAfter(arc.departures, l.t)
       if (at === undefined) return res // no more trains today
       wait = at - l.t
     } else wait = (arc.headway ?? 10) / 2
@@ -195,34 +204,96 @@ function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number): L
   return res
 }
 
-/** Best whole path for one objective. groupSize > 1 prices shared vehicles for the group. */
-export function search(g: Graph, q: Query, obj: Objective, groupSize = 1): Route | null {
+const FRONT_CAP = 6
+
+/** Min-heap on lexicographic priority arrays (the open list of the label search). */
+class Heap<T> {
+  private a: { p: number[]; v: T }[] = []
+  get size() { return this.a.length }
+  push(p: number[], v: T) {
+    const a = this.a
+    a.push({ p, v })
+    for (let i = a.length - 1; i > 0;) {
+      const j = (i - 1) >> 1
+      if (!less(a[i].p, a[j].p)) break
+      ;[a[i], a[j]] = [a[j], a[i]]
+      i = j
+    }
+  }
+  pop(): T | undefined {
+    const a = this.a
+    if (!a.length) return undefined
+    const top = a[0].v
+    const last = a.pop()!
+    if (a.length) {
+      a[0] = last
+      for (let i = 0; ;) {
+        const l = 2 * i + 1, r = l + 1
+        let m = i
+        if (l < a.length && less(a[l].p, a[m].p)) m = l
+        if (r < a.length && less(a[r].p, a[m].p)) m = r
+        if (m === i) break
+        ;[a[i], a[m]] = [a[m], a[i]]
+        i = m
+      }
+    }
+    return top
+  }
+}
+
+/**
+ * Best path for one objective from q.from to every node in `targets` (one search; the first label
+ * popped at a node is optimal because every objective only grows along a path).
+ */
+export function searchMany(g: Graph, q: Omit<Query, 'to'>, obj: Objective, groupSize: number, targets: Set<string>, horizon = 48 * 60): Map<string, Route> {
   const modes = new Set(q.modes)
   const start: Label = { node: q.from, t: q.depart, fare: 0, changes: 0, boardings: 0, vehicle: '', rideKm: 0, prev: null, step: null }
   const front = new Map<string, Label[]>()
-  const open: Label[] = [start]
+  const dead = new WeakSet<Label>()
+  const open = new Heap<Label>()
+  open.push(priority(start, obj, q.depart, groupSize), start)
+  const found = new Map<string, Route>()
   const key = (l: Label) => `${l.node}|${l.vehicle}`
-  while (open.length) {
-    let bi = 0
-    for (let i = 1; i < open.length; i++) {
-      if (less(priority(open[i], obj, q.depart, groupSize), priority(open[bi], obj, q.depart, groupSize))) bi = i
+  // "general" is one scalar (₹ + value of time + change penalty), so a label that is no later and no
+  // dearer on that scalar dominates — far smaller fronts than comparing fare and changes separately.
+  const gen = (l: Label) => l.fare + VALUE_OF_TIME * groupSize * (l.t - q.depart) + CHANGE_PENALTY * groupSize * l.changes
+  const dom = obj === 'general'
+    ? (a: Label, b: Label) => a.t <= b.t && gen(a) <= gen(b) && a.rideKm <= b.rideKm && a.board === b.board
+    : dominates
+  while (open.size && found.size < targets.size) {
+    const l = open.pop()!
+    if (dead.has(l)) continue
+    if (targets.has(l.node) && !found.has(l.node)) {
+      found.set(l.node, toRoute(g, l, groupSize))
+      if (found.size === targets.size) break
     }
-    const l = open.splice(bi, 1)[0]
-    if (l.node === q.to) return toRoute(g, l, groupSize)
     for (const arc of g.out.get(l.node) ?? []) {
       for (const n of expand(g, l, arc, modes, groupSize)) {
         if (q.budget != null && n.fare / groupSize > q.budget) continue
         if (q.maxTransfers != null && n.changes > q.maxTransfers) continue
-        if (n.t - q.depart > 48 * 60) continue // long-distance trains and buses can run over a day
+        if (n.t - q.depart > horizon) continue // long-distance trains and buses can run over a day
         const k = key(n)
         const labels = front.get(k) ?? []
-        if (labels.some((o) => dominates(o, n))) continue
-        front.set(k, [...labels.filter((o) => !dominates(n, o)), n])
-        open.push(n)
+        if (labels.some((o) => dom(o, n))) continue
+        const keep: Label[] = []
+        for (const o of labels) { if (dom(n, o)) dead.add(o); else keep.push(o) }
+        keep.push(n)
+        // bounded fronts: keep the best few trade-offs per stop and vehicle (the search stays interactive on big live graphs)
+        if (keep.length > FRONT_CAP) {
+          keep.sort((a, b) => (less(priority(a, obj, q.depart, groupSize), priority(b, obj, q.depart, groupSize)) ? -1 : 1))
+          for (const o of keep.splice(FRONT_CAP)) dead.add(o)
+        }
+        front.set(k, keep)
+        open.push(priority(n, obj, q.depart, groupSize), n)
       }
     }
   }
-  return null
+  return found
+}
+
+/** Best whole path for one objective. groupSize > 1 prices shared vehicles for the group. */
+export function search(g: Graph, q: Query, obj: Objective, groupSize = 1): Route | null {
+  return searchMany(g, q, obj, groupSize, new Set([q.to])).get(q.to) ?? null
 }
 
 // ---------------------------------------------------------------- routes
@@ -534,4 +605,104 @@ function rideTogether(g: Graph, q: { from: string; depart: number; modes: Mode[]
 
 function emptyRoute(at: string, t: number): Route {
   return { id: 'here', labels: [], legs: [], from: at, to: at, depart: t, arrive: t, totalMin: 0, fare: 0, km: 0, changes: 0, why: '', segments: [] }
+}
+
+// ---------------------------------------------------------------- meeting point (different starts, one destination)
+
+export type MeetMember = { id: string; name: string; from: string }
+export type MeetPlan = {
+  /** node where everyone meets; equal to the destination when travelling separately is best */
+  at: string; atName: string; meetTime: number
+  members: { id: string; name: string; route: Route; leaveBy: number; perPerson: number }[]
+  together: Route | null
+  totalPerPerson: number; arrive: number; score: number; why: string
+}
+
+/**
+ * Pick the meeting point M for people who start in different places and travel on together:
+ * minimise Σ fares to M + the group's fare from M (shared vehicles split) + value of time for
+ * every person's door-to-door minutes + a comfort cost per change. Everyone meets 5 min before the
+ * shared leg; early arrivers are told when to leave instead of waiting. "Meet at the destination"
+ * (go separately) is always a candidate, so the result never does worse than going alone.
+ */
+export function planMeet(g: Graph, q: { to: string; depart: number; modes: Mode[]; members: MeetMember[]; candidates?: string[] }): { best: MeetPlan; alternatives: MeetPlan[] } | null {
+  const n = q.members.length
+  if (!n) return null
+  const meetKinds = new Set(['metro', 'rail', 'bus', 'hub'])
+  const target = g.nodes.get(q.to)
+  const origins = q.members.map((m) => g.nodes.get(m.from)!).filter(Boolean)
+  const dist = (a: GraphNode, b: GraphNode) => Math.hypot(a.lat - b.lat, (a.lon - b.lon) * Math.cos((a.lat * Math.PI) / 180))
+  let cands = q.candidates ?? [...g.nodes.values()].filter((x) => meetKinds.has(x.kind) || x.id.startsWith('hub:')).map((x) => x.id)
+  if (target && !q.candidates) {
+    // keep the 40 points that add the least detour for the group: Σ origin→M + n × M→destination
+    const cost = (id: string) => { const c = g.nodes.get(id)!; return origins.reduce((s, o) => s + dist(o, c), 0) + n * dist(c, target) }
+    cands = cands.sort((a, b) => cost(a) - cost(b)).slice(0, 40)
+  }
+  const plans: MeetPlan[] = []
+  const all = new Set([...cands, q.to])
+  // a meeting point reached later than going straight to the destination is useless: bound each search by that
+  const reach = q.members.map((m) => {
+    const direct = search(g, { from: m.from, to: q.to, depart: q.depart, modes: q.modes }, 'time', 1)
+    const r = searchMany(g, { from: m.from, depart: q.depart, modes: q.modes }, 'general', 1, all, direct ? direct.totalMin + 20 : 48 * 60)
+    if (!r.has(q.to)) { const d = search(g, { from: m.from, to: q.to, depart: q.depart, modes: q.modes }, 'general', 1); if (d) r.set(q.to, d) }
+    return r
+  })
+  // the shared leg is searched only for the 8 meeting points that are cheapest to reach for the group
+  const reachCost = (at: string) => reach.reduce((s, r, i) => { const x = q.members[i].from === at ? emptyRoute(at, q.depart) : r.get(at); return x ? s + x.fare + VALUE_OF_TIME * x.totalMin : Infinity }, 0)
+  // onward estimate: crow-fly km at ~40 km/h, valued for the whole group
+  const estimate = (at: string) => reachCost(at) + (target ? n * VALUE_OF_TIME * dist(g.nodes.get(at)!, target) * 111 * 1.5 : 0)
+  const shortlist = [...all].filter((at) => at !== q.to && Number.isFinite(reachCost(at)))
+    .sort((a, b) => estimate(a) - estimate(b))
+    .slice(0, 8)
+  for (const at of [...shortlist, q.to]) {
+    const routes = q.members.map((m, i) => (m.from === at ? emptyRoute(at, q.depart) : reach[i].get(at) ?? null))
+    if (routes.some((r) => !r)) continue
+    const rs = routes as Route[]
+    const separate = at === q.to
+    const meetTime = separate ? Math.max(...rs.map((r) => r.arrive)) : Math.max(...rs.map((r) => r.arrive)) + 5
+    const together = separate ? null : search(g, { from: at, to: q.to, depart: meetTime, modes: q.modes, people: n }, 'general', n)
+    if (!separate && !together) continue
+    const arrive = together ? together.arrive : meetTime
+    // door-to-door minutes per person, assuming early arrivers leave later instead of waiting
+    const minutes = rs.reduce((s, r) => s + r.totalMin, 0) + (together ? n * (together.arrive - meetTime + 5) : 0)
+    const fares = rs.reduce((s, r) => s + r.fare, 0) + (together ? together.fare * n : 0)
+    const changes = rs.reduce((s, r) => s + r.changes, 0) + (together ? n * together.changes + n : 0)
+    const score = fares + VALUE_OF_TIME * minutes + CHANGE_PENALTY * changes
+    plans.push({
+      at, atName: g.nodes.get(at)?.name ?? at, meetTime, together, arrive, score: Math.round(score),
+      totalPerPerson: Math.round(fares / n),
+      members: q.members.map((m, i) => ({ id: m.id, name: m.name, route: rs[i], perPerson: rs[i].fare + (together?.fare ?? 0), leaveBy: q.depart })),
+      why: '',
+    })
+  }
+  if (!plans.length) return null
+  plans.sort((a, b) => a.score - b.score)
+  // early arrivers: plan again from the latest time that still reaches the meeting point on time,
+  // so the legs shown carry real clock times instead of "leave now and wait there"
+  for (const p of plans.slice(0, 4)) {
+    if (p.at === q.to) continue
+    p.members.forEach((m, i) => {
+      const slack = p.meetTime - 5 - m.route.arrive
+      if (slack < 5 || !m.route.legs.length) return
+      for (const back of [slack, slack * 0.66, slack * 0.33]) {
+        const later = search(g, { from: q.members[i].from, to: p.at, depart: q.depart + Math.floor(back), modes: q.modes }, 'general', 1)
+        if (later && later.arrive <= p.meetTime - 3) { m.route = later; m.leaveBy = later.depart; m.perPerson = later.fare + (p.together?.fare ?? 0); break }
+      }
+    })
+    p.totalPerPerson = Math.round(p.members.reduce((t, m) => t + m.perPerson, 0) / n)
+  }
+  const alone = plans.find((p) => p.at === q.to)
+  for (const p of plans) {
+    // going "separately" can still put everyone on the same vehicle (same bus/train from the same stop)
+    const lastRide = (r: Route) => [...r.legs].reverse().find((l) => l.mode !== 'walk')
+    const shared = p.at === q.to ? p.members.map((m) => lastRide(m.route)).filter(Boolean) : []
+    const sameRide = shared.length === n && n > 1 && shared.every((l) => l!.name === shared[0]!.name && l!.from === shared[0]!.from && l!.depart === shared[0]!.depart)
+    p.why = p.at === q.to
+      ? sameRide
+        ? `You all end up on the same ${shared[0]!.name} from ${shared[0]!.fromName} at ${fmtTime(shared[0]!.depart)} — meet there; tickets are per person, so nothing is saved by meeting earlier.`
+        : 'Everyone travels separately straight to the destination — no meeting point saves enough time or money.'
+      : `Meet at ${p.atName} and ride together: ₹${p.totalPerPerson} each on average${alone ? `, ${alone.totalPerPerson - p.totalPerPerson >= 0 ? `₹${alone.totalPerPerson - p.totalPerPerson} cheaper` : `₹${p.totalPerPerson - alone.totalPerPerson} dearer`} and ${Math.round(alone.arrive - p.arrive) >= 0 ? `${Math.round(alone.arrive - p.arrive)} min earlier` : `${Math.round(p.arrive - alone.arrive)} min later`} than going separately` : ''}.`
+  }
+  // alternatives: distinct meeting places, best first
+  return { best: plans[0], alternatives: plans.slice(1, 4) }
 }

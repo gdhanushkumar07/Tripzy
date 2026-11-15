@@ -26,6 +26,17 @@ export async function fetchJson<T = unknown>(url: string, init: RequestInit & { 
   }
 }
 
+/**
+ * Circuit breaker per provider: after the provider rejects the key (401/403) or keeps failing,
+ * skip it for a while instead of paying a failed round trip on every call.
+ */
+const tripped = new Map<string, number>()
+export const providerUp = (name: string) => (tripped.get(name) ?? 0) < Date.now()
+export function providerFailed(name: string, e: unknown) {
+  const status = (e as { message?: string })?.message?.match(/answered (\d{3})/)?.[1]
+  tripped.set(name, Date.now() + (status === '401' || status === '403' ? 30 : 2) * 60_000)
+}
+
 /** In-memory TTL cache with de-duplication of identical in-flight calls, optionally persisted to disk. */
 const mem = new Map<string, { at: number; v: unknown }>()
 const inflight = new Map<string, Promise<unknown>>()

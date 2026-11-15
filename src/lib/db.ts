@@ -36,7 +36,7 @@ export const removeDoc = (ref: DocumentReference) => write(() => deleteDoc(ref),
 // ---------------------------------------------------------------- groups
 
 export type GroupType = 'commute' | 'tour'
-export type Member = { name: string; destination?: string; answers?: Record<string, unknown>; ready: boolean }
+export type Member = { name: string; destination?: string; answers?: Record<string, unknown>; ready: boolean; dest?: { name: string; lat: number; lon: number }; origin?: { name: string; lat: number; lon: number } }
 export type Group<R = unknown> = {
   type: GroupType; ownerUid: string; memberUids: string[]; members: Record<string, Member>
   settings?: Record<string, unknown>; result?: R | null; createdAt: number; updatedAt: number

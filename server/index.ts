@@ -13,7 +13,7 @@ import { cached, env, fetchJson, HOUR, UpstreamError } from './lib'
 import { aiEnabled, liveCheck } from './providers/ai'
 import { geocode, reverse } from './providers/geo'
 import { weather } from './providers/weather'
-import { planCommute, planGroupCommute, type Point } from './plan/commute'
+import { planCommute, planGroupCommute, planMeetCommute, type Point } from './plan/commute'
 import { planTour } from './plan/tour'
 import { planJourney } from './plan/journey'
 import { hotelsNear } from './providers/hotels'
@@ -120,6 +120,13 @@ app.post('/api/commute/group', wrap(async (req) => {
   const members = (Array.isArray(b.members) ? b.members : []).slice(0, 12).map((m: { id: string; name: string; point: unknown }) => ({ id: String(m.id), name: String(m.name).slice(0, 40), to: '', point: point(m.point) }))
   if (!members.length) throw new UpstreamError('Members need a destination first', 400)
   return planGroupCommute({ from: point(b.from), to: members[0].point, date: String(b.date ?? new Date().toISOString().slice(0, 10)).slice(0, 10), time: String(b.time ?? '09:00').slice(0, 5), modes: modes(b.modes), members })
+}))
+
+app.post('/api/commute/meet', wrap(async (req) => {
+  const b = req.body ?? {}
+  const members = (Array.isArray(b.members) ? b.members : []).slice(0, 12).map((m: { id: string; name: string; point: unknown }) => ({ id: String(m.id), name: String(m.name).slice(0, 40), point: point(m.point) }))
+  if (members.length < 2) throw new UpstreamError('At least two members need to set where they start', 400)
+  return planMeetCommute({ to: point(b.to), date: date(b.date), time: time(b.time), modes: modes(b.modes), members })
 }))
 
 app.post('/api/tour/plan', wrap(async (req) => {

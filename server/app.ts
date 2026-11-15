@@ -71,7 +71,7 @@ const modes = (v: unknown): Mode[] => (Array.isArray(v) ? v.filter((m): m is Mod
 const wrap = (fn: (req: Request) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) => fn(req).then((r) => res.json(r)).catch(next)
 
 // Legacy OIDC / auth URL redirect: forwards stale tabs or cached browser sessions to /login
-app.all(['/api/auth/oidc/login', '/api/auth', '/api/auth/*'], (_req, res) => {
+app.all(/^\/api\/auth(\/.*)?$/, (_req, res) => {
   res.redirect(302, '/login')
 })
 

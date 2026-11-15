@@ -1,9 +1,11 @@
 # 🌍 Tripzy — Smarter Travel, Better Experience
 
 > **Accurate Hackathon 2026 · Problem Statement 2 · CBIT Nirvana**  
-> 🌐 **Live Web Application (Vercel):** [https://tripzy-five-ashen.vercel.app/](https://tripzy-five-ashen.vercel.app/)  
-> 🎬 **Project Walkthrough Video:** [`tripzy-explainer.mp4`](./tripzy-explainer.mp4) *(Included in repository)*
-> 🎬 **Demo Video:** [Watch Demo Video](https://drive.google.com/file/d/1mQ2tAFtp4P8ZbKVimpBHJZ1Ldqmj50c7/view)
+> 🌐 **Live Web Application (Vercel):** [Open Tripzy](https://tripzy-five-ashen.vercel.app/)  
+> <br>
+> 🎬 **Project Walkthrough Video:** [`tripzy-explainer.mp4`](./tripzy-explainer.mp4) *(Included in repository)*  
+> <br>
+> 🎬 **Demo Video:** [▶ Watch Demo Video](https://drive.google.com/file/d/1mQ2tAFtp4P8ZbKVimpBHJZ1Ldqmj50c7/view)
 
 
 One unified travel web application featuring two intelligent modules, each fully usable **solo or as a group** from a single screen:

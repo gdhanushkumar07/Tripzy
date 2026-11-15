@@ -1,9 +1,14 @@
-# Tripzy — smarter travel, better experience
+# 🌍 Tripzy — Smarter Travel, Better Experience
 
-Accurate Hackathon 2026 · Problem Statement 2. One web app with two modules, each usable **solo or as a group** from the same screen:
+> **Accurate Hackathon 2026 · Problem Statement 2 · CBIT Nirvana**  
+> 🌐 **Live Web Application (Vercel):** [https://tripzy-five-ashen.vercel.app/](https://tripzy-five-ashen.vercel.app/)  
+> 🎬 **Project Walkthrough Video:** [`tripzy-explainer.mp4`](./tripzy-explainer.mp4) *(Included in repository)*
 
-1. **Daily Traveller** — door-to-door routes that mix the transport modes *you* are comfortable with, ranked three ways: Cheapest, Fastest, Fewest transfers.
-2. **Tourist Planner** — 12 quick questions → a day-by-day itinerary with costs → edit it → it's saved.
+One unified travel web application featuring two intelligent modules, each fully usable **solo or as a group** from a single screen:
+
+1. **Daily Traveller** (`/commute`) — Door-to-door multi-modal routes that intelligently combine the transport modes *you* choose, ranked three ways: Cheapest, Fastest, and Fewest transfers.
+2. **Tourist Planner** (`/tour`) — 12 interactive preference questions → complete day-by-day itinerary with costs → live interactive editing → cloud sync and group collaboration.
+3. **Tripzy AI Copilot** (`/ai`) — Conversational assistant powered by Gemini with tool-grounded routing, live weather, hotel discovery, and itinerary modifications.
 
 ## The problem, in one real trip
 
@@ -170,6 +175,12 @@ npm run build
 
 Optional extras: set `VITE_AI_PLANNER_URL=http://127.0.0.1:9/plan` to show the AI-failure path (Retry / **Basic plan**). Stop the emulators mid-edit to show the Firestore-outage path (draft kept locally, Retry).
 
-## Credits
+## Team — CBIT Nirvana
 
-Maps © OpenStreetMap contributors, via Leaflet. Earlier iterations of this repo were built on TREK (AGPL-3.0). That code was removed on branch `minimal` (see `AUDIT.md`).
+* **Hackathon:** Accurate Hackathon 2026
+* **Problem Statement:** Problem Statement 2 (Smart Travel & Mobility)
+* **Team:** CBIT Nirvana
+* **Live App:** [https://tripzy-five-ashen.vercel.app/](https://tripzy-five-ashen.vercel.app/)
+* **Walkthrough Video:** [`tripzy-explainer.mp4`](./tripzy-explainer.mp4)
+
+Maps © OpenStreetMap contributors, via Leaflet. Photo credits listed at `/credits`.

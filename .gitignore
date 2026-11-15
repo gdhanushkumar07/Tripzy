@@ -20,3 +20,6 @@ Thumbs.db
 .gtfs-cache/
 server/data/gtfs/
 server/data/cache/
+
+# bundled API for the Vercel function (built by npm run build:api)
+server-dist/

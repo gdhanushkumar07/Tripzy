@@ -25,11 +25,14 @@ Other apps plan in one mode and pick the nearest hub greedily, one leg at a time
 - **Accounts** — register, log in, log out, password reset (Firebase Auth). The session survives refresh and browser restarts. Each user sees only their own data.
 - **Dashboard** — welcome by name, two big module cards, saved routes and saved trips (one tap to reopen, delete with confirmation), "Continue where you left off" when a draft exists, and default preferences (modes, budget, max transfers).
 - **Daily Traveller** (`/commute`) — form and results on one page. Mode chips (walk, auto, bike taxi, cab, city bus, metro, intercity bus, train) are preselected from your preferences. Optional budget and max transfers. Up to three distinct routes (one route can carry two labels). Each has legs, time, fare, distance, changes and a "Why this route" line. Tap a card for the leg-by-leg timeline and a Leaflet/OpenStreetMap map (no API key). "Save route" for one-tap reuse. If nothing is found, it says which mode filter blocks the route and offers "Try with auto added"-style buttons.
-- **Tripzy AI** (`/ai`) — chat or speak ("Kokapet to Miyapur", "I have a scooty but don't want to drive in traffic", "I'm in a hurry").
+- **Tripzy AI** (`/ai`, ChatGPT-style) — asks your preferences once in the chat, fills Daily Traveller and the Tourist Planner (and creates the itinerary), and edits the current plan from follow-ups. Chat or speak ("Kokapet to Miyapur", "I have a scooty but don't want to drive in traffic", "I'm in a hurry").
   - Gemini calls Tripzy's own planners as tools (city routes, journeys, hotels, weather), so every fare and time comes from data.
   - Answers about the app and about you are grounded by retrieval (BM25 over the help knowledge base plus your saved routes, trips and preferences).
   - Multiple chats are saved to your account and sync across devices.
   - If the model is down or slow, a rule-based planner answers within seconds.
+- **Metro first in metro cities.** You board the metro at one of the nearest stations; Tripzy never sends a cab or bike along the line. "Least traffic & pollution" and "Via metro" options appear when they help. Heavy luggage means an auto for the first and last mile instead of a bike taxi.
+- **Tour travel like a traveller.** Long trips are timed to arrive on the morning of day 1, an overnight train replaces a hotel night, and sightseeing time lost is counted.
+- **Your data** (dashboard) — what is stored, export as JSON, delete chats and history.
 - **Four answers for every trip** — Recommended, Fastest, Cheapest and Most comfortable. A **Public transport** option is added whenever none of them uses a bus or the metro.
   - Metro fares are one ticket across line changes.
   - At the stop where you get off, "Other ways from here" lists the next bus, auto, bike taxi, cab and walking, with times and fares.

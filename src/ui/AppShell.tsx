@@ -103,10 +103,15 @@ function Navbar() {
 
 /** Standard signed-in page chrome: themed root, the fixed navbar, content offset below it. */
 export default function AppShell({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
   return (
     <div className="min-h-screen bg-surface text-content">
       <Navbar />
       <div style={{ paddingTop: 'var(--nav-h)' }}>{children}</div>
+      {/* Tripzy AI is one tap away from Daily Traveller and the Tourist Planner */}
+      {!pathname.startsWith('/ai') && (
+        <Link to="/ai" className="btn fixed bottom-5 end-5 z-30 !rounded-full shadow-lg" aria-label="Ask Tripzy AI"><Sparkles className="h-4 w-4" />Ask Tripzy AI</Link>
+      )}
     </div>
   )
 }

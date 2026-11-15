@@ -34,10 +34,10 @@ describe('Kokapet → Warangal at evening peak', () => {
   it('returns up to four distinct routes: Recommended, Fastest, Cheapest, Most comfortable', () => {
     const res = plan(g, { ...at6pm, modes: ALL })
     expect(res.routes.length).toBeGreaterThan(0)
-    expect(res.routes.length).toBeLessThanOrEqual(4)
+    expect(res.routes.length).toBeLessThanOrEqual(5)
     expect(new Set(res.routes.map((r) => r.id)).size).toBe(res.routes.length)
     const labels = res.routes.flatMap((r) => r.labels).sort()
-    expect(labels).toEqual(['Cheapest', 'Fastest', 'Most comfortable', 'Recommended'])
+    expect(labels.filter((l) => l !== 'Least traffic & pollution')).toEqual(['Cheapest', 'Fastest', 'Most comfortable', 'Recommended'])
     const cheapest = res.routes.find((r) => r.labels.includes('Cheapest'))!
     for (const r of res.routes) expect(cheapest.fare).toBeLessThanOrEqual(r.fare)
   })

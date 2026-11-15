@@ -31,7 +31,9 @@ export type Fuel = 'petrol' | 'diesel' | 'cng' | 'ev'
 /** Saved once in the profile so each journey asks only 2–3 questions. */
 export type Vehicles = { car?: { kmpl: number; fuel: Fuel; seats: number }; scooter?: { kmpl: number } }
 export type Family = { adults: number; children: number; seniors: number }
-export type Prefs = { modes: Mode[]; budget: number | null; maxTransfers: number | null; vehicles?: Vehicles; family?: Family; priority?: Priority }
+export type Prefs = { modes: Mode[]; budget: number | null; maxTransfers: number | null; vehicles?: Vehicles; family?: Family; priority?: Priority
+  /** usual luggage, and when the traveller last confirmed these preferences (Tripzy AI asks once) */
+  luggage?: 'light' | 'heavy'; asked?: number }
 export type Priority = 'balanced' | 'fastest' | 'cheapest' | 'comfort'
 export type Profile = { name: string; prefs: Prefs }
 

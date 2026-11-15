@@ -113,3 +113,13 @@ export function useDraft<T extends object>(key: string, initial: T) {
 
   return { value, update, reset, status, retry: push, restored }
 }
+
+/**
+ * Write a page's draft from elsewhere (Tripzy AI fills Daily Traveller / Tourist Planner): saved
+ * locally and to Firestore with a fresh timestamp, so the page restores this newer copy on open.
+ */
+export async function writeDraft<T>(uid: string, key: string, value: T): Promise<void> {
+  const stored: Stored<T> = { value, updatedAt: Date.now() }
+  try { localStorage.setItem(localKey(uid, key), JSON.stringify(stored)) } catch { /* storage blocked */ }
+  try { await setDoc(doc(db, 'users', uid, 'drafts', key), stored as unknown as Record<string, unknown>) } catch { /* offline: local copy wins on this device */ }
+}

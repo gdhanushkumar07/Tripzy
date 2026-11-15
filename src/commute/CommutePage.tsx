@@ -54,7 +54,7 @@ export function commuteUrl(f: { from: GeoPoint; to: GeoPoint; time: string; date
     const a = f.ask ?? DEFAULT_ASK
     p.set('pa', `${a.party.adults}.${a.party.children}.${a.party.seniors}`); p.set('lg', a.luggage); p.set('pr', a.priority); p.set('ow', a.own)
     if (a.flights === false) p.set('nf', '1')
-  }
+  } else if (f.ask?.luggage === 'heavy') p.set('lg', 'heavy')
   if (f.date) p.set('d', f.date)
   if (f.people && f.people > 1) p.set('p', String(f.people))
   if (f.budget !== '' && f.budget != null) p.set('b', String(f.budget))
@@ -140,13 +140,13 @@ export default function CommutePage() {
       const r = await api.post<JourneyResult>('/api/journey/plan', { from: query.from, to: query.to, date: query.date, time: query.time, ...query.ask, modes: query.modes, vehicles }, `journey:${JSON.stringify(query)}`)
       setJourney(r)
     } else {
-      const r = await api.post<LivePlan>('/api/commute/plan', { ...query, vehicles }, `commute:${JSON.stringify(query)}`)
+      const r = await api.post<LivePlan>('/api/commute/plan', { ...query, vehicles, luggage: query.ask.luggage }, `commute:${JSON.stringify(query)}`)
       setResult(r)
     }
     if (user) logEvent(user.uid, { type: 'commute_search', at: Date.now(), modes: query.modes, people: query.journey ? query.ask.party.adults + query.ask.party.children + query.ask.party.seniors : query.people })
   })
   const fam = profile.prefs.family
-  const ask: JourneyAsk = f.ask ?? { ...DEFAULT_ASK, party: fam ?? DEFAULT_ASK.party, priority: profile.prefs.priority ?? 'balanced', own: vehicles?.car ? 'car' : 'none' }
+  const ask: JourneyAsk = f.ask ?? { ...DEFAULT_ASK, party: fam ?? DEFAULT_ASK.party, priority: profile.prefs.priority ?? 'balanced', own: vehicles?.car ? 'car' : 'none', luggage: profile.prefs.luggage ?? 'light' }
   const journeyForm = mode === 'solo' && !!f.from && !!f.to && isJourney(f.from, f.to)
   const lastQ = useRef('')
   useEffect(() => {
@@ -335,6 +335,11 @@ export default function CommutePage() {
                 <button type="button" className="btn-secondary btn-sm !h-11 !w-11 !p-0" aria-label="Fewer people" onClick={() => set({ people: Math.max(1, f.people - 1) })}><Minus className="h-4 w-4" /></button>
                 <span className="min-w-[5rem] text-center text-body font-semibold" aria-live="polite"><Users className="me-1 inline h-4 w-4" />{f.people} {f.people === 1 ? 'person' : 'people'}</span>
                 <button type="button" className="btn-secondary btn-sm !h-11 !w-11 !p-0" aria-label="More people" onClick={() => set({ people: Math.min(8, f.people + 1) })}><Plus className="h-4 w-4" /></button>
+              </div>
+              <div className="mt-2 flex gap-1.5" role="group" aria-label="Luggage">
+                {(['light', 'heavy'] as const).map((l) => (
+                  <button key={l} type="button" aria-pressed={ask.luggage === l} className={`chip ${ask.luggage === l ? 'chip-on' : 'chip-off'} !py-1 text-caption`} onClick={() => set({ ask: { ...ask, luggage: l } })}>{l === 'light' ? 'Light bags (bike taxi OK)' : 'Heavy bags (auto, no bike)'}</button>
+                ))}
               </div>
             </div>
           )}

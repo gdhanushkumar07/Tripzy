@@ -18,7 +18,9 @@ import { road, roadTable } from '../providers/route'
 import { dayType, fareBetween, feedsNear, nearestStations } from '../transit/gtfs'
 
 export type Point = LatLon & { name: string; state?: string; city?: string }
-export type CommuteQuery = { from: Point; to: Point; date: string; time: string; modes: Mode[]; budget?: number | null; maxTransfers?: number | null; people?: number; vehicles?: Vehicles }
+export type CommuteQuery = { from: Point; to: Point; date: string; time: string; modes: Mode[]; budget?: number | null; maxTransfers?: number | null; people?: number; vehicles?: Vehicles
+  /** heavy bags: no bike taxi or scooter for the first and last mile (an auto or cab instead) */
+  luggage?: 'light' | 'heavy' }
 
 type Node = GraphData['nodes'][number]
 type LineMeta = { source: string; estimate: boolean; links: Link[]; color?: string; stops?: [number, number][] }
@@ -210,9 +212,22 @@ export async function buildLiveGraph(q: CommuteQuery, extraDest: Point[] = [], e
   if (process.env.DEBUG_PLAN) console.log('nodes', nodes.length, nodes.map((n) => n.kind).join(','))
   const tbl = await roadTable(nodes)
   const roads: GraphData['roads'] = []
+  // Get on the metro where a traveller would: at one of the nearest stations to the door (by road),
+  // or any within 4 km. A cab or bike running alongside the metro line to a station further in
+  // only trades road traffic and pollution for a few minutes.
+  const kmOf = (i: number, j: number) => tbl.km[i]?.[j] ?? tbl.km[j]?.[i] ?? null
+  const metroIdx = nodes.map((n, i) => (n.kind === 'metro' ? i : -1)).filter((i) => i >= 0)
+  const access = new Map<number, Set<number>>()
+  nodes.forEach((n, i) => {
+    if (n.kind !== 'place' || !metroIdx.length) return
+    const near = metroIdx.filter((j) => kmOf(i, j) != null).sort((a, b) => kmOf(i, a)! - kmOf(i, b)!)
+    access.set(i, new Set([...near.slice(0, 3), ...near.filter((j) => kmOf(i, j)! <= 4)]))
+  })
+  const blocked = (i: number, j: number) => (access.has(i) && nodes[j].kind === 'metro' && !access.get(i)!.has(j)) || (access.has(j) && nodes[i].kind === 'metro' && !access.get(j)!.has(i))
   for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
     const km = tbl.km[i][j], min = tbl.min[i][j]
     if (km == null || min == null || km < 0.05) continue
+    if (blocked(i, j)) continue
     const stops = (n: Node) => n.kind === 'metro' || (n.kind === 'bus' && !n.id.startsWith('hub:'))
     // walking between two stops: by foot you cross the road, so use the straight line, not the driving U-turn
     const crow = haversineKm(nodes[i], nodes[j])
@@ -301,9 +316,11 @@ export async function enrich(r: Route, g: ReturnType<typeof buildGraph>, meta: R
   return { ...r, legs, gmaps }
 }
 
+const forLuggage = (modes: Mode[], luggage?: 'light' | 'heavy') => (luggage === 'heavy' ? modes.filter((m) => !['bike', 'ownscooter', 'cycle'].includes(m)) : modes)
+
 export async function planCommute(q: CommuteQuery): Promise<PlanResult & { live: true; sources: string[] }> {
   const { graph, meta, depart, roadSource } = await buildLiveGraph(q)
-  const res = plan(graph, { from: 'O', to: 'D', depart, modes: q.modes, budget: q.budget, maxTransfers: q.maxTransfers, people: q.people })
+  const res = plan(graph, { from: 'O', to: 'D', depart, modes: forLuggage(q.modes, q.luggage), budget: q.budget, maxTransfers: q.maxTransfers, people: q.people })
   const routes = await Promise.all(res.routes.map((r) => enrich(r, graph, meta, q)))
   // at the last station of each route, list the other ways to finish (decide on the spot)
   const memo = new Map<string, Alt[]>()
@@ -324,7 +341,7 @@ export async function planCommute(q: CommuteQuery): Promise<PlanResult & { live:
 export async function planCommuteVariants(q: CommuteQuery, sets: Mode[][]) {
   const { graph, meta, depart, roadSource } = await buildLiveGraph(q)
   const out = await Promise.all(sets.map(async (modes) => {
-    const res = plan(graph, { from: 'O', to: 'D', depart, modes, people: q.people })
+    const res = plan(graph, { from: 'O', to: 'D', depart, modes: forLuggage(modes, q.luggage), people: q.people })
     return Promise.all(res.routes.map((r) => enrich(r, graph, meta, q)))
   }))
   return { variants: out, sources: [roadSource, ...new Set(Object.values(meta).map((m) => m.source))] }

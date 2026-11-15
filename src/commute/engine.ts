@@ -118,7 +118,7 @@ const isPeak = (g: Graph, t: number) => g.peak.some(([a, b]) => t % 1440 >= a &&
 
 // ---------------------------------------------------------------- search
 
-export type Objective = 'cost' | 'time' | 'changes' | 'general' | 'comfort'
+export type Objective = 'cost' | 'time' | 'changes' | 'general' | 'comfort' | 'clean'
 export type Query = {
   from: string; to: string; depart: number; modes: Mode[]
   budget?: number | null; maxTransfers?: number | null
@@ -136,6 +136,8 @@ type Label = {
   dis: number
   /** the last ride (walks ignored) was a road vehicle: a new hire must follow public transport */
   lastPrivate?: boolean
+  /** minutes spent in road vehicles (traffic, pollution): what "Least traffic & pollution" minimises */
+  road: number
   vehicle: string; rideKm: number; prev: Label | null; step: Step | null
   /** stop position where the current line was boarded (fare is by boarding → alighting) */
   board?: number
@@ -166,10 +168,14 @@ export const DISCOMFORT: Partial<Record<Mode, number>> = {
 const COMFORT_CHANGE = 40
 
 function priority(l: Label, obj: Objective, depart: number, size: number): number[] {
+  // least traffic & pollution: as few minutes on the road as possible (metro/train do the long part),
+  // then money and time lightly so it stays a sensible trip
+  if (obj === 'clean') return [size * (3 * l.road + 15 * l.changes + 0.5 * (l.t - depart)) + 0.5 * l.fare, l.t]
   // most comfortable: discomfort and changes first, time valued lightly, money barely
   if (obj === 'comfort') return [size * (l.dis + COMFORT_CHANGE * l.changes + 0.5 * (l.t - depart)) + 0.1 * l.fare, l.t]
   // recommended: money + time + changes, with a little comfort so a crowded hour on a bus counts
-  if (obj === 'general') return [l.fare + VALUE_OF_TIME * size * (l.t - depart) + CHANGE_PENALTY * size * l.changes + 0.5 * size * l.dis, l.t]
+  // (+ ₹1 per minute in road traffic: in a metro city the calm metro beats a cab alongside it)
+  if (obj === 'general') return [l.fare + VALUE_OF_TIME * size * (l.t - depart) + CHANGE_PENALTY * size * l.changes + 0.5 * size * l.dis + size * l.road, l.t]
   // cheapest, but not absurdly slow: each extra hour counts ₹30 per person (a 2-day wait is never "cheapest")
   if (obj === 'cost') return [l.fare + (CHEAP_VOT * size * (l.t - depart)), l.t, l.changes]
   if (obj === 'changes') return [l.changes, l.t, l.fare]
@@ -191,6 +197,7 @@ function expand(g: Graph, l: Label, arc: Arc, modes: Set<Mode>, size: number, ma
       changes: boarding && l.boardings > 0 ? l.changes + 1 : l.changes,
       vehicle: key, rideKm, prev: l,
       lastPrivate: mode === 'walk' ? l.lastPrivate : !!g.data.private[mode],
+      road: l.road + (g.data.private[mode] || mode === 'citybus' || mode === 'ibus' ? minutes * (mode === 'citybus' || mode === 'ibus' ? 0.6 : 1) : 0),
       step: { arc, mode, key, depart, wait, minutes, fare, peakDelay },
     }
   }
@@ -297,7 +304,7 @@ class Heap<T> {
  */
 export function searchMany(g: Graph, q: Omit<Query, 'to'>, obj: Objective, groupSize: number, targets: Set<string>, horizon = q.horizon ?? 48 * 60): Map<string, Route> {
   const modes = new Set(q.modes)
-  const start: Label = { node: q.from, t: q.depart, fare: 0, dis: 0, changes: 0, boardings: 0, vehicle: '', rideKm: 0, prev: null, step: null }
+  const start: Label = { node: q.from, t: q.depart, fare: 0, dis: 0, road: 0, changes: 0, boardings: 0, vehicle: '', rideKm: 0, prev: null, step: null }
   const front = new Map<string, Label[]>()
   const dead = new WeakSet<Label>()
   const open = new Heap<Label>()
@@ -308,8 +315,9 @@ export function searchMany(g: Graph, q: Omit<Query, 'to'>, obj: Objective, group
   // arriving no later and being no worse on the objective's non-time part (an earlier label can
   // always wait). Far smaller fronts than full (time, fare, changes) Pareto sets.
   const other: (l: Label) => number =
-    obj === 'general' ? (l) => l.fare + CHANGE_PENALTY * groupSize * l.changes + 0.5 * groupSize * l.dis
+    obj === 'general' ? (l) => l.fare + CHANGE_PENALTY * groupSize * l.changes + 0.5 * groupSize * l.dis + groupSize * l.road
       : obj === 'comfort' ? (l) => groupSize * (l.dis + COMFORT_CHANGE * l.changes) + 0.1 * l.fare
+        : obj === 'clean' ? (l) => groupSize * (3 * l.road + 15 * l.changes) + 0.5 * l.fare
         : obj === 'cost' ? (l) => l.fare
           : (l) => l.changes
   // ε-dominance: labels within a minute and ₹3 (per person) of each other count as equal, which keeps
@@ -364,7 +372,7 @@ export type Route = {
   depart: number; arrive: number; totalMin: number; fare: number; km: number; changes: number
   why: string; segments: { a: string; b: string; peakDelay: number }[]
 }
-export type RouteLabel = 'Recommended' | 'Fastest' | 'Cheapest' | 'Most comfortable' | 'Public transport'
+export type RouteLabel = 'Recommended' | 'Fastest' | 'Cheapest' | 'Most comfortable' | 'Least traffic & pollution' | 'Via metro' | 'Public transport'
 
 function toRoute(g: Graph, end: Label, groupSize: number): Route {
   const steps: Step[] = []
@@ -486,6 +494,25 @@ export function plan(g: Graph, q: Query): PlanResult {
   // add the best one that does (hired vehicles only for the first or last few km)
   const LINE_MODES: Mode[] = ['metro', 'citybus', 'rail', 'train', 'ibus', 'ferry']
   const usesLine = (r: Route) => r.legs.some((l) => LINE_MODES.includes(l.mode))
+  // the way a city traveller avoids traffic and pollution: nearest metro station, metro for the long part
+  if (byId.size && q.modes.some((m) => m === 'metro' || m === 'rail' || m === 'train')) {
+    const clean = search(g, bounded, 'clean', q.people ?? 1)
+    if (clean && usesLine(clean)) {
+      const seen = byId.get(clean.id)
+      if (seen) seen.labels.push('Least traffic & pollution')
+      else byId.set(clean.id, { ...clean, labels: ['Least traffic & pollution'] })
+    }
+  }
+  // you chose the metro: show the best way that really uses it — hire a ride only as far as the
+  // nearest stations (plus 2 km), then the metro takes over
+  const usesMetro = (r: Route) => r.legs.some((l) => l.mode === 'metro')
+  if (byId.size && q.modes.includes('metro') && ![...byId.values()].some(usesMetro)) {
+    const toMetro = (g.out.get(q.from) ?? []).filter((a) => a.kind === 'road' && g.nodes.get(a.to)?.kind === 'metro').map((a) => a.km)
+    if (toMetro.length) {
+      const viaMetro = search(g, { ...bounded, maxPrivateKm: Math.max(4, Math.min(...toMetro) + 2) }, 'general', q.people ?? 1)
+      if (viaMetro && usesMetro(viaMetro) && !byId.has(viaMetro.id)) byId.set(viaMetro.id, { ...viaMetro, labels: ['Via metro'] })
+    }
+  }
   if (byId.size && ![...byId.values()].some(usesLine) && q.modes.some((m) => LINE_MODES.includes(m))) {
     const pub = search(g, { ...bounded, maxPrivateKm: 8 }, 'general', q.people ?? 1)
     if (pub && usesLine(pub) && !byId.has(pub.id)) byId.set(pub.id, { ...pub, labels: ['Public transport'] })
@@ -562,6 +589,17 @@ export function explain(g: Graph, r: Route, all: Route[], baseline?: Baseline): 
   if (r.labels.includes('Most comfortable')) {
     const walk = r.legs.filter((l) => l.mode === 'walk').reduce((x, l) => x + l.km, 0)
     return r.changes === 0 ? `One vehicle door to door${walk < 0.3 ? ', no walking' : ''}` : `Only ${r.changes} change${r.changes > 1 ? 's' : ''}, mostly ${r.legs.some((l) => l.mode === 'metro') ? 'air-conditioned metro' : 'seated'}`
+  }
+  if (r.labels.includes('Least traffic & pollution')) {
+    const road = Math.round(r.legs.filter((l) => !['walk', 'metro', 'rail', 'train', 'ferry'].includes(l.mode)).reduce((x, l) => x + l.minutes, 0))
+    const main = r.legs.filter((l) => ['metro', 'rail', 'train'].includes(l.mode)).reduce((x, l) => x + l.minutes, 0)
+    return `Only ${road} min on the road — the ${r.legs.some((l) => l.mode === 'metro') ? 'metro' : 'train'} does ${Math.round(main)} min of the trip, away from traffic and pollution`
+  }
+  if (r.labels.includes('Via metro')) {
+    const first = r.legs.find((l) => l.mode === 'metro')!
+    const rec = by('Recommended')
+    const d = rec && rec !== r ? r.totalMin - rec.totalMin : 0
+    return `Metro from ${name(first.from)}${rec && rec !== r ? ` · ${d > 0 ? `${fmtDur(d)} longer` : `${fmtDur(-d)} quicker`} and ${r.fare <= rec.fare ? `₹${rec.fare - r.fare} cheaper` : `₹${r.fare - rec.fare} dearer`} than Recommended` : ''} — less time in traffic`
   }
   if (r.labels.includes('Public transport')) return `Best way by bus or metro: ₹${r.fare}${fastest && fastest !== r ? `, ${fmtDur(r.totalMin - fastest.totalMin)} slower than the fastest` : ''}`
   return r.changes === 0 ? 'One vehicle all the way' : `Only ${r.changes} change${r.changes > 1 ? 's' : ''}`

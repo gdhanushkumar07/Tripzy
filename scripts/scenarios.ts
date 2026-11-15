@@ -80,6 +80,19 @@ const main = async () => {
   await solo('Family of 4: Kokapet → Charminar', KOKAPET, CHARMINAR, '11:00', ALL, 4)
   await solo('Gachibowli → Warangal (intercity)', GACHIBOWLI, WARANGAL, '07:00', ALL)
 
+  // the reported journey: no auto/bike chosen; the metro must be boarded at a station near Kokapet
+  // (Raidurg / HITEC City / Jubilee Hills Checkpost / Durgam Cheruvu), never after a cab ride alongside the line
+  console.log('\n▶ Kokapet → Warangal, walk/cab/bus/metro/train, light bags (journey)')
+  try {
+    const j = await planJourney({ from: KOKAPET, to: WARANGAL, date: '2026-11-23', time: '07:00', party: { adults: 1, children: 0, seniors: 0 }, luggage: 'light', priority: 'balanced', own: 'none', modes: ['walk', 'cab', 'citybus', 'metro', 'rail', 'ibus', 'train'] })
+    for (const o of j.options) console.log(`   ${[...o.tags, ...(o.badges ?? [])].join('+').padEnd(36)} ${o.title.slice(0, 50).padEnd(50)} ${Math.round(o.minutes)} min ₹${o.cost}`)
+    const NEAR = /Raidurg|HITEC City|Jubilee Hills Checkpost|Durgam Cheruvu/
+    const metroOpts = j.options.filter((o) => o.legs.some((l) => l.mode === 'metro'))
+    if (!metroOpts.length) fail('Kokapet → Warangal', 'no option uses the metro')
+    for (const o of metroOpts) { const m = o.legs.find((l) => l.mode === 'metro')!; if (!NEAR.test(m.from)) fail('Kokapet → Warangal', `metro boarded at ${m.from}, not a station near Kokapet`) }
+    if (j.options.some((o) => o.legs.some((l) => l.mode === 'bike' || l.mode === 'auto'))) fail('Kokapet → Warangal', 'used a mode that was not chosen')
+  } catch (e) { fail('Kokapet → Warangal', (e as Error).message) }
+
   console.log('\n▶ Group, same start: Kokapet → Miyapur / HITEC City / Ameerpet at 18:00')
   try {
     const g = await planGroupCommute({ from: KOKAPET, to: MIYAPUR, date: '2026-11-23', time: '18:00', modes: ALL, members: [{ id: 'a', name: 'Asha', to: '', point: MIYAPUR }, { id: 'b', name: 'Ravi', to: '', point: HITEC }, { id: 'c', name: 'Meena', to: '', point: AMEERPET }] })

@@ -23,6 +23,7 @@ export type Tag = 'Fastest' | 'Cheapest' | 'Most comfortable' | 'Best balanced'
 export type JOption = {
   id: string; title: string; kind: string; legs: JLeg[]; minutes: number; cost: number; perPerson: number; transfers: number
   walkKm: number; waitMin: number; comfort: number; reliability: number; notes: string[]; tags: Tag[]; why: string; estimate: boolean; gmaps: string
+  badges?: string[]
 }
 export type JourneyResult = { options: JOption[]; sources: string[]; km: number; start: string; timeZone?: string; message?: string }
 export type JourneyAsk = { party: Family; luggage: 'light' | 'heavy'; priority: Priority; own: 'none' | 'car' | 'scooter'; flights?: boolean }
@@ -106,15 +107,18 @@ function TrainHelper({ party }: { party: Family }) {
   )
 }
 
-function OptionCard({ o, start, zone, open, onToggle, party }: { o: JOption; start: string; zone?: string; open: boolean; onToggle: () => void; party: Family }) {
+export function OptionCard({ o, start, zone, open, onToggle, party, extraTags, advice }: { o: JOption; start: string; zone?: string; open: boolean; onToggle: () => void; party: Family; extraTags?: string[]; advice?: string }) {
   return (
     <article className={`card ${o.tags.includes('Best balanced') ? 'ring-2 ring-[var(--accent)]' : ''}`}>
       <button type="button" className="w-full text-left" onClick={onToggle} aria-expanded={open}>
         <div className="mb-2 flex flex-wrap gap-1">
           {o.tags.map((t) => <span key={t} className={`rounded-full px-2 py-0.5 text-xs font-bold ${TAG_STYLE[t]}`}>{t}</span>)}
+          {o.badges?.map((b) => <span key={b} className="rounded-full bg-[#dbeafe] px-2 py-0.5 text-xs font-bold text-[#1e3a8a]">{b}</span>)}
+          {extraTags?.map((b) => <span key={b} className="rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-accent-text">{b}</span>)}
           {o.estimate && <span className="rounded-full bg-surface-secondary px-2 py-0.5 text-xs text-content-muted">includes estimates</span>}
         </div>
         <p className="font-serif text-[26px] leading-tight text-content">{o.title}</p>
+        {advice && <p className="mt-1 text-body text-content-secondary">{advice}</p>}
         <p className="mt-1 text-lg" aria-label={o.legs.map((l) => l.mode).join(', then ')}>{o.legs.map((l, i) => <span key={i} title={l.name}>{ICON[l.mode] ?? '•'}{i < o.legs.length - 1 && <span className="mx-0.5 text-xs text-content-faint">›</span>}</span>)}</p>
         <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-body">
           <span><strong className="text-content">{fmtDur(o.minutes)}</strong> <span className="text-content-muted">door to door</span></span>

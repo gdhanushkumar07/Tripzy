@@ -131,6 +131,8 @@ const BADGE: Record<string, string> = {
   'Most comfortable': 'tz-coral-pill',
   Recommended: 'bg-accent text-accent-text',
   'Public transport': 'bg-surface-secondary text-content-secondary',
+  'Least traffic & pollution': 'bg-[#dcfce7] text-[#14532d]',
+  'Via metro': 'bg-[#dbeafe] text-[#1e3a8a]',
 }
 
 export function RouteCard({ route, open, onToggle, onSave, saving }: {

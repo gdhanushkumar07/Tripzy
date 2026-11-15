@@ -10,7 +10,13 @@ Every search shows up to four labelled options:
 - **Cheapest**: least money, but never absurdly slow (time is valued at ₹30 an hour).
 - **Most comfortable**: least crowding, walking and changes. It is usually a cab or the metro.
 
-If none of these uses a bus or the metro, a fifth **Public transport** option shows the best bus or metro way, with a hired ride for at most the first or last 8 km.
+More options appear when they help:
+- **Least traffic & pollution**: as few minutes as possible on the road. You board the metro or a train at the nearest station and it does the long part. Use it when you would rather not breathe traffic fumes on a long bike ride.
+- **Via metro**: shown when you chose the metro but none of the other answers uses it. You take a hired ride only as far as one of the nearest metro stations, then the metro.
+- **Public transport**: the best bus or metro way, with a hired ride for at most the first or last 8 km.
+
+## Getting to the metro
+Tripzy boards the metro at one of the 3 nearest stations to your door by road, or any within 4 km. It never sends a cab or bike along the metro line to a station further in. With heavy luggage the first and last mile is an auto or cab; with light bags a bike taxi is fine.
 
 ## Daily Traveller (city trips, under 80 km)
 Daily Traveller uses real metro and city-bus timetables (Hyderabad Metro, TGSRTC; other cities when their timetables are loaded), live road times, and published auto, bike and cab tariffs.
@@ -42,6 +48,22 @@ The Tourist Planner asks 13 questions:
 It then builds a day-by-day plan with real places, opening hours, weather and air quality. The trip page adds:
 - "Getting there" from your live location (flights, trains, buses or car);
 - "Where to stay" with hotel prices for your dates.
+
+## Getting to a tour destination
+The Tourist Planner plans the trip there like a traveller, from your live location:
+- **Long trains and buses** are timed to arrive around 08:00 on day 1. A night spent on board replaces a hotel night, and that saving is counted.
+- **Short trips** leave early on day 1. A late-night arrival is flagged, and sightseeing time lost on day 1 counts against an option.
+- **Options shown**: Best for this trip, Cheapest overall (hotel included), Fastest and Most comfortable.
+
+## Tripzy AI
+Tripzy AI does the app's work from the chat:
+- **Preferences**: it asks your preferences once (modes, luggage, vehicle, who travels, priority) with a picker and saves them to your profile.
+- **Forms**: every trip it plans fills Daily Traveller, and every tour fills the Tourist Planner and creates the itinerary.
+- **Follow-ups change the current plan**: "make it cheaper", "avoid buses", "use the metro", "leave at 8", "we are 4", "heavy bags", "make it 2 days", "we are vegetarian".
+- **Chats**: you can keep several, synced to your account. You can speak instead of typing, and have answers read aloud.
+
+## Your data
+The dashboard's "Your data" section lists everything stored for your account: profile, saved routes, trips, AI chats, forms in progress and activity history. You can download it all as JSON and delete AI chats or history. Data lives in your account (Firestore) and only you can read it.
 
 ## Profile and personalisation
 In the dashboard you can save your usual modes, family (adults, children, seniors), vehicles (car mileage, fuel and seats; scooter mileage) and what matters most. Tripzy also learns from your history: the modes you use and the places you save.

@@ -15,8 +15,9 @@ import { weather } from './providers/weather'
 import { planCommute, planGroupCommute, planMeetCommute, type Point } from './plan/commute'
 import { planTour } from './plan/tour'
 import { planJourney } from './plan/journey'
+import { planTourTravel } from './plan/tourTravel'
 import { hotelsNear } from './providers/hotels'
-import { chat, type ChatContext, type ChatMsg } from './ai/agent'
+import { chat, type ChatContext, type ChatMsg, type ChatState } from './ai/agent'
 import { loadFeeds } from './transit/gtfs'
 
 const app = express()
@@ -96,7 +97,7 @@ app.post('/api/commute/plan', wrap(async (req) => {
   return planCommute({
     from: point(b.from), to: point(b.to), date: String(b.date ?? new Date().toISOString().slice(0, 10)).slice(0, 10), time: String(b.time ?? '09:00').slice(0, 5),
     modes: modes(b.modes), budget: b.budget == null ? null : num(b.budget, 0, 100000), maxTransfers: b.maxTransfers == null ? null : num(b.maxTransfers, 0, 5),
-    people: b.people == null ? 1 : num(b.people, 1, 12), vehicles: vehicles(b.vehicles),
+    people: b.people == null ? 1 : num(b.people, 1, 12), vehicles: vehicles(b.vehicles), luggage: b.luggage === 'heavy' ? 'heavy' : 'light',
   })
 }))
 
@@ -140,11 +141,21 @@ app.post('/api/ai/chat', wrap(async (req) => {
   const c = (b.context ?? {}) as ChatContext
   const ctx: ChatContext = {
     location: c.location && Number.isFinite(c.location.lat) && Number.isFinite(c.location.lon) ? { lat: num(c.location.lat, -90, 90), lon: num(c.location.lon, -180, 180), name: str(c.location.name, 80) } : undefined,
-    prefs: c.prefs ? { modes: modes(c.prefs.modes), vehicles: vehicles(c.prefs.vehicles), family: c.prefs.family ? party(c.prefs.family) : undefined, priority: (['balanced', 'fastest', 'cheapest', 'comfort'] as Priority[]).find((x) => x === c.prefs?.priority) } : undefined,
+    prefs: c.prefs ? { modes: modes(c.prefs.modes), vehicles: vehicles(c.prefs.vehicles), family: c.prefs.family ? party(c.prefs.family) : undefined, priority: (['balanced', 'fastest', 'cheapest', 'comfort'] as Priority[]).find((x) => x === c.prefs?.priority), luggage: c.prefs.luggage === 'heavy' ? 'heavy' : c.prefs.luggage === 'light' ? 'light' : undefined } : undefined,
+    prefsKnown: c.prefsKnown === true,
     memory: (Array.isArray(c.memory) ? c.memory : []).slice(0, 40).map((m) => ({ title: String(m?.title ?? '').slice(0, 80), text: String(m?.text ?? '').slice(0, 300) })),
     name: str(c.name, 40),
   }
-  return chat(messages, ctx)
+  // the chat's plan state comes back from the app: keep only plain, short values
+  const clean = (v: unknown): unknown => (typeof v === 'string' ? v.slice(0, 120) : typeof v === 'number' || typeof v === 'boolean' ? v : Array.isArray(v) ? v.slice(0, 20).map(clean) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).slice(0, 30).map(([k, x]) => [k.slice(0, 40), clean(x)])) : undefined)
+  const state = (b.state && typeof b.state === 'object' ? clean(b.state) : {}) as ChatState
+  return chat(messages, ctx, state)
+}))
+
+// Tour: getting to the destination, ranked for the trip (overnight saves a hotel night, arrival time, daylight)
+app.post('/api/tour/travel', wrap(async (req) => {
+  const b = req.body ?? {}
+  return planTourTravel({ from: anyPoint(b.from), to: anyPoint(b.to), start: date(b.start), party: party(b.party), vehicles: vehicles(b.vehicles), modes: modes(b.modes), own: b.own === 'car' ? 'car' : 'none' })
 }))
 
 app.post('/api/tour/plan', wrap(async (req) => {

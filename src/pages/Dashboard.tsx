@@ -15,6 +15,7 @@ import { readLocalDraft } from '../lib/useDraft'
 import { budgetError, optNum, transfersError } from '../lib/validate'
 import type { TourDraft } from '../tour/TourPage'
 import { Skeleton } from '../ui/kit'
+import { YourData } from './YourData'
 import { useDocumentScroll, useReveal } from '../ui/motion'
 import { ALT_CITY_PHOTO, CITY_PHOTO, photoSrc } from '../ui/photos'
 
@@ -203,6 +204,10 @@ export default function Dashboard() {
           <SectionHead id="prefs" kicker="Your preferences" title="How you like to travel" />
           <PrefsForm key={JSON.stringify(profile.prefs)} name={profile.name} prefs={profile.prefs} uid={uid} />
         </section>
+        <section aria-labelledby="your-data">
+          <SectionHead id="your-data" kicker="Your data" title="What Tripzy keeps for you" />
+          <YourData />
+        </section>
       </div>
 
       <footer className="mt-20 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-edge pt-6 text-[13px] text-content-muted">
@@ -265,7 +270,7 @@ function PrefsForm({ uid, name, prefs }: { uid: string; name: string; prefs: Pre
     setErr(e)
     if (e) return
     const vehicles = { ...(hasCar ? { car: { kmpl, fuel, seats: st } } : {}), ...(hasScooter ? { scooter: { kmpl: sk } } : {}) }
-    const res = await savePrefs(uid, name, { modes, budget: optNum(budget), maxTransfers: optNum(maxT), vehicles, family: fam, priority })
+    const res = await savePrefs(uid, name, { ...prefs, modes, budget: optNum(budget), maxTransfers: optNum(maxT), vehicles, family: fam, priority, asked: Date.now() })
     toast(res === 'local' ? 'Preferences saved on this device — will sync when online' : 'Preferences saved', 'success')
   })
   return (

@@ -43,6 +43,8 @@ export type JOption = {
   id: string; title: string; kind: 'flight' | 'train' | 'bus' | 'car' | 'cab' | 'transit' | 'city'
   legs: JLeg[]; minutes: number; cost: number; perPerson: number; transfers: number; walkKm: number; waitMin: number
   comfort: number; reliability: number; notes: string[]; tags: Tag[]; why: string; estimate: boolean; gmaps: string
+  /** special ways the city engine found: "Via metro", "Least traffic & pollution", "Public transport" */
+  badges?: string[]
 }
 
 const IN_BBOX = (p: LatLon) => p.lat > 6.4 && p.lat < 35.8 && p.lon > 68 && p.lon < 97.5
@@ -160,7 +162,7 @@ async function indiaGroundOptions(q: JourneyQuery, startMin: number): Promise<{ 
   const pick = (ms: readonly Mode[]) => ms.filter((m) => m === 'walk' || allows(q, m))
   const sets = [allows(q, 'train') ? [...pick(base), ...own, 'train'] : null, allows(q, 'ibus') ? [...pick(base), ...own, 'ibus'] : null].filter(Boolean) as unknown as Parameters<typeof planCommuteVariants>[1]
   if (!sets.length) return { options: [], sources: [] }
-  const { variants, sources } = await planCommuteVariants({ from: q.from, to: q.to, date: q.date, time: q.time, modes: [], people, vehicles: q.vehicles }, sets)
+  const { variants, sources } = await planCommuteVariants({ from: q.from, to: q.to, date: q.date, time: q.time, modes: [], people, vehicles: q.vehicles, luggage: q.luggage }, sets)
   const seen = new Set<string>()
   const out: JOption[] = []
   variants.forEach((routes, vi) => {
@@ -180,7 +182,8 @@ async function indiaGroundOptions(q: JourneyQuery, startMin: number): Promise<{ 
       const t0 = Math.min(...legs.map((l) => l.start - (l.wait ?? 0)))
       legs.forEach((l) => { l.start = Math.round(l.start - t0); l.minutes = Math.round(l.minutes); if (l.wait != null) l.wait = Math.round(l.wait) })
       const title = kind === 'train' ? `Train via ${main!.fromName.replace(/ railway station$/i, '')}` : kind === 'bus' ? `Bus from ${main!.fromName}` : r.legs.map((l) => l.name).slice(0, 3).join(' → ')
-      out.push(finish({ id: `in-${vi}-${r.id}`, title, kind, legs, estimate: r.legs.some((l) => l.estimate), gmaps: r.gmaps, notes: r.why ? [r.why] : [] }, q, startMin))
+      const badges = (r.labels as string[]).filter((l) => ['Via metro', 'Least traffic & pollution', 'Public transport'].includes(l))
+      out.push(finish({ id: `in-${vi}-${r.id}`, title: badges.includes('Via metro') ? `${title} · via metro` : title, kind, legs, estimate: r.legs.some((l) => l.estimate), gmaps: r.gmaps, notes: r.why ? [r.why] : [], badges }, q, startMin))
     }
   })
   return { options: out, sources }
@@ -322,7 +325,7 @@ const fmtDur = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${Math.round(m
 
 /** Drop options that are strictly worse than another one on cost, time and comfort (keeps the list short). */
 function prune(options: JOption[]): JOption[] {
-  return options.filter((o) => !options.some((p) => p !== o && p.cost <= o.cost && p.minutes <= o.minutes && p.comfort >= o.comfort && (p.cost < o.cost || p.minutes < o.minutes - 5)))
+  return options.filter((o) => !!o.badges?.length || !options.some((p) => p !== o && p.cost <= o.cost && p.minutes <= o.minutes && p.comfort >= o.comfort && (p.cost < o.cost || p.minutes < o.minutes - 5)))
 }
 
 /** Time zone of a point (IANA name + offset), from Open-Meteo — no key, cached for a day. */
@@ -357,7 +360,7 @@ export async function planJourney(q: JourneyQuery): Promise<{ options: JOption[]
   const roadMin = options.find((o) => o.kind === 'car' || o.kind === 'cab')?.minutes
   if (roadMin) options = options.filter((o) => o.kind === 'car' || o.kind === 'cab' || o.kind === 'flight' || o.minutes < roadMin * 3 + 60)
   const perKind = new Map<string, number>()
-  options = prune(options).sort((a, b) => b.comfort - a.comfort).filter((o) => { const n = (perKind.get(o.kind) ?? 0) + 1; perKind.set(o.kind, n); return n <= 2 })
+  options = prune(options).sort((a, b) => b.comfort - a.comfort).filter((o) => { if (o.badges?.length) return true; const n = (perKind.get(o.kind) ?? 0) + 1; perKind.set(o.kind, n); return n <= 2 })
   if (options.some((o) => o.legs.some((l) => l.mode === 'cab' || l.mode === 'owncar'))) sources.add('Roads: OSRM / OpenStreetMap (Ola Maps traffic when its key is active)')
   const tagged = tagOptions(options, q)
   return {

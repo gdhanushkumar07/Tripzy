@@ -20,6 +20,8 @@ export async function fetchJson<T = unknown>(url: string, init: RequestInit & { 
     return (await res.json()) as T
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw new UpstreamError(`${new URL(url).host} timed out`, 504)
+    // network failure (DNS, refused, connect timeout): a clear message instead of "fetch failed"
+    if (e instanceof TypeError) throw new UpstreamError(`${new URL(url).host} is not reachable right now — try again in a minute`, 503)
     throw e
   } finally {
     clearTimeout(t)

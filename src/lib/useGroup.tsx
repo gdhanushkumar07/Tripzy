@@ -1,5 +1,5 @@
 import { User, Users } from 'lucide-react'
-import { onSnapshot } from 'firebase/firestore'
+import { onSnapshot } from './localstore'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from './auth'
 import { groupDoc, removeMember, type Group, type GroupType } from './db'

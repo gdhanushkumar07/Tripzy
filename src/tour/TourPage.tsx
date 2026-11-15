@@ -1,4 +1,4 @@
-import { setDoc } from 'firebase/firestore'
+import { setDoc } from '../lib/localstore'
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { Card, Eyebrow } from '../ui/kit'
 import { photoSrc, type PhotoId } from '../ui/photos'

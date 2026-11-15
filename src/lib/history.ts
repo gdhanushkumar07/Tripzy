@@ -2,7 +2,7 @@
  * Personalisation from the user's own history (users/{uid}/history). Pure algorithm,
  * no AI: interest boosts and preferred modes with a plain-language reason for each.
  */
-import { addDoc, collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { addDoc, collection, limit, onSnapshot, orderBy, query } from './localstore'
 import { useEffect, useState } from 'react'
 import { db } from './firebase'
 

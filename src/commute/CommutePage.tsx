@@ -1,4 +1,4 @@
-import { setDoc } from 'firebase/firestore'
+import { setDoc } from '../lib/localstore'
 import { Car, Minus, Plus, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'

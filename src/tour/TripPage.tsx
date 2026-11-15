@@ -1,4 +1,4 @@
-import { doc, onSnapshot, setDoc } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc } from '../lib/localstore'
 import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Car, Footprints, Repeat, Sparkles, Trash2, Users, Utensils } from 'lucide-react'
 import { Navigation, ShieldCheck } from 'lucide-react'
 import { lazy, Suspense } from 'react'

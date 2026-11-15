@@ -1,50 +1,25 @@
-# Dependencies & Environments
 node_modules/
-platform/node_modules/
-platform/client/node_modules/
-platform/server/node_modules/
-platform/shared/node_modules/
-.venv/
-backend/.venv/
-
-# Build artifacts & Caches
 dist/
-build/
-.cache/
-.pytest_cache/
-__pycache__/
-*.pyc
-*.pyo
 *.tsbuildinfo
-
-# Sensitive credentials & Environment files
 .env
+.env.*
 *.env
-*.env.local
-*.env.*.local
-api-keys.env
-platform/server/.env
-backend/.env
-platform/client/.env
 !.env.example
-!.env.example.*
-
-# Local Databases, Uploads & Storage
-*.db
-*.sqlite
-*.sqlite3
-platform/server/data/
-platform/server/uploads/
-backend/data_store/trips/
-backend/data_store/profiles/
-backend/data_store/links.json
-backend/data_store/dwell_stats.json
-
-# Temporary & System files
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.emulator-data/
+# old stacks (cut on branch minimal); local env files may remain on disk
+backend/
+platform/
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-.trash/
 Thumbs.db
+
+# generated data
+.gtfs-cache/
+server/data/gtfs/
+server/data/cache/
+
+# bundled API for the Vercel function (built by npm run build:api)
+server-dist/

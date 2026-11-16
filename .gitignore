@@ -23,3 +23,6 @@ server/data/cache/
 
 # bundled API for the Vercel function (built by npm run build:api)
 server-dist/
+
+# local scratch (database backups etc.)
+.trash/

@@ -30,15 +30,14 @@ export type GetAround = 'walk' | 'auto' | 'bike' | 'cab' | 'transit' | 'owncar' 
 type Option = { value: string | number; label: string; emoji: string }
 export type Question = {
   id: keyof Answers; scope: 'trip' | 'personal'; title: string; help?: string
-  kind: 'choice' | 'multi' | 'date' | 'place'; options?: Option[]
+  kind: 'choice' | 'multi' | 'date' | 'enddate' | 'place'; options?: Option[]
 }
 
 export const QUESTIONS: Question[] = [
   { id: 'city', scope: 'trip', title: 'Where are you going?', help: 'Any city, town or region in India.', kind: 'place', options: [
     { value: 'hyderabad', label: 'Hyderabad', emoji: '🕌' }, { value: 'jaipur', label: 'Jaipur', emoji: '🏰' }] },
   { id: 'start', scope: 'trip', title: 'When does the trip start?', kind: 'date' },
-  { id: 'days', scope: 'trip', title: 'How many days?', kind: 'choice', options: [
-    { value: 1, label: '1 day', emoji: '1️⃣' }, { value: 2, label: '2 days', emoji: '2️⃣' }, { value: 3, label: '3 days', emoji: '3️⃣' }, { value: 4, label: '4 days', emoji: '4️⃣' }] },
+  { id: 'days', scope: 'trip', title: 'When does the trip end?', help: 'Pick the last day of the trip. Up to 5 days per plan.', kind: 'enddate' },
   { id: 'party', scope: 'personal', title: "Who's travelling with you?", kind: 'choice', options: [
     { value: 'solo', label: 'Just me', emoji: '🧍' }, { value: 'couple', label: 'Partner', emoji: '👫' }, { value: 'friends', label: 'Friends', emoji: '🧑‍🤝‍🧑' },
     { value: 'kids', label: 'Family with kids', emoji: '👨‍👩‍👧' }, { value: 'seniors', label: 'With parents / seniors', emoji: '👵' }] },
@@ -115,3 +114,15 @@ export function mergeAnswers(trip: Answers, people: MemberAnswers[]): Merged {
     votes,
   }
 }
+
+// ---------------------------------------------------------------- trip dates (calendar dates, no time zones)
+
+export const MAX_TRIP_DAYS = 5
+const toUtc = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) }
+const fromUtc = (t: number) => new Date(t).toISOString().slice(0, 10)
+/** Today's date in the traveller's own time zone, as YYYY-MM-DD. */
+export const localToday = () => { const n = new Date(); return fromUtc(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())) }
+/** Inclusive length: a trip from the 25th to the 26th is 2 days. */
+export const tripDays = (start: string, end: string) => Math.round((toUtc(end) - toUtc(start)) / 86400000) + 1
+/** Last day of a trip of `days` days starting on `start`. */
+export const tripEnd = (start: string, days: number) => fromUtc(toUtc(start) + (Math.max(1, days) - 1) * 86400000)

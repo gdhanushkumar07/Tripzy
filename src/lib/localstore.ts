@@ -38,7 +38,8 @@ type Constraint =
 export type Query = { kind: 'query'; col: CollectionReference; cs: Constraint[] }
 
 const join = (base: unknown, segs: string[]) => {
-  const parts = [typeof base === 'object' && base && 'path' in base ? (base as { path: string }).path : '', ...segs].filter(Boolean)
+  const head = typeof base === 'string' ? base : typeof base === 'object' && base && 'path' in base ? (base as { path: string }).path : ''
+  const parts = [head, ...segs].filter(Boolean)
   return parts.join('/')
 }
 export function doc(base: unknown, ...segs: string[]): DocumentReference {

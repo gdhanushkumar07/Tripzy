@@ -14,7 +14,7 @@ import { ErrorBox, SaveStatus, Skeleton, useAction, useStatus } from '../lib/sta
 import { useDraft } from '../lib/useDraft'
 import { GroupPanel, ModeToggle, useGroup } from '../lib/useGroup'
 import { generateBasic, type Trip } from './generate'
-import { isAnswered, mergeAnswers, questionsFor, QUESTIONS, type Answers, type Question } from './questions'
+import { isAnswered, localToday, MAX_TRIP_DAYS, mergeAnswers, questionsFor, QUESTIONS, tripDays, tripEnd, type Answers, type Question } from './questions'
 
 export type TourDraft = { answers: Answers; groupCode: string | null; doneTripId: string | null }
 const EMPTY: TourDraft = { answers: {}, groupCode: null, doneTripId: null }
@@ -251,18 +251,46 @@ function display(q: Question, a: Answers): string {
   if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)) return ''
   if (q.id === 'city') return a.place?.name ?? (q.options?.find((o) => o.value === v)?.label ?? String(v))
   if (q.kind === 'date') return new Date(`${v}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  if (q.kind === 'enddate') {
+    const n = Number(v)
+    if (!a.start) return `${n} day${n === 1 ? '' : 's'}`
+    const f = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    return `${f(a.start)} → ${f(tripEnd(a.start, n))} · ${n} day${n === 1 ? '' : 's'}`
+  }
   if (Array.isArray(v)) return v.map((x) => q.options?.find((o) => o.value === x)?.label ?? x).join(', ')
   return q.options?.find((o) => o.value === v)?.label ?? String(v)
 }
 
 const CITY_TILE: Record<string, PhotoId> = { hyderabad: 'charminar', jaipur: 'hawa-mahal' }
 
+/** Last day of the trip: stored as an inclusive day count so plans, the AI and saved trips stay compatible. */
+function EndDate({ start, days, onDays }: { start?: string; days?: number; onDays: (d: number) => void }) {
+  if (!start) return <p className="field-error">Pick the start date first (go back one question).</p>
+  const max = tripEnd(start, MAX_TRIP_DAYS)
+  const end = days ? tripEnd(start, days) : ''
+  const n = end ? tripDays(start, end) : 0
+  return (
+    <div className="grid max-w-md gap-4 sm:grid-cols-2">
+      <div>
+        <span className="label">Start date</span>
+        <div className="tz-input flex items-center !bg-surface-secondary">{new Date(`${start}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+      </div>
+      <div>
+        <label htmlFor="end-date" className="label">End date</label>
+        <input id="end-date" type="date" min={start} max={max} className="tz-input" value={end}
+          onChange={(e) => { const d = e.target.value; if (d && d >= start && d <= max) onDays(tripDays(start, d)) }} />
+      </div>
+      <p className="text-[14px] text-content-muted sm:col-span-2">{n ? `${n} day${n === 1 ? '' : 's'}, including the first and last day.` : `Choose a date from the start date up to ${new Date(`${max}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}.`}</p>
+    </div>
+  )
+}
+
 function QuestionCard({ q, index, total, answers, onAnswer, onBack, onNext }: {
   q: Question; index: number; total: number; answers: Answers
   onAnswer: (v: unknown, advance: boolean) => void; onBack: () => void; onNext: () => void
 }) {
   const v = answers[q.id]
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localToday()
   const answered = isAnswered(answers, q.id)
   const many = q.kind === 'multi' || (q.options?.length ?? 0) > 3
   return (
@@ -309,6 +337,8 @@ function QuestionCard({ q, index, total, answers, onAnswer, onBack, onNext }: {
             <input id="date" type="date" min={today} className="tz-input" value={(v as string) ?? ''} onChange={(e) => onAnswer(e.target.value, false)} />
             {typeof v === 'string' && v < today && <p className="field-error">Pick today or a later date.</p>}
           </div>
+        ) : q.kind === 'enddate' ? (
+          <EndDate start={answers.start} days={typeof v === 'number' ? v : undefined} onDays={(d) => onAnswer(d, false)} />
         ) : (
           <div className={`grid gap-3 sm:gap-4 ${many ? 'grid-cols-2 sm:grid-cols-3' : q.options?.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`} role={q.kind === 'multi' ? 'group' : 'radiogroup'} aria-labelledby="q-title">
             {q.options!.map((o) => {

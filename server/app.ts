@@ -88,7 +88,7 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.get('/api/geocode', wrap(async (req) => {
-  const q = String(req.query.q ?? '')
+  const q = String(req.query.q ?? '').slice(0, 2000)
   const near = req.query.lat ? { lat: num(req.query.lat, -90, 90), lon: num(req.query.lon, -180, 180) } : undefined
   return geocode(q, near)
 }))
@@ -160,13 +160,17 @@ app.post('/api/ai/chat', wrap(async (req) => {
 // Tour: getting to the destination, ranked for the trip (overnight saves a hotel night, arrival time, daylight)
 app.post('/api/tour/travel', wrap(async (req) => {
   const b = req.body ?? {}
-  return planTourTravel({ from: anyPoint(b.from), to: anyPoint(b.to), start: date(b.start), party: party(b.party), vehicles: vehicles(b.vehicles), modes: modes(b.modes), own: b.own === 'car' ? 'car' : 'none' })
+  return planTourTravel({
+    from: anyPoint(b.from), to: anyPoint(b.to), start: date(b.start), party: party(b.party), vehicles: vehicles(b.vehicles), modes: modes(b.modes),
+    own: b.own === 'car' ? 'car' : b.own === 'scooter' ? 'scooter' : 'none', direction: b.direction === 'return' ? 'return' : 'go',
+  })
 }))
 
 app.post('/api/tour/plan', wrap(async (req) => {
   const b = req.body ?? {}
   if (!b.answers || typeof b.answers !== 'object') throw new UpstreamError('Answers are missing', 400)
-  return planTour({ answers: b.answers, groupSize: b.groupSize ? num(b.groupSize, 1, 12) : 1, place: anyPoint(b.place), boost: b.boost, boostWhy: b.boostWhy })
+  const base = b.base && typeof b.base === 'object' ? { ...anyPoint(b.base), address: typeof b.base.address === 'string' ? b.base.address.slice(0, 200) : undefined } : undefined
+  return planTour({ answers: b.answers, groupSize: b.groupSize ? num(b.groupSize, 1, 12) : 1, place: anyPoint(b.place), boost: b.boost, boostWhy: b.boostWhy, base })
 }))
 
 app.use((err: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {

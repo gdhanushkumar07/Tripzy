@@ -1,7 +1,7 @@
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { ArrowRight, ArrowUpRight, CalendarDays, Luggage, Plus, Route as RouteIcon, Trash2, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { commuteUrl, type CommuteForm } from '../commute/CommutePage'
 import type { GeoPoint } from '../lib/api'
 import { useTaste } from '../lib/history'
@@ -55,6 +55,11 @@ export default function Dashboard() {
   const trips = useList<SavedTrip>(uid, 'trips', 'updatedAt')
   useDocumentScroll()
   useReveal(root, [routes.items === null, trips.items === null])
+  // back from the history page: return to the "Your data" section
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash && routes.items && trips.items) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
+  }, [hash, routes.items, trips.items])
 
   const commuteDraft = readLocalDraft<CommuteForm>(uid, 'commute')?.value
   const tourDraft = readLocalDraft<TourDraft>(uid, 'tour')?.value

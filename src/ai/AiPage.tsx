@@ -6,21 +6,21 @@
  *  - preferences are asked once with a picker inside the chat and saved to the profile
  *  - follow-ups edit the current plan; several chats, synced to the account; voice in, voice out
  */
-import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore'
-import { BedDouble, Check, CloudSun, ExternalLink, LocateFixed, Menu, Mic, MicOff, Minus, Plus, Send, Sparkles, Trash2, Volume2, VolumeX, X } from 'lucide-react'
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore'
+import { BedDouble, Check, CloudSun, ExternalLink, Luggage, LocateFixed, Menu, Mic, MicOff, Minus, Plus, Route as RouteIcon, Send, Sparkles, Trash2, Volume2, VolumeX, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-import { newSessionKey, setActiveSession } from '../lib/sessions'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { newSessionKey, setActiveSession, useSessions } from '../lib/sessions'
 import { fmtDur } from '../commute/engine'
 import { api, type GeoPoint } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import { newId, savePrefs, tripDoc, write } from '../lib/db'
+import { groupDoc, newId, savePrefs, setGroup, tripDoc, write } from '../lib/db'
 import { db } from '../lib/firebase'
 import { currentPosition } from '../lib/location'
 import { ErrorBox, useAction, useStatus } from '../lib/status'
 import { MODES, MODE_ICON, MODE_LABEL, type Family, type Mode, type Prefs, type Priority } from '../lib/types'
 import { writeDraft } from '../lib/useDraft'
-import type { Trip } from '../tour/generate'
+import { addStop, removeStop, swapStop, topSights, type Place, type Trip } from '../tour/generate'
 import { mergeAnswers, type Answers } from '../tour/questions'
 
 type RouteReq = { from?: string; to: string; time?: string; date?: string; priority?: Priority; avoid?: string[]; luggage?: 'light' | 'heavy'; people?: number }
@@ -31,8 +31,9 @@ type PrefsCard = { type: 'prefs'; reason: string }
 type TourAnswers = Answers & { place?: { name: string; lat: number; lon: number; state?: string } }
 type TourCard = { type: 'tour'; title: string; answers: TourAnswers; missing: string[]; ready: boolean }
 type Card = RouteCard | HotelCard | WeatherCard | PrefsCard | TourCard
-type Action = { type: 'commute'; url: string; params: Record<string, string>; journey: boolean } | { type: 'tour'; answers: TourAnswers; create: boolean }
-type ChatState = { route?: RouteReq; tour?: Record<string, unknown>; pending?: RouteReq; tripId?: string; commuteUrl?: string }
+type Action = { type: 'commute'; url: string; params: Record<string, string>; journey: boolean } | { type: 'tour'; answers: TourAnswers; create: boolean; base?: Trip['base'] }
+  | { type: 'stops'; op: 'add' | 'swap' | 'remove'; place: string; day?: number; replace?: string }
+type ChatState = { route?: RouteReq; tour?: Record<string, unknown>; pending?: RouteReq; tripId?: string; commuteUrl?: string; /** the plan this chat edits in place */ boundTrip?: string }
 type Msg = { role: 'user' | 'assistant'; text: string; at: number; cards?: Card[]; engine?: string; sources?: string[]; tripId?: string }
 type Chat = { id: string; title: string; messages: Msg[]; state?: ChatState; createdAt: number; updatedAt: number }
 type Reply = { reply: string; cards: Card[]; actions: Action[]; state: ChatState; engine: string; sources: string[] }
@@ -45,6 +46,7 @@ const EXAMPLES = [
   'Hotels in Varanasi',
   'How does the group meeting point work?',
 ]
+const TOUR_EDITS = ['Most visited places', 'More food places', 'Relaxed pace', 'Add a day', 'More nightlife', 'We are vegetarian', 'Kid-friendly please']
 const QUICK_EDITS = ['Make it cheaper', 'I am in a hurry', 'More comfortable', 'Use the metro', 'Avoid buses', 'I have heavy bags', 'Leave 1 hour later']
 const LABEL_STYLE: Record<string, string> = {
   Recommended: 'bg-accent text-accent-text', 'Best balanced': 'bg-accent text-accent-text', Fastest: 'bg-accent-subtle text-accent-on', Cheapest: 'bg-success-soft text-success',
@@ -55,26 +57,59 @@ const plain = (s: string) => s.replace(/\*\*/g, '').replace(/\/commute\?\S+/g, '
 
 // ---------------------------------------------------------------- voice
 
-type Recognition = { lang: string; interimResults: boolean; onresult: (e: { results: { 0: { transcript: string } }[] }) => void; onend: () => void; onerror: () => void; start: () => void; stop: () => void }
-function useSpeech(onText: (t: string) => void) {
+type SpeechResult = { isFinal: boolean; 0: { transcript: string } }
+type Recognition = {
+  lang: string; interimResults: boolean; continuous: boolean
+  onresult: (e: { results: ArrayLike<SpeechResult> }) => void; onend: () => void; onerror: (e: { error: string }) => void
+  start: () => void; stop: () => void; abort: () => void
+}
+/** Plain words for what went wrong with the microphone. */
+const SPEECH_ERROR: Record<string, string> = {
+  'not-allowed': 'Microphone access is blocked. Allow the microphone for this site in your browser, then tap the mic again.',
+  'service-not-allowed': 'Microphone access is blocked. Allow the microphone for this site in your browser, then tap the mic again.',
+  'no-speech': "I didn't hear anything. Tap the mic and speak a little closer.",
+  'audio-capture': 'No microphone was found. Check that one is connected.',
+  network: "Voice typing needs an internet connection in this browser. Check your connection, or type instead.",
+  'language-not-supported': 'Voice typing does not support your browser language. Type instead, or switch the browser language to English.',
+}
+
+/**
+ * Voice input with the browser's speech recognition: words appear in the box while you speak and
+ * the message is sent when you stop. Problems (permission, no microphone, offline) are explained.
+ */
+function useSpeech(onFinal: (t: string) => void, onInterim: (t: string) => void) {
   const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }
   const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition
   const [on, setOn] = useState(false)
+  const [error, setError] = useState('')
   const rec = useRef<Recognition | null>(null)
+  // always call the latest handlers (the chat may change while listening)
+  const handlers = useRef({ onFinal, onInterim })
+  useEffect(() => { handlers.current = { onFinal, onInterim } })
+  useEffect(() => () => rec.current?.abort(), [])
   const toggle = () => {
     if (!Ctor) return
     if (on) { rec.current?.stop(); return }
+    setError('')
+    window.speechSynthesis?.cancel() // don't listen to our own read-aloud voice
     const r = new Ctor()
-    r.lang = navigator.language || 'en-IN'
-    r.interimResults = false
-    r.onresult = (e) => onText(Array.from(e.results).map((x) => x[0].transcript).join(' '))
+    r.lang = navigator.language?.startsWith('en') ? 'en-IN' : navigator.language || 'en-IN'
+    r.interimResults = true
+    r.continuous = false
+    let sent = false
+    r.onresult = (e) => {
+      const all = Array.from(e.results)
+      const text = all.map((x) => x[0].transcript).join(' ').replace(/\s+/g, ' ').trim()
+      if (all.length && all[all.length - 1].isFinal) {
+        if (!sent && text) { sent = true; handlers.current.onFinal(text) }
+      } else handlers.current.onInterim(text)
+    }
     r.onend = () => setOn(false)
-    r.onerror = () => setOn(false)
+    r.onerror = (e) => { setOn(false); if (e.error !== 'aborted') setError(SPEECH_ERROR[e.error] ?? 'Voice typing stopped unexpectedly. Tap the mic to try again, or type instead.') }
     rec.current = r
-    r.start()
-    setOn(true)
+    try { r.start(); setOn(true) } catch { setError('The microphone is busy. Wait a moment and tap it again.') }
   }
-  return { supported: !!Ctor, on, toggle }
+  return { supported: !!Ctor, on, toggle, error }
 }
 
 // ---------------------------------------------------------------- message content
@@ -215,7 +250,10 @@ export default function AiPage() {
   const { toast } = useStatus()
   const { chatId } = useParams()
   const navigate = useNavigate()
-  const [chats, setChats] = useState<Chat[]>([])
+  const [chats, setChats] = useState<Chat[] | null>(null)
+  const [params, setParams] = useSearchParams()
+  const [recent, setRecent] = useState<{ id: string; title: string; start?: string }[]>([])
+  const journeys = useSessions('commute')
   const [draft, setDraft] = useState('')
   const [here, setHere] = useState<GeoPoint | null>(null)
   const [locMsg, setLocMsg] = useState('')
@@ -239,16 +277,66 @@ export default function AiPage() {
     void Promise.all([
       getDocs(query(collection(db, 'users', uid, 'routes'), orderBy('createdAt', 'desc'), limit(20))).catch(() => null),
       getDocs(query(collection(db, 'users', uid, 'trips'), orderBy('updatedAt', 'desc'), limit(20))).catch(() => null),
-    ]).then(([r, t]) => setMemory([
+    ]).then(([r, t]) => {
+      setRecent((t?.docs ?? []).slice(0, 6).map((d) => ({ id: d.id, title: String(d.get('title') ?? 'Trip'), start: d.get('start') as string | undefined })))
+      setMemory([
       ...(r?.docs ?? []).map((d) => ({ title: `Saved route: ${d.get('title') ?? ''}`, text: `${d.get('title') ?? ''} at ${d.get('time') ?? ''}. ${d.get('summary') ?? ''}` })),
       ...(t?.docs ?? []).map((d) => ({ title: `Saved trip: ${d.get('title') ?? ''}`, text: `${d.get('title') ?? ''} from ${d.get('start') ?? ''}` })),
-    ]))
+      ])
+    })
   }, [uid])
 
   const locate = () => { setLocMsg(''); currentPosition().then(setHere, (e: Error) => setLocMsg(e.message)) }
   useEffect(() => { void navigator.permissions?.query({ name: 'geolocation' as PermissionName }).then((p) => { if (p.state === 'granted') locate() }).catch(() => undefined) }, [])
 
-  const active = useMemo(() => chats.find((c) => c.id === chatId) ?? null, [chats, chatId])
+  const active = useMemo(() => chats?.find((c) => c.id === chatId) ?? null, [chats, chatId])
+
+  /**
+   * Open a chat about a plan: /ai?trip=ID (from the trip page) reuses the chat already bound to that
+   * plan, or starts one that knows the plan; /ai?route=SESSION does the same for a Daily Traveller journey.
+   */
+  const opening = useRef('')
+  useEffect(() => {
+    const tripId = params.get('trip'), routeId = params.get('route')
+    if (!uid || !chats || (!tripId && !routeId)) return
+    const key = tripId ?? routeId!
+    if (opening.current === key) return
+    opening.current = key
+    const existing = chats.find((c) => (tripId ? c.state?.boundTrip === tripId : c.state?.route && (c.state as { routeSession?: string }).routeSession === routeId))
+    if (existing) { navigate(`/ai/${existing.id}`, { replace: true }); return }
+    void (async () => {
+      const id = newId(), now = Date.now()
+      let chat: Chat | null = null
+      if (tripId) {
+        const snap = await getDoc(tripId.startsWith('g_') ? groupDoc(tripId.slice(2)) : tripDoc(uid, tripId)).catch(() => null)
+        const t = (tripId.startsWith('g_') ? snap?.get('result') : snap?.data()) as Trip | undefined
+        if (!t) { toast('That plan could not be opened', 'error'); setParams({}, { replace: true }); return }
+        const { place: _place, city: _city, votes: _votes, ...answers } = t.answers
+        void _place; void _city; void _votes
+        const days = t.days.map((d, i) => `Day ${i + 1}: ${d.stops.filter((x) => x.kind === 'visit').map((x) => x.name).slice(0, 5).join(', ') || 'free'}`).join('\n')
+        chat = {
+          id, title: `About: ${t.title}`, createdAt: now, updatedAt: now,
+          state: { tripId, boundTrip: tripId, tour: { ...answers, destination: t.center?.name ?? t.answers.place?.name, days: t.days.length, top: topSights(t).map((x) => x.place.name).slice(0, 10) } },
+          messages: [{ role: 'assistant', at: now, text: `This chat is about **${t.title}**${t.base ? `, staying at ${t.base.name}` : ''}.
+${days}
+
+Tell me what to change — "more food places", "add a day", "relaxed pace", "we're vegetarian", or paste your hotel's Google Maps link — and I'll update this same plan.`, tripId }],
+        }
+      } else {
+        const snap = await getDoc(doc(db, 'users', uid, 'drafts', routeId!)).catch(() => null)
+        const v = snap?.get('value') as { from?: GeoPoint; to?: GeoPoint; time?: string; date?: string } | undefined
+        if (!v?.to || typeof v.to !== 'object') { toast('That journey has no destination yet', 'error'); setParams({}, { replace: true }); return }
+        const from = typeof v.from === 'object' && v.from ? v.from.name : undefined
+        chat = {
+          id, title: `${from ?? 'Here'} → ${v.to.name}`, createdAt: now, updatedAt: now,
+          state: { route: { from, to: v.to.name, time: v.time, date: v.date }, routeSession: routeId } as ChatState,
+          messages: [{ role: 'assistant', at: now, text: `This chat is about your journey **${from ?? 'from here'} → ${v.to.name}**${v.time ? ` at ${v.time}` : ''}. Tell me what to change — "cheaper", "avoid buses", "leave at 8", "I have heavy bags".` }],
+        }
+      }
+      await write(() => setDoc(doc(db, 'users', uid, 'chats', id), { title: chat!.title, createdAt: now, updatedAt: now, messages: chat!.messages, state: chat!.state }), `chat:${id}:${now}`)
+      navigate(`/ai/${id}`, { replace: true })
+    })()
+  }, [uid, chats, params, navigate, setParams, toast])
   const [pending, setPending] = useState<Msg[]>([])
   const saved = active?.messages ?? []
   const messages = [...saved, ...pending.filter((p) => !saved.some((m) => m.at === p.at))]
@@ -258,10 +346,65 @@ export default function AiPage() {
   const saveChat = (id: string, base: Chat, msgs: Msg[], st: ChatState) =>
     write(() => setDoc(doc(db, 'users', uid!, 'chats', id), { title: base.title, createdAt: base.createdAt, updatedAt: Date.now(), messages: msgs.slice(-60), state: st }), `chat:${id}:${Date.now()}`)
 
+  /** Add, swap or remove one named place in the plan this chat is about, in place. */
+  const editStops = async (a: Extract<Action, { type: 'stops' }>, st: ChatState): Promise<string> => {
+    const bound = st.boundTrip
+    if (!bound) return 'Open the plan and tap "Change this plan with Tripzy AI" to edit its stops.'
+    const group = bound.startsWith('g_')
+    const snap = await getDoc(group ? groupDoc(bound.slice(2)) : tripDoc(uid!, bound))
+    const t = (group ? snap.get('result') : snap.data()) as (Trip & { at?: number }) | undefined
+    if (!t) return 'That plan could not be found.'
+    const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\b(the|of)\b/g, ' ').trim()
+    const like = (x: string, y: string) => { const p = norm(x), q = norm(y); return !!p && !!q && (p === q || p.includes(q) || q.includes(p)) }
+    const findStop = (name: string) => {
+      for (let d = 0; d < t.days.length; d++) {
+        if (a.day && d !== a.day - 1) continue
+        const i = t.days[d].stops.findIndex((x) => like(x.name, name))
+        if (i >= 0) return { d, i }
+      }
+      return null
+    }
+    let next: Trip
+    let msg: string
+    if (a.op === 'remove') {
+      const at = findStop(a.place)
+      if (!at) return `${a.place} is not in this plan.`
+      next = removeStop(t, at.d, at.i); msg = `Removed ${t.days[at.d].stops[at.i].name} from day ${at.d + 1}`
+    } else {
+      // the place: from the plan's own list, else found on the map near the destination
+      let p: Place | undefined = t.places?.find((x) => like(x.name, a.place) && x.cat !== 'food' && x.cat !== 'cafe')
+      if (!p && t.center) {
+        const hit = (await api.geocode(a.place, t.center)).find((g) => Math.hypot(g.lat - t.center!.lat, g.lon - t.center!.lon) < 0.6)
+        if (hit) p = { id: `ai:${hit.lat.toFixed(5)},${hit.lon.toFixed(5)}`, city: t.city, name: hit.name, lat: hit.lat, lon: hit.lon, cat: 'attraction', tags: [], hours: [], closed: [], dwell: 75, intensity: 3, cost: 0, best: [], desc: hit.label ?? 'Added from Tripzy AI', indoor: false, stairs: false, hoursKnown: false }
+      }
+      if (!p) return `I could not find ${a.place} near ${t.center?.name ?? 'the destination'}.`
+      if (t.days.some((d) => d.stops.some((x) => x.placeId === p!.id))) return `${p.name} is already in your plan.`
+      if (a.op === 'swap' && a.replace) {
+        const at = findStop(a.replace)
+        if (!at) return `${a.replace} is not in this plan.`
+        next = swapStop(t, at.d, at.i, p); msg = `Swapped ${t.days[at.d].stops[at.i].name} for ${p.name} on day ${at.d + 1}`
+      } else {
+        // the day asked for, else the lightest day
+        const visits = (i: number) => t.days[i].stops.filter((x) => x.kind === 'visit').length
+        const day = a.day && a.day <= t.days.length ? a.day - 1 : t.days.reduce((best, _, i) => (visits(i) < visits(best) ? i : best), 0)
+        next = addStop(t, day, p); msg = `Added ${p.name} to day ${day + 1}`
+      }
+    }
+    if (group) await setGroup(bound.slice(2), { result: { ...next, at: Date.now() } })
+    else await write(() => setDoc(tripDoc(uid!, bound), next), `trip:${bound}`)
+    return msg
+  }
+
   /** Do what the assistant decided in the app itself: fill Daily Traveller / Tourist Planner, create the itinerary. */
   const applyActions = async (actions: Action[], st: ChatState): Promise<{ state: ChatState; tripId?: string }> => {
     let next = { ...st }, tripId: string | undefined
     for (const a of actions) {
+      if (a.type === 'stops') {
+        const done = await editStops(a, st).catch((e: Error) => e.message)
+        toast(done, /^(Added|Swapped|Removed)/.test(done) ? 'success' : 'error')
+        if (/^(Added|Swapped|Removed)/.test(done)) tripId = st.boundTrip
+        continue
+      }
       if (a.type === 'commute') {
         const [fl, tl] = [a.params.fl, a.params.tl].map((v) => v.split(',').map(Number))
         const ck = newSessionKey('commute'); setActiveSession(uid!, 'commute', ck)
@@ -279,12 +422,26 @@ export default function AiPage() {
         if (a.create && a.answers.place) {
           setCreating(true)
           try {
-            const merged = mergeAnswers(a.answers, [{ name: profile.name, answers: a.answers }])
+            // a chat opened from a plan edits that plan (same link, travel choices and hotel kept) unless the destination changed
+            const bound = st.boundTrip
+            const oldSnap = bound ? await getDoc(bound.startsWith('g_') ? groupDoc(bound.slice(2)) : tripDoc(uid!, bound)).catch(() => null) : null
+            const old = (bound?.startsWith('g_') ? oldSnap?.get('result') : oldSnap?.data()) as (Trip & { at?: number }) | undefined
+            const sameDest = !!old?.center && Math.hypot(old.center.lat - a.answers.place.lat, old.center.lon - a.answers.place.lon) < 0.3
+            const merged = old && sameDest && old.answers.votes ? { ...old.answers, ...a.answers, votes: old.answers.votes } : mergeAnswers(a.answers, [{ name: profile.name, answers: a.answers }])
             const fam = prefs.family
-            const size = a.answers.party === 'solo' ? 1 : a.answers.party === 'couple' ? 2 : Math.max(2, fam ? fam.adults + fam.children + fam.seniors : 2)
-            const trip = await api.post<Trip>('/api/tour/plan', { answers: merged, groupSize: size, place: a.answers.place }, `ai-tour:${JSON.stringify(merged)}`)
-            tripId = newId()
-            await write(() => setDoc(tripDoc(uid!, tripId!), trip), `trip:${tripId}`)
+            const size = old && sameDest ? old.party : a.answers.party === 'solo' ? 1 : a.answers.party === 'couple' ? 2 : Math.max(2, fam ? fam.adults + fam.children + fam.seniors : 2)
+            const base = a.base ?? (sameDest ? old?.base : undefined)
+            const trip = await api.post<Trip>('/api/tour/plan', { answers: merged, groupSize: size, place: a.answers.place, base, boost: old?.boost, boostWhy: old?.boostWhy }, `ai-tour:${JSON.stringify(merged)}:${base?.name ?? ''}`)
+            if (bound && old && sameDest) {
+              const kept: Trip = { ...trip, travel: old.travel, createdAt: old.createdAt, ...(old.groupCode ? { groupCode: old.groupCode } : {}) }
+              if (bound.startsWith('g_')) await setGroup(bound.slice(2), { result: { ...kept, at: Date.now() } })
+              else await write(() => setDoc(tripDoc(uid!, bound), kept), `trip:${bound}`)
+              tripId = bound
+            } else {
+              tripId = newId()
+              await write(() => setDoc(tripDoc(uid!, tripId!), trip), `trip:${tripId}`)
+              next = { ...next, boundTrip: tripId }
+            }
             await writeDraft(uid!, tk, { answers: a.answers, groupCode: null, doneTripId: tripId })
             next = { ...next, tripId }
           } catch (e) { toast(`Could not create the itinerary: ${(e as Error).message}`, 'error') } finally { setCreating(false) }
@@ -324,7 +481,7 @@ export default function AiPage() {
     void send.run(summary, next)
   }
 
-  const speech = useSpeech((t) => { setDraft(t); void send.run(t) })
+  const speech = useSpeech((t) => { setDraft(t); if (!send.busy) void send.run(t) }, (t) => setDraft(t))
   const submit = (e: FormEvent) => { e.preventDefault(); if (!send.busy) void send.run(draft) }
   const remove = async (id: string) => { if (!uid) return; await deleteDoc(doc(db, 'users', uid, 'chats', id)); if (id === chatId) navigate('/ai') }
   const lastRoute = [...messages].reverse().flatMap((m) => m.cards ?? []).find((c): c is RouteCard => c.type === 'routes')
@@ -341,13 +498,13 @@ export default function AiPage() {
           <button type="button" className="btn-secondary !h-11 !w-11 !p-0 md:hidden" aria-label="Close chats" onClick={() => setSide(false)}><X className="h-4 w-4" /></button>
         </div>
         <ul className="space-y-0.5">
-          {chats.map((c) => (
+          {(chats ?? []).map((c) => (
             <li key={c.id} className={`group flex items-center gap-1 rounded-xl px-2 py-2 ${c.id === chatId ? 'bg-accent-subtle' : 'hover:bg-surface-secondary'}`}>
               <Link to={`/ai/${c.id}`} onClick={() => setSide(false)} className="min-w-0 flex-1 truncate text-body text-content" title={c.title}>{c.title}</Link>
               <button type="button" aria-label={`Delete chat ${c.title}`} className="opacity-50 hover:opacity-100" onClick={() => void remove(c.id)}><Trash2 className="h-3.5 w-3.5" /></button>
             </li>
           ))}
-          {!chats.length && <li className="px-2 text-caption text-content-faint">Your chats appear here and stay on every device you sign in on.</li>}
+          {!chats?.length && <li className="px-2 text-caption text-content-faint">Your chats appear here and stay on every device you sign in on.</li>}
         </ul>
       </aside>
 
@@ -368,12 +525,32 @@ export default function AiPage() {
 
         <div className="min-h-0 flex-1 overflow-y-auto" aria-live="polite">
           <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6">
-            {!messages.length && (
+            {!messages.length && (params.get('trip') || params.get('route')) && <p className="pt-6 text-center text-body text-content-muted">Opening the chat about your plan…</p>}
+            {!messages.length && !params.get('trip') && !params.get('route') && (
               <div className="pt-6 text-center">
                 <p className="font-serif text-[36px] leading-tight text-content">Where to, {profile.name.split(' ')[0] || 'traveller'}?</p>
-                <p className="mt-2 text-body text-content-muted">Type or speak. I plan the whole journey — metro, bus, auto, cab, your own vehicle, trains and flights — and fill Daily Traveller and the Tourist Planner for you.</p>
-                <div className="mt-5 flex flex-wrap justify-center gap-2">
-                  {EXAMPLES.map((e) => <button key={e} type="button" className="chip chip-off" onClick={() => void send.run(e)}>{e}</button>)}
+                <p className="mt-2 text-body text-content-muted">Start something new, or pick up a plan you already made and change it by chatting.</p>
+                <div className="mt-6 grid gap-4 text-start md:grid-cols-2">
+                  <div className="rounded-[22px] border border-edge p-4">
+                    <p className="tz-kicker">A new plan</p>
+                    <p className="mt-1 text-caption text-content-muted">Type or speak — a city trip, a journey between cities, or a holiday.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {EXAMPLES.map((e) => <button key={e} type="button" className="chip chip-off !h-auto min-h-10 !rounded-2xl py-2 !text-start leading-snug" onClick={() => void send.run(e)}>{e}</button>)}
+                    </div>
+                  </div>
+                  <div className="rounded-[22px] border border-edge p-4">
+                    <p className="tz-kicker">Continue a plan</p>
+                    {!recent.length && !journeys.list.length && <p className="mt-1 text-caption text-content-muted">Plans you make in the Tourist Planner or Daily Traveller show up here.</p>}
+                    <ul className="mt-2 space-y-1.5">
+                      {recent.map((t) => (
+                        <li key={t.id}><Link to={`/ai?trip=${encodeURIComponent(t.id)}`} className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-body text-content hover:bg-surface-secondary"><Luggage className="h-4 w-4 shrink-0 text-accent-on" /><span className="truncate">{t.title}</span></Link></li>
+                      ))}
+                      {journeys.list.filter((j) => !/^Untitled/.test(j.title)).slice(0, 4).map((j) => (
+                        <li key={j.id}><Link to={`/ai?route=${encodeURIComponent(j.id)}`} className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-body text-content hover:bg-surface-secondary"><RouteIcon className="h-4 w-4 shrink-0 text-accent-on" /><span className="truncate">{j.title}</span></Link></li>
+                      ))}
+                    </ul>
+                    <Link to="/history" className="mt-2 inline-block text-caption font-semibold text-accent-on hover:underline">All your history →</Link>
+                  </div>
                 </div>
               </div>
             )}
@@ -402,15 +579,18 @@ export default function AiPage() {
 
         <div className="border-t border-edge bg-surface-primary px-4 py-3">
           {state.route && <div className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-1.5">{QUICK_EDITS.map((q) => <button key={q} type="button" className="chip chip-off !py-1 text-caption" disabled={send.busy} onClick={() => void send.run(q)}>{q}</button>)}</div>}
+          {!state.route && state.boundTrip && <div className="mx-auto mb-2 flex max-w-3xl flex-wrap gap-1.5">{TOUR_EDITS.map((q) => <button key={q} type="button" className="chip chip-off !py-1 text-caption" disabled={send.busy} onClick={() => void send.run(q)}>{q}</button>)}</div>}
           <form onSubmit={submit} className="mx-auto flex max-w-3xl items-center gap-2 rounded-3xl border border-edge bg-surface-card p-1.5 shadow-sm">
-            <input className="tz-input flex-1 !border-0 !bg-transparent" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={state.route ? 'Change it: "cheaper", "avoid buses", "leave at 8"…' : 'Ask Tripzy AI — "Kokapet to Miyapur, I am in a hurry"'} aria-label="Message Tripzy AI" disabled={send.busy} />
+            <input className="tz-input flex-1 !border-0 !bg-transparent" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={speech.on ? 'Listening… speak now' : state.route ? 'Change it: "cheaper", "avoid buses", "leave at 8"…' : 'Ask Tripzy AI — "Kokapet to Miyapur, I am in a hurry"'} aria-label="Message Tripzy AI" disabled={send.busy} />
             {speech.supported && (
-              <button type="button" className={`btn-secondary !h-10 !w-10 !rounded-full !p-0 ${speech.on ? 'ring-2 ring-[var(--accent)]' : ''}`} aria-label={speech.on ? 'Stop listening' : 'Speak'} onClick={speech.toggle}>
+              <button type="button" className={`btn-secondary !h-10 !w-10 !rounded-full !p-0 ${speech.on ? 'ring-2 ring-[var(--accent)]' : ''}`} aria-label={speech.on ? 'Stop listening' : 'Speak'} aria-pressed={speech.on} title={speech.on ? 'Listening — tap to stop' : 'Speak your message'} disabled={send.busy} onClick={speech.toggle}>
                 {speech.on ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </button>
             )}
             <button className="btn !h-10 !w-10 !rounded-full !p-0" disabled={send.busy || !draft.trim()} aria-label="Send"><Send className="h-4 w-4" /></button>
           </form>
+          {speech.on && <p className="mx-auto mt-1.5 max-w-3xl text-caption text-accent-on" aria-live="polite">Listening… your words appear above and are sent when you stop speaking.</p>}
+          {speech.error && <p className="mx-auto mt-1.5 max-w-3xl text-caption text-warning" role="alert">{speech.error}</p>}
         </div>
       </section>
 
@@ -427,6 +607,7 @@ export default function AiPage() {
           </div>
         )}
         {lastTour && <div className="mt-4"><CardView c={lastTour} tripId={state.tripId} creating={creating} onPrefs={() => null} /></div>}
+        {!lastTour && state.boundTrip && <Link className="btn mt-3 w-full" to={`/tour/${state.boundTrip}`}>Open the plan</Link>}
         <div className="mt-6 rounded-2xl bg-surface-secondary p-3 text-caption text-content-secondary">
           <p className="font-semibold text-content">Your preferences</p>
           <p>{prefs.modes.map((m) => MODE_LABEL[m]).join(', ')} · {prefs.luggage ?? 'light'} bags · {prefs.priority ?? 'balanced'}{prefs.vehicles?.car ? ' · car' : ''}{prefs.vehicles?.scooter ? ' · scooter' : ''}</p>

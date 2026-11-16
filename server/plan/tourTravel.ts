@@ -13,7 +13,11 @@ import type { Family, Mode, Priority, Vehicles } from '../../src/lib/types'
 import type { Point } from './commute'
 import { planJourney, type JOption } from './journey'
 
-export type TourTravelQuery = { from: Point & { country?: string }; to: Point & { country?: string }; start: string; party: Family; vehicles?: Vehicles; modes?: Mode[]; own?: 'none' | 'car' | 'scooter'; priority?: Priority }
+export type TourTravelQuery = {
+  from: Point & { country?: string }; to: Point & { country?: string }; start: string; party: Family; vehicles?: Vehicles; modes?: Mode[]; own?: 'none' | 'car' | 'scooter'; priority?: Priority
+  /** 'return': from the destination back home after the last day (`start` is then the last trip day) */
+  direction?: 'go' | 'return'
+}
 export type TourOption = JOption & { departLabel: string; depart: string; arrive: string; hotelSaved: number; daylightLost: number; tripCost: number; tourTags: string[]; advice: string }
 
 const HOTEL_NIGHT = 1400 // ₹ per room per night, typical 3-star in Indian cities (estimate, labelled)
@@ -27,9 +31,10 @@ const localDate = (d: Date, tz: string) => new Intl.DateTimeFormat('en-CA', { ti
 const at = (date: string, minutes: number, offsetMin: number) => new Date(Date.parse(`${date}T00:00:00Z`) + (minutes - offsetMin) * 60000)
 
 export async function planTourTravel(q: TourTravelQuery): Promise<{ options: TourOption[]; sources: string[]; km: number; timeZone: string }> {
+  if (q.direction === 'return') return planReturn(q)
   const people = q.party.adults + q.party.children + q.party.seniors
   const rooms = Math.max(1, Math.ceil(people / 2))
-  const base = { from: q.from, to: q.to, party: q.party, luggage: 'heavy' as const, priority: q.priority ?? 'balanced', own: q.own ?? 'none', vehicles: q.vehicles, modes: q.modes }
+  const base = { from: q.from, to: q.to, party: q.party, luggage: 'heavy' as const, priority: q.priority ?? 'balanced', own: q.own ?? 'none', vehicles: q.vehicles, modes: q.modes, sea: true }
   const j = await planJourney({ ...base, date: q.start, time: '05:30' })
   const tz = j.timeZone
   const offset = Math.round((Date.parse(j.start) - Date.parse(`${q.start}T05:30:00Z`)) / -60000) // origin UTC offset in minutes
@@ -81,6 +86,61 @@ export async function planTourTravel(q: TourTravelQuery): Promise<{ options: Tou
   const pick = (f: (o: TourOption) => number) => opts.reduce((a, b) => (f(b) < f(a) ? b : a))
   if (opts.length) {
     pick((o) => o.tripCost).tourTags.push('Best for this trip')
+    pick((o) => o.cost - o.hotelSaved).tourTags.push('Cheapest overall (incl. hotel)')
+    pick((o) => o.minutes).tourTags.push('Fastest')
+    pick((o) => -o.comfort + o.minutes / 6000).tourTags.push('Most comfortable')
+  }
+  return { options: opts.slice(0, 7), sources: j.sources, km: j.km, timeZone: tz }
+}
+
+const nextDay = (iso: string) => new Date(Date.parse(`${iso}T00:00:00Z`) + 864e5).toISOString().slice(0, 10)
+
+/**
+ * The way home, thought through the same way: the last day is for sightseeing until the evening, so
+ * short rides leave around 18:30, long trains and buses run overnight (the last hotel night is saved),
+ * and rides of 5–7 hours leave the next morning rather than arriving home at 1 am (that hotel night is counted).
+ */
+async function planReturn(q: TourTravelQuery): Promise<{ options: TourOption[]; sources: string[]; km: number; timeZone: string }> {
+  const people = q.party.adults + q.party.children + q.party.seniors
+  const rooms = Math.max(1, Math.ceil(people / 2))
+  const last = q.start
+  const base = { from: q.from, to: q.to, party: q.party, luggage: 'heavy' as const, priority: q.priority ?? 'balanced', own: q.own ?? 'none', vehicles: q.vehicles, modes: q.modes, sea: true }
+  const j = await planJourney({ ...base, date: last, time: '17:00' })
+  const tz = j.timeZone
+  const offset = Math.round((Date.parse(j.start) - Date.parse(`${last}T17:00:00Z`)) / -60000)
+  const out: TourOption[] = []
+  for (const o of j.options) {
+    const fixed = o.kind === 'flight' && !o.estimate
+    let depart: Date, label: string, extraNight = 0
+    if (fixed) { depart = new Date(j.start); label = 'Evening of the last day' }
+    else if (o.minutes < 5 * 60) { depart = at(last, 18 * 60 + 30, offset); label = 'Evening of the last day' }
+    else if (o.minutes < 7 * 60) { depart = at(nextDay(last), 7 * 60, offset); label = 'Morning after the last day'; extraNight = HOTEL_NIGHT * rooms }
+    else { depart = at(last, Math.max(20 * 60, 32 * 60 - o.minutes), offset); label = 'Overnight after the last day' }
+    const arrive = new Date(depart.getTime() + o.minutes * 60000)
+    const arriveMin = localMinutes(arrive, tz)
+    const overnight = o.kind !== 'car' && o.minutes >= 7 * 60 && localMinutes(depart, tz) >= 18 * 60 && arriveMin >= 5 * 60 && arriveMin <= 12 * 60
+    const hotelSaved = overnight ? HOTEL_NIGHT * rooms : 0
+    let daylightLost = 0
+    for (let t = depart.getTime(); t < arrive.getTime(); t += 10 * 60000) {
+      const d = new Date(t), m = localMinutes(d, tz)
+      if (localDate(d, tz) === last && m >= 8 * 60 && m < 18 * 60) daylightLost += 10
+    }
+    const lateNight = arriveMin >= 23 * 60 || arriveMin < 5 * 60
+    const tripCost = o.cost + extraNight - hotelSaved + DAYLIGHT_VALUE * people * daylightLost + (lateNight ? 300 * people : 0)
+    const advice = [
+      `Leave ${fmtClock(depart, tz)}`, `home ${fmtClock(arrive, tz)}`,
+      hotelSaved ? `you sleep on board — no hotel for the last night (≈ ₹${hotelSaved.toLocaleString('en-IN')} saved, estimate)` : '',
+      extraNight ? `one more hotel night (≈ ₹${extraNight.toLocaleString('en-IN')}, estimate) instead of reaching home after midnight` : '',
+      daylightLost >= 60 ? `cuts ${Math.round(daylightLost / 60)} h from your last day` : 'the whole last day stays free for sightseeing',
+      lateNight ? 'reaches home late at night' : '',
+      !fixed ? 'times chosen around your last day — check the actual train/bus times on the booking links' : '',
+    ].filter(Boolean).join(' · ')
+    out.push({ ...o, id: `back-${o.id}`, departLabel: label, depart: depart.toISOString(), arrive: arrive.toISOString(), hotelSaved: hotelSaved - extraNight, daylightLost, tripCost: Math.round(tripCost), tourTags: [], advice })
+  }
+  const opts = out.sort((a, b) => a.tripCost - b.tripCost)
+  const pick = (f: (o: TourOption) => number) => opts.reduce((a, b) => (f(b) < f(a) ? b : a))
+  if (opts.length) {
+    pick((o) => o.tripCost).tourTags.push('Best way home')
     pick((o) => o.cost - o.hotelSaved).tourTags.push('Cheapest overall (incl. hotel)')
     pick((o) => o.minutes).tourTags.push('Fastest')
     pick((o) => -o.comfort + o.minutes / 6000).tourTags.push('Most comfortable')

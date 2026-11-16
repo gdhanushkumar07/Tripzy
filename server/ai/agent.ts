@@ -12,14 +12,15 @@
  */
 import type { Family, Mode, Priority, Vehicles } from '../../src/lib/types'
 import { DEFAULT_PREFS, MODE_LABEL, MODES } from '../../src/lib/types'
-import type { Answers } from '../../src/tour/questions'
+import { MAX_TRIP_DAYS, type Answers } from '../../src/tour/questions'
 import { env, haversineKm, UpstreamError } from '../lib'
 import { planCommute, type Point } from '../plan/commute'
 import { planJourney } from '../plan/journey'
 import { geminiGenerate } from '../providers/ai'
-import { geocode } from '../providers/geo'
+import { fromMapsLink, geocode } from '../providers/geo'
 import { hotelsNear } from '../providers/hotels'
 import { weather, WX_TEXT } from '../providers/weather'
+import { destinationFor } from '../../src/tour/destinations'
 import { retrieve, type Doc } from './rag'
 
 export type ChatMsg = { role: 'user' | 'assistant'; text: string }
@@ -40,7 +41,7 @@ export type RouteArgs = {
   /** "I hate traffic and pollution": lead with the least-traffic / via-metro option */
   prefer?: 'clean'
 }
-export type TourArgs = Partial<Pick<Answers, 'start' | 'days' | 'party' | 'budget' | 'pace' | 'diet' | 'interests' | 'morning' | 'effort' | 'evening' | 'food' | 'getaround'>> & { destination?: string }
+export type TourArgs = Partial<Pick<Answers, 'start' | 'days' | 'party' | 'budget' | 'pace' | 'diet' | 'interests' | 'morning' | 'effort' | 'evening' | 'food' | 'getaround'>> & { destination?: string; hotel?: string; /** the plan's most visited places (names), set when a chat is opened from a plan */ top?: string[] }
 /** What this chat is working on; sent back by the app with every message. */
 export type ChatState = { route?: RouteArgs; tour?: TourArgs; pending?: RouteArgs }
 
@@ -53,7 +54,8 @@ export type Card = RouteCard | HotelCard | WeatherCard | PrefsCard | TourCard
 /** Things the app does for the user: fill the manual forms, create the itinerary. */
 export type Action =
   | { type: 'commute'; url: string; params: Record<string, string>; journey: boolean }
-  | { type: 'tour'; answers: TourCard['answers']; create: boolean }
+  | { type: 'tour'; answers: TourCard['answers']; create: boolean; base?: { name: string; lat: number; lon: number; address?: string } }
+  | { type: 'stops'; op: 'add' | 'swap' | 'remove'; place: string; day?: number; replace?: string }
 export type AgentReply = { reply: string; cards: Card[]; actions: Action[]; state: ChatState; tools: string[]; engine: 'gemini' | 'rules'; sources: string[] }
 
 const IN = (p: { lat: number; lon: number }) => p.lat > 6 && p.lat < 37.5 && p.lon > 68 && p.lon < 97.5
@@ -175,14 +177,22 @@ async function tourTool(a: TourArgs, prev: TourArgs | undefined, ctx: ChatContex
     party: merged.party ?? (fam ? (fam.children ? 'kids' : fam.seniors ? 'seniors' : fam.adults === 2 ? 'couple' : fam.adults > 2 ? 'friends' : 'solo') : 'solo'),
     interests: merged.interests?.length ? merged.interests : ['history', 'culture', 'food'],
     getaround: merged.getaround ?? (ctx.prefs?.modes ? (['walk', 'auto', 'bike', 'cab', ...(ctx.prefs.modes.some((m) => m === 'metro' || m === 'citybus') ? ['transit'] : []), ...(ctx.prefs.vehicles?.car ? ['owncar'] : [])] as Answers['getaround']) : undefined),
-    ...Object.fromEntries(Object.entries(merged).filter(([k]) => k !== 'destination' && k !== 'interests' && k !== 'party' && k !== 'getaround')),
+    ...Object.fromEntries(Object.entries(merged).filter(([k]) => !['destination', 'interests', 'party', 'getaround', 'hotel', 'top'].includes(k))),
     ...(p ? { place: { name: p.name, lat: p.lat, lon: p.lon, state: p.state } } : {}),
-    days: Math.max(1, Math.min(4, Number(merged.days ?? 0) || 0)) || undefined,
+    days: Math.max(1, Math.min(MAX_TRIP_DAYS, Number(merged.days ?? 0) || 0)) || undefined,
   } as TourCard['answers']
-  const ready = !missing.length
-  const card: TourCard = { type: 'tour', title: p ? `${answers.days ?? '?'} days in ${p.name}` : 'Your trip', answers, missing, ready }
+  // where they stay: a hotel name, an address or a Google Maps link, found near the destination
+  let base: { name: string; lat: number; lon: number; address?: string } | undefined
+  if (merged.hotel && p) {
+    const hits = /^https?:\/\//i.test(merged.hotel.trim()) ? (await fromMapsLink(merged.hotel).catch(() => null)) ?? [] : await geocode(merged.hotel, p).catch(() => [])
+    const h = hits.find((x) => haversineKm(p, x) <= 80)
+    if (h) base = { name: h.name, lat: h.lat, lon: h.lon, address: h.label }
+    else missing.push('a hotel Tripzy can find near the destination (try the full address or a Google Maps link)')
+  }
+  const ready = !missing.filter((m) => !m.startsWith('a hotel')).length
+  const card: TourCard = { type: 'tour', title: p ? `${answers.days ?? '?'} days in ${p.name}${base ? ` · staying at ${base.name}` : ''}` : 'Your trip', answers, missing, ready }
   return {
-    card, state: merged, action: { type: 'tour', answers, create: ready },
+    card, state: merged, action: { type: 'tour', answers, create: ready, ...(base ? { base } : {}) },
     text: JSON.stringify({ filled_tourist_planner: true, ready, missing, answers: { ...answers, place: p?.name }, note: ready ? 'The app is creating the itinerary now and will link it.' : 'Ask the user for the missing items.' }),
   }
 }
@@ -240,14 +250,27 @@ const TOOL_DECLS = [
     description: 'Create or change a sightseeing trip (Tourist Planner): destination, dates and style. Fills the Tourist Planner; when destination, start date and days are known the app creates the day-by-day itinerary. Pass only what the user said or changed.',
     parameters: {
       type: 'OBJECT', properties: {
-        destination: { type: 'STRING' }, start: { type: 'STRING', description: 'YYYY-MM-DD' }, days: { type: 'NUMBER', description: '1–4' },
+        destination: { type: 'STRING' }, start: { type: 'STRING', description: 'YYYY-MM-DD' }, days: { type: 'NUMBER', description: 'number of days, 1–30' },
         party: { type: 'STRING', enum: ['solo', 'couple', 'friends', 'kids', 'seniors'] },
         budget: { type: 'NUMBER', description: '₹ per person per day, 0 = no limit' }, pace: { type: 'NUMBER', description: '1 relaxed, 2 balanced, 3 packed' },
         diet: { type: 'NUMBER', description: '0 anything, 1 vegetarian, 2 pure-veg' },
-        interests: ARR('history, culture, food, shopping, nature, spiritual, art, nightlife, photography, adventure, kids, entertainment'),
+        interests: ARR('history, culture, food, shopping, nature, spiritual, art, nightlife, photography, adventure, kids, entertainment, beach'),
         getaround: ARR('walk, auto, bike, cab, transit, owncar, ownscooter'),
         morning: { type: 'STRING', enum: ['early', 'late'] }, evening: { type: 'STRING', enum: ['spiritual', 'nightlife', 'early'] }, food: { type: 'STRING', enum: ['street', 'sitdown'] }, effort: { type: 'STRING', enum: ['high', 'low'] },
+        hotel: { type: 'STRING', description: 'where the travellers stay, exactly as given: hotel name, address or a Google Maps link. The days are re-planned to start and end there.' },
       },
+    },
+  },
+  {
+    name: 'edit_tour_stops',
+    description: 'Add, swap or remove one named place in the current sightseeing plan (for example "add Charminar to day 2", "replace Necklace Road with Golconda", "remove the zoo"). The app changes the plan in place.',
+    parameters: {
+      type: 'OBJECT', properties: {
+        op: { type: 'STRING', enum: ['add', 'swap', 'remove'] },
+        place: { type: 'STRING', description: 'the place to add, bring in, or remove' },
+        day: { type: 'NUMBER', description: 'day number in the plan, if the user said one' },
+        replace: { type: 'STRING', description: 'for swap: the stop that goes out' },
+      }, required: ['op', 'place'],
     },
   },
   {
@@ -276,6 +299,13 @@ async function runTool(name: string, args: Record<string, unknown>, ctx: ChatCon
     out.state = { ...out.state, tour: r.state }
     return r.text
   }
+  if (name === 'edit_tour_stops') {
+    if (!out.state.tour) return JSON.stringify({ error: 'There is no sightseeing plan in this chat. Open the plan and use "Change this plan with Tripzy AI", or plan a trip first.' })
+    const op = (['add', 'swap', 'remove'] as const).find((x) => x === args.op) ?? 'add'
+    const day = Number(args.day) > 0 ? Math.round(Number(args.day)) : undefined
+    out.actions.push({ type: 'stops', op, place: String(args.place ?? '').slice(0, 100), day, replace: args.replace ? String(args.replace).slice(0, 100) : undefined })
+    return JSON.stringify({ applying: true, note: 'The app is changing the plan now and shows the result.' })
+  }
   if (name === 'ask_preferences') {
     out.cards.push({ type: 'prefs', reason: String(args.reason ?? 'So I plan the way you like to travel'), current: ctx.prefs ?? {} })
     return JSON.stringify({ shown: true, note: 'The picker is in the chat. Wait for the user to choose.' })
@@ -298,9 +328,13 @@ function systemPrompt(ctx: ChatContext, state: ChatState, passages: Doc[]) {
     `Today is ${n.date}, now ${n.time} IST.${ctx.location ? ` The user is at ${ctx.location.name ?? `${ctx.location.lat.toFixed(4)},${ctx.location.lon.toFixed(4)}`}.` : ' Location unknown.'}`,
     `Saved preferences (${ctx.prefsKnown ? 'confirmed' : 'NOT confirmed yet'}): modes ${p?.modes?.join(', ') || 'unknown'}; luggage ${p?.luggage ?? 'unknown'}; vehicles ${p?.vehicles?.car ? `car ${p.vehicles.car.kmpl} km/l ` : ''}${p?.vehicles?.scooter ? `scooter ${p.vehicles.scooter.kmpl} km/l` : ''}${!p?.vehicles?.car && !p?.vehicles?.scooter ? 'none' : ''}; family ${p?.family ? `${p.family.adults} adults, ${p.family.children} children, ${p.family.seniors} seniors` : 'unknown'}; priority ${p?.priority ?? 'balanced'}.`,
     `Current trip in this chat: ${state.route ? JSON.stringify(state.route) : 'none'}. Current tour: ${state.tour ? JSON.stringify(state.tour) : 'none'}.`,
+    topLine(state) ? `Most visited places at the tour destination: ${topLine(state)}.` : '',
+    '- Adding, swapping or removing a named place in the current plan → edit_tour_stops. "What are the must-sees / most visited places" → answer from the most visited list and offer to add any of them.',
     'Rules:',
     '- A new trip → plan_route. A change to the current trip ("cheaper", "faster", "avoid X", "use metro", "leave at", "tomorrow", "we are N", "heavy bags", "from/to Y instead") → update_route with only the changes.',
     '- A sightseeing trip ("3 days in Jaipur", "plan my Goa trip") → plan_tour; follow-ups ("make it 2 days", "more food places", "we are vegetarian") → plan_tour with the change. Ask for destination, start date and days if missing.',
+    '- If this chat is about an existing plan (Current tour is set), every change ("swap day 2", "more beaches", "add a day", "we are staying at X") is plan_tour with only the change — the same plan is updated, not a new one. A hotel name, address or Google Maps link → plan_tour with hotel.',
+    '- Travel to another city or state: to explore it → plan_tour (the trip page also plans getting there and back); only to get there → plan_route.',
     '- If preferences are NOT confirmed and the request is a trip, call ask_preferences first (once) and wait.',
     '- Map intent: hurry → fastest; save money → cheapest; comfortable / AC / kids / elders / heavy bags → comfort; pollution / traffic / "by metro" → keep the metro and LEAD with the "Least traffic & pollution" or "Via metro" option (board at the nearest station, metro for the long part).',
     '- "I have a scooty/car" → own_vehicle; "but don\'t want to drive in traffic" → avoid it.',
@@ -334,6 +368,15 @@ async function withGemini(history: ChatMsg[], ctx: ChatContext, state: ChatState
 
 // ---------------------------------------------------------------- rule-based understanding (also the offline fallback)
 
+/** The most visited places for the chat's destination: from the plan itself, else Tripzy's destination guide. */
+function topLine(state: ChatState): string {
+  const t = state.tour
+  if (!t?.destination && !t?.top?.length) return ''
+  if (t.top?.length) return t.top.slice(0, 10).join(', ')
+  const d = destinationFor({ name: t.destination })
+  return d ? d.musts.map((m) => m.name).join(', ') : ''
+}
+
 type Intent =
   | { kind: 'route'; args: RouteArgs }
   | { kind: 'edit'; changes: RouteChanges }
@@ -341,6 +384,8 @@ type Intent =
   | { kind: 'prefs' }
   | { kind: 'hotels' | 'weather'; place: string }
   | { kind: 'help' }
+  | { kind: 'stops'; op: 'add' | 'swap' | 'remove'; place: string; day?: number; replace?: string }
+  | { kind: 'top' }
 
 function timeOf(t: string): string | undefined {
   const m = t.match(/\b(?:at|by|around|leave at)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i) ?? t.match(/\b(\d{1,2})(?::(\d{2}))\s*(am|pm)?\b/i) ?? t.match(/\b(\d{1,2})\s*(am|pm)\b/i)
@@ -359,14 +404,30 @@ export function parseIntent(text: string, state: ChatState = {}): Intent {
   const t = text.trim()
   if (/^my preferences:/i.test(t)) return { kind: 'prefs' }
   if (/\b(change|update|set|edit)\b.*\bpreferences?\b|\bmy preferences\b/i.test(t)) return { kind: 'prefs' }
+  if (state.tour) {
+    const clean = (x: string) => x.replace(/^(the|a|an)\s+/i, '').replace(/[.!?]+$/, '').trim()
+    const dayN = (x?: string) => (x ? Number(x) : undefined)
+    if (/\b(most visited|must[- ]?sees?|famous|top (?:places|sights|attractions)|best places)\b/i.test(t)) return { kind: 'top' }
+    const more = t.match(/\b(?:add|one more|another|extra)\s+(?:a\s+|one\s+|(\d+)\s+)?(?:more\s+)?days?\b/i)
+    if (more) return { kind: 'tour', args: { days: (Number(state.tour.days) || 1) + (Number(more[1]) || 1) } }
+    const sw = t.match(/\b(?:swap|replace)\s+(.+?)\s+(?:with|for|by)\s+(.+?)(?:\s+on\s+day\s*(\d+))?[.!?]*$/i)
+    if (sw) return { kind: 'stops', op: 'swap', replace: clean(sw[1]), place: clean(sw[2]), day: dayN(sw[3]) }
+    const rm = t.match(/\b(?:remove|drop|skip|delete)\s+(.+?)(?:\s+from\s+(?:day\s*(\d+)|the plan))?[.!?]*$/i)
+    if (rm) return { kind: 'stops', op: 'remove', place: clean(rm[1]), day: dayN(rm[2]) }
+    const add = t.match(/\b(?:add|include|put)\s+(.+?)(?:\s+(?:to|on|in|for)\s+(?:day\s*(\d+)|the plan|my plan|it))?[.!?]*$/i)
+    if (add && !/\b(days?|food|nightlife|places|more)\b/i.test(add[1])) return { kind: 'stops', op: 'add', place: clean(add[1]), day: dayN(add[2]) }
+  }
+  // "we're staying at Taj Krishna" / a pasted map link, while a trip is open: plan the days from that hotel
+  const stayAt = state.tour && (t.match(/\b(?:staying|we stay|i stay|booked|our hotel is|my hotel is)\b(?:\s+(?:at|in))?\s+(.+?)[.!]?$/i)?.[1] ?? t.match(/https?:\/\/\S*(?:goo\.gl|google\.[a-z.]+\/maps)\S*/i)?.[0])
+  if (stayAt) return { kind: 'tour', args: { hotel: stayAt.trim() } }
   const hotel = t.match(/\b(hotels?|stay|rooms?)\b/i) && t.match(/\b(?:in|near|at)\s+([\p{L}\s.,'-]+?)(?:\s+(?:for|on|from)\b|[?.!]|$)/iu)
   if (hotel) return { kind: 'hotels', place: hotel[1].trim() }
   const wx = t.match(/\b(weather|rain|temperature|forecast)\b/i) && t.match(/\b(?:in|at|for)\s+([\p{L}\s.,'-]+?)(?:[?.!]|$)/iu)
   if (wx) return { kind: 'weather', place: wx[1].trim() }
   // sightseeing: "3 days in Jaipur", "plan a trip to Goa from 2026-12-20", follow-ups on a tour
-  const days = Number(t.match(/\b(\d)\s*-?\s*days?\b/i)?.[1]) || undefined
+  const days = Number(t.match(/\b(\d{1,2})\s*-?\s*days?\b/i)?.[1]) || (/\b(a|one)\s+week\b/i.test(t) ? 7 : /\b(two|2)\s+weeks\b/i.test(t) ? 14 : undefined)
   const tourWords = /\b(trip|tour|holiday|vacation|itinerary|sightseeing|visit|explore)\b/i.test(t) || (days && /\bin\s+\p{L}/iu.test(t))
-  if (tourWords || (state.tour && !state.route && (days || /\bveg|food|history|nature|relaxed|packed|kids|start\b/i.test(t)))) {
+  if (tourWords || (state.tour && !state.route && (days || /\bveg|food|history|culture|nature|relax|packed|kids?|start|nightlife|beach|shopping|adventure|spiritual|art|photograph|entertainment|pace\b/i.test(t)))) {
     const dest = t.match(/\b(?:to|in|at|visit|explore)\s+([\p{L}][\p{L} .'-]+?)(?=\s+(?:for|from|on|starting|next|this|with|in)\b|[?.!,]|$)/iu)?.[1]?.trim()
     const interests = (['history', 'culture', 'food', 'shopping', 'nature', 'spiritual', 'art', 'nightlife', 'photography', 'adventure', 'entertainment'] as const).filter((w) => new RegExp(`\\b${w}`, 'i').test(t))
     return {
@@ -375,7 +436,7 @@ export function parseIntent(text: string, state: ChatState = {}): Intent {
         party: /\bkids?|children\b/i.test(t) ? 'kids' : /parents|seniors|elders/i.test(t) ? 'seniors' : /\bwife|husband|partner|couple\b/i.test(t) ? 'couple' : /friends/i.test(t) ? 'friends' : /\balone|solo\b/i.test(t) ? 'solo' : undefined,
         diet: /pure.?veg/i.test(t) ? 2 : /\bveg(etarian)?\b/i.test(t) ? 1 : undefined,
         pace: /relax|slow|easy/i.test(t) ? 1 : /packed|as much as|lots/i.test(t) ? 3 : undefined,
-        interests: interests.length ? [...interests] : undefined,
+        interests: interests.length ? (/\bmore\b/i.test(t) && state.tour?.interests?.length ? [...new Set([...interests, ...state.tour.interests])] : [...interests]) : undefined,
       },
     }
   }
@@ -460,6 +521,15 @@ async function withRules(history: ChatMsg[], ctx: ChatContext, state: ChatState,
       await runTool('plan_tour', intent.args as unknown as Record<string, unknown>, ctx, out)
       const c = out.cards.find((x) => x.type === 'tour') as TourCard
       return done(c.ready ? `Creating your ${c.title} itinerary now — I filled the Tourist Planner with your answers.` : `Got it. I still need: ${c.missing.join(', ')}.`)
+    }
+    if (intent.kind === 'stops') {
+      await runTool('edit_tour_stops', intent as unknown as Record<string, unknown>, ctx, out)
+      const what = intent.op === 'add' ? `Adding ${intent.place}${intent.day ? ` to day ${intent.day}` : ''}` : intent.op === 'swap' ? `Swapping ${intent.replace} for ${intent.place}` : `Removing ${intent.place}`
+      return done(`${what} — updating your plan now.`)
+    }
+    if (intent.kind === 'top') {
+      const line = topLine(state)
+      return done(line ? `The most visited places here: ${line}. Say "add Charminar to day 2" or "replace X with Y" and I will change the plan.` : 'Open your plan and use "Change this plan with Tripzy AI" — I will list its most visited places.')
     }
     if (intent.kind === 'hotels') { await runTool('find_hotels', { place: intent.place }, ctx, out); return done(`Places to stay near ${intent.place}.`) }
     if (intent.kind === 'weather') { await runTool('get_weather', { place: intent.place }, ctx, out); return done(`Forecast for ${intent.place}.`) }

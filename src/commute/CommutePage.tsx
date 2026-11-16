@@ -116,6 +116,14 @@ export default function CommutePage() {
     draft.update((p) => ({ ...p, from: q.from, to: q.to, time: q.time, date: q.date, modes: q.modes, people: q.people, budget: q.budget?.toString() ?? '', maxTransfers: q.maxTransfers?.toString() ?? '', touched: true, lastSearch: params.toString(), ...(q.journey ? { ask: q.ask } : {}) }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
+  // a link with only a destination (from the Tourist Planner or the AI): fill "To" and let the user pick the start
+  useEffect(() => {
+    if (q || params.get('f')) return
+    const to = parseLL(params.get('t'), params.get('tl'))
+    if (!to || !draft.restored) return
+    draft.update((p) => ({ ...p, to, touched: true }))
+    setParams({}, { replace: true })
+  }, [q, params, draft, setParams])
   // reopening /commute (reload, new tab, next visit) resumes the last search; past dates move to today
   const resumed = useRef(false)
   useEffect(() => {

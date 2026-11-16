@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import HomePage from './pages/HomePage'
 import JoinPage from './pages/JoinPage'
 import LoginPage from './pages/LoginPage'
+import PlansPage from './pages/PlansPage'
 import TourPage from './tour/TourPage'
 import TripPage from './tour/TripPage'
 import AppShell from './ui/AppShell'
@@ -41,6 +42,8 @@ export default function App() {
             <Route path="/tour/:tripId" element={app(<TripPage />)} />
             <Route path="/join/:code" element={app(<JoinPage />)} />
             <Route path="/ai/:chatId?" element={app(<AiPage />)} />
+            <Route path="/history" element={app(<PlansPage />)} />
+            <Route path="/plans" element={<Navigate to="/history" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </StatusProvider>

@@ -4,18 +4,19 @@
  * firestore.rules) and is cached on this device for offline use.
  */
 import { collection, deleteDoc, getCountFromServer, getDocs, limit, query } from 'firebase/firestore'
-import { Database, Download, Trash2 } from 'lucide-react'
+import { ChevronRight, Database, Download, Trash2 } from 'lucide-react'
+import { Link } from 'react-router'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth'
 import { db } from '../lib/firebase'
 import { useAction, useStatus } from '../lib/status'
 
 const PARTS = [
-  { col: 'routes', label: 'Saved routes', what: 'From, to, time, modes and the summary of routes you saved' },
-  { col: 'trips', label: 'Trips', what: 'Itineraries from the Tourist Planner and Tripzy AI' },
-  { col: 'chats', label: 'Tripzy AI chats', what: 'Your messages, the answers, and what each chat was planning' },
-  { col: 'drafts', label: 'Forms in progress', what: 'Daily Traveller and Tourist Planner answers, so a reload resumes where you were' },
-  { col: 'history', label: 'Activity history', what: 'Searches, saved routes and trips — used only to personalise your suggestions' },
+  { col: 'routes', label: 'Saved routes', what: 'From, to, time, modes and the summary of routes you saved', to: '/history#routes' },
+  { col: 'trips', label: 'Trips', what: 'Itineraries from the Tourist Planner and Tripzy AI — open to see every plan', to: '/history#trips' },
+  { col: 'chats', label: 'Tripzy AI chats', what: 'Your messages, the answers, and what each chat was planning', to: '/history#chats' },
+  { col: 'drafts', label: 'Journeys and answers', what: 'Daily Traveller journeys and Tourist Planner answers, each one kept when you start a new one', to: '/history#journeys' },
+  { col: 'history', label: 'Activity history', what: 'Searches, saved routes and trips — used only to personalise your suggestions', to: '' },
 ] as const
 
 export function YourData() {
@@ -53,11 +54,16 @@ export function YourData() {
           <span className="text-caption text-content-muted">1 record</span>
         </li>
         {PARTS.map((p) => (
-          <li key={p.col} className="flex flex-wrap items-center gap-3 p-3">
-            <div className="min-w-0 flex-1"><p className="font-semibold text-content">{p.label}</p><p className="text-caption text-content-muted">{p.what}</p></div>
+          <li key={p.col} className="relative flex flex-wrap items-center gap-3 p-3 transition hover:bg-surface-secondary">
+            <div className="min-w-0 flex-1">
+              {/* the whole row opens the history page at this kind of item */}
+              {p.to ? <Link to={p.to} className="font-semibold text-content after:absolute after:inset-0 hover:underline">{p.label}</Link> : <p className="font-semibold text-content">{p.label}</p>}
+              <p className="text-caption text-content-muted">{p.what}</p>
+            </div>
             <span className="text-caption text-content-muted">{counts[p.col] == null ? '…' : `${counts[p.col]} item${counts[p.col] === 1 ? '' : 's'}`}</span>
+            {p.to && <ChevronRight className="h-4 w-4 text-content-faint" aria-hidden />}
             {(p.col === 'chats' || p.col === 'history') && !!counts[p.col] && (
-              <button type="button" className="btn-secondary btn-sm" disabled={wipe.busy} onClick={() => { if (window.confirm(`Delete all ${p.label.toLowerCase()}? This cannot be undone.`)) void wipe.run(p.col) }}><Trash2 className="h-3.5 w-3.5" />Delete all</button>
+              <button type="button" className="btn-secondary btn-sm relative z-10" disabled={wipe.busy} onClick={() => { if (window.confirm(`Delete all ${p.label.toLowerCase()}? This cannot be undone.`)) void wipe.run(p.col) }}><Trash2 className="h-3.5 w-3.5" />Delete all</button>
             )}
           </li>
         ))}

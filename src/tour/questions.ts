@@ -3,7 +3,7 @@
  * them); the other nine are personal (every member answers them).
  * Content merged from the old Travel DNA cards, brief parser and onboarding.
  */
-export const TAGS = ['history', 'culture', 'food', 'shopping', 'nature', 'spiritual', 'art', 'nightlife', 'photography', 'adventure', 'kids', 'entertainment'] as const
+export const TAGS = ['history', 'culture', 'food', 'shopping', 'nature', 'spiritual', 'art', 'nightlife', 'photography', 'adventure', 'kids', 'entertainment', 'beach'] as const
 export type Tag = (typeof TAGS)[number]
 
 export type Answers = {
@@ -37,7 +37,7 @@ export const QUESTIONS: Question[] = [
   { id: 'city', scope: 'trip', title: 'Where are you going?', help: 'Any city, town or region in India.', kind: 'place', options: [
     { value: 'hyderabad', label: 'Hyderabad', emoji: '🕌' }, { value: 'jaipur', label: 'Jaipur', emoji: '🏰' }] },
   { id: 'start', scope: 'trip', title: 'When does the trip start?', kind: 'date' },
-  { id: 'days', scope: 'trip', title: 'When does the trip end?', help: 'Pick the last day of the trip. Up to 5 days per plan.', kind: 'enddate' },
+  { id: 'days', scope: 'trip', title: 'When does the trip end?', help: 'Pick the last day of the trip — stay as long as you like. Tripzy shows how long most people spend there.', kind: 'enddate' },
   { id: 'party', scope: 'personal', title: "Who's travelling with you?", kind: 'choice', options: [
     { value: 'solo', label: 'Just me', emoji: '🧍' }, { value: 'couple', label: 'Partner', emoji: '👫' }, { value: 'friends', label: 'Friends', emoji: '🧑‍🤝‍🧑' },
     { value: 'kids', label: 'Family with kids', emoji: '👨‍👩‍👧' }, { value: 'seniors', label: 'With parents / seniors', emoji: '👵' }] },
@@ -54,7 +54,8 @@ export const QUESTIONS: Question[] = [
     { value: 'history', label: 'History', emoji: '🏛️' }, { value: 'culture', label: 'Culture', emoji: '🎭' }, { value: 'food', label: 'Food', emoji: '🍛' },
     { value: 'shopping', label: 'Shopping', emoji: '🛍️' }, { value: 'nature', label: 'Nature', emoji: '🌿' }, { value: 'spiritual', label: 'Spiritual', emoji: '🪔' },
     { value: 'art', label: 'Art & museums', emoji: '🖼️' }, { value: 'nightlife', label: 'City at night', emoji: '🌃' }, { value: 'photography', label: 'Photography', emoji: '📸' },
-    { value: 'adventure', label: 'Adventure', emoji: '🧗' }, { value: 'kids', label: 'Kid-friendly', emoji: '🎡' }, { value: 'entertainment', label: 'Entertainment', emoji: '🎬' }] },
+    { value: 'adventure', label: 'Adventure', emoji: '🧗' }, { value: 'kids', label: 'Kid-friendly', emoji: '🎡' }, { value: 'entertainment', label: 'Entertainment', emoji: '🎬' },
+    { value: 'beach', label: 'Beaches & water sports', emoji: '🏖️' }] },
   { id: 'morning', scope: 'personal', title: 'Mornings?', kind: 'choice', options: [
     { value: 'early', label: 'Up early, start at 8', emoji: '🌅' }, { value: 'late', label: 'Slow start, from 10', emoji: '😴' }] },
   { id: 'effort', scope: 'personal', title: 'Climb 400 steps for the view?', kind: 'choice', options: [
@@ -117,7 +118,8 @@ export function mergeAnswers(trip: Answers, people: MemberAnswers[]): Merged {
 
 // ---------------------------------------------------------------- trip dates (calendar dates, no time zones)
 
-export const MAX_TRIP_DAYS = 5
+/** Longest trip one plan covers. Beyond the places within reach, later days become free days. */
+export const MAX_TRIP_DAYS = 30
 const toUtc = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d) }
 const fromUtc = (t: number) => new Date(t).toISOString().slice(0, 10)
 /** Today's date in the traveller's own time zone, as YYYY-MM-DD. */

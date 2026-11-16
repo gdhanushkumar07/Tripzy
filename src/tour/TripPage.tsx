@@ -1,9 +1,13 @@
 import { doc, onSnapshot, setDoc } from 'firebase/firestore'
-import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Car, Footprints, Repeat, Sparkles, Trash2, Users, Utensils } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, BedDouble, Car, FolderOpen, Footprints, Hotel as HotelIcon, MessageSquare, Repeat, Sparkles, Trash2, Users, Utensils } from 'lucide-react'
 import { Navigation, ShieldCheck } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { logEvent } from '../lib/history'
 import { GettingThere } from './GettingThere'
+import { TopSights } from './TopSights'
+import { Hotels, type Hotel } from '../commute/JourneyView'
+import { api } from '../lib/api'
+import { LocationInput } from '../ui/LocationInput'
 import { PlaceImage } from '../ui/kit'
 import { popupHtml, type MapLayer } from '../ui/LiveMap'
 const LiveMap = lazy(() => import('../ui/LiveMap'))
@@ -14,10 +18,10 @@ import { useAuth } from '../lib/auth'
 import { setGroup, tripDoc, write } from '../lib/db'
 import { db } from '../lib/firebase'
 import { toFriendly } from '../lib/request'
-import { ErrorBox, SaveStatus, Skeleton, useStatus, useUnsavedWarning, type SaveState } from '../lib/status'
+import { ErrorBox, SaveStatus, Skeleton, useAction, useStatus, useUnsavedWarning, type SaveState } from '../lib/status'
 import { useGroup } from '../lib/useGroup'
 import {
-  alternatives, CITIES, dayTotal, HOP_LABEL, describeWx, fmt, moveStop, placeOf, removeStop, stopTotal, swapStop, tripTotal, type Day, type Place, type Trip,
+  alternatives, CITIES, dayTotal, HOP_LABEL, describeWx, fmt, moveStop, placeOf, removeStop, stopTotal, swapStop, tripTotal, type Base, type Day, type Place, type Trip,
 } from './generate'
 
 const fmtDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
@@ -94,6 +98,18 @@ export default function TripPage() {
   }
   useEffect(() => () => clearTimeout(timer.current), [])
 
+  /** Re-plan every day around the hotel the travellers picked (days start and end there). */
+  const replan = useAction(async (base: Base | null) => {
+    const t = dirty && local ? local : remote.trip
+    if (!t) return
+    const place = t.answers.place ?? (t.center ? { ...t.center } : null)
+    if (!place) throw new Error('This plan has no destination to re-plan around.')
+    const next = await api.post<Trip>('/api/tour/plan', { answers: t.answers, groupSize: remote.members > 1 ? remote.members : 1, place, boost: t.boost, boostWhy: t.boostWhy, base: base ?? undefined }, `replan:${tripId}:${base ? `${base.lat},${base.lon}` : 'none'}:${Date.now()}`)
+    const kept: Trip = { ...next, travel: t.travel, createdAt: t.createdAt, ...(t.groupCode ? { groupCode: t.groupCode } : {}) }
+    if (!base) delete kept.base
+    edit(kept, t, base ? `Days re-planned from ${base.name}` : 'Hotel removed — days re-planned')
+  })
+
   const wrap = 'mx-auto max-w-[1100px] px-5 pb-24 pt-10 md:px-10'
   if (!remote.loaded) return <div className={wrap}><Skeleton lines={5} /></div>
   if (remote.error && !trip) return <div className={wrap}><ErrorBox message={remote.error} onRetry={() => window.location.reload()}><Link className="btn-secondary" to="/">Dashboard</Link></ErrorBox></div>
@@ -118,7 +134,13 @@ export default function TripPage() {
 
   return (
     <div className={wrap}>
-      <Link to="/tour" className="inline-flex items-center gap-1 text-body text-content-muted hover:text-content"><ArrowLeft className="h-4 w-4" />Questions</Link>
+      <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Trip actions">
+        <div className="flex flex-wrap items-center gap-4">
+          <Link to={remote.groupCode ? `/tour?group=${remote.groupCode}&q=review` : '/tour?q=review'} className="inline-flex items-center gap-1 text-body text-content-muted hover:text-content"><ArrowLeft className="h-4 w-4" />Edit answers</Link>
+          <Link to="/history#trips" className="inline-flex items-center gap-1 text-body text-content-muted hover:text-content"><FolderOpen className="h-4 w-4" />All plans</Link>
+        </div>
+        <Link to={`/ai?trip=${encodeURIComponent(tripId)}`} className="btn btn-sm"><MessageSquare className="h-4 w-4" />Change this plan with Tripzy AI</Link>
+      </nav>
 
       <article className="mt-4 overflow-hidden rounded-[30px] bg-[#18211F] text-white">
         <div className="grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
@@ -164,13 +186,53 @@ export default function TripPage() {
         </div>
       </article>
 
+      <TopSights trip={trip} onEdit={(next, msg) => edit(next, trip, msg)} />
+
+      {trip.profile && (
+        <section className="mt-8 rounded-[22px] border border-edge p-5" aria-label="Why people come here">
+          <div className="tz-kicker">Why people come to {trip.center?.name}</div>
+          <p className="mt-1 text-body text-content-secondary">{trip.profile.why}</p>
+          <p className="mt-1 text-caption text-content-muted">
+            Most visitors stay {trip.profile.days[0] === trip.profile.days[1] ? trip.profile.days[0] : `${trip.profile.days[0]}–${trip.profile.days[1]}`} days; this plan has {trip.days.length}.
+            {trip.days.length < trip.profile.days[0] ? ' Some must-sees may not fit — add a day from Edit answers or ask Tripzy AI.' : ''}
+          </p>
+        </section>
+      )}
+
       {(() => {
         const c = trip.center ?? trip.places?.find((x) => x.cat !== 'food')
-        return c ? <GettingThere dest={{ name: trip.center?.name ?? CITIES[trip.city]?.name ?? trip.city, lat: c.lat, lon: c.lon }} start={trip.start} days={trip.days.length} party={trip.party} /> : null
+        if (!c) return null
+        const dest = { name: trip.center?.name ?? CITIES[trip.city]?.name ?? trip.city, lat: c.lat, lon: c.lon, state: trip.answers.place?.state }
+        const fam = { adults: trip.party, children: 0, seniors: 0 }
+        const nights = Math.max(1, trip.days.length - (trip.travel?.back && /Overnight/.test(trip.travel.back.label) ? 1 : 0))
+        return (
+          <>
+            <GettingThere dest={dest} start={trip.start} days={trip.days.length} party={trip.party} travel={trip.travel} onTravel={(travel) => edit({ ...trip, travel }, trip, 'Travel choice saved')} />
+            <section className="mt-6 space-y-4" aria-label="Where you stay">
+              {trip.base ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[22px] bg-accent-subtle p-4 text-accent-on">
+                  <p className="flex items-center gap-2 text-body"><HotelIcon className="h-4 w-4" /><span>Staying at <strong>{trip.base.name}</strong> — every day starts and ends there.</span></p>
+                  <button type="button" className="btn-secondary btn-sm" disabled={replan.busy} onClick={() => void replan.run(null)}>Remove hotel</button>
+                </div>
+              ) : (
+                <p className="flex gap-2 text-body text-content-muted"><BedDouble className="mt-0.5 h-4 w-4 shrink-0" />Pick where you stay and Tripzy re-plans each day from there: nearby places first, the ride from and back to the hotel included.</p>
+              )}
+              <div className="card space-y-2">
+                <LocationInput label="Staying somewhere else?" value={null} near={c} allowLocate={false}
+                  placeholder="Hotel name, address, or paste a Google Maps link" onChange={(p) => p && void replan.run({ name: p.name, lat: p.lat, lon: p.lon, address: p.label })} />
+                <p className="text-caption text-content-muted">Or tell Tripzy AI: "we're staying at …" with a name, address or map link.</p>
+              </div>
+              {replan.busy && <Skeleton lines={2} />}
+              {replan.error && <ErrorBox message={replan.error} onRetry={() => void replan.retry()} />}
+              <Hotels at={dest} checkin={trip.start} nights={nights} guests={fam} title={`Stay in ${dest.name}`} picked={trip.base?.name}
+                onPick={(h: Hotel) => void replan.run({ name: h.name, lat: h.lat, lon: h.lon, address: h.address, source: h.source })} />
+            </section>
+          </>
+        )
       })()}
 
       {trip.days.map((day, di) => (
-        <section key={day.date} className="mt-14" aria-label={`Day ${di + 1}`}>
+        <section key={day.date} id={`day-${di + 1}`} className="mt-14 scroll-mt-24" aria-label={`Day ${di + 1}`}>
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-edge pb-4">
             <div>
               <div className="tz-kicker">Day {di + 1}</div>
@@ -182,7 +244,9 @@ export default function TripPage() {
             </div>
           </div>
           {day.stops.length > 0 && <DayMap trip={trip} day={day} />}
-          {!day.stops.length && <p className="mt-6 text-body text-content-muted">Free day — nothing planned.</p>}
+          {di === 0 && trip.travel?.go && <p className="mt-4 rounded-xl bg-surface-secondary px-3 py-2 text-[13px] text-content-secondary">Arriving by {trip.travel.go.title} · {new Date(trip.travel.go.arrive).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })}</p>}
+          {di === trip.days.length - 1 && trip.travel?.back && <p className="mt-4 rounded-xl bg-surface-secondary px-3 py-2 text-[13px] text-content-secondary">Heading home by {trip.travel.back.title} · leaves {new Date(trip.travel.back.depart).toLocaleString('en-IN', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })}</p>}
+          {!day.stops.length && <p className="mt-6 text-body text-content-muted">{day.note ?? 'Free day — nothing planned.'}</p>}
           <ol className="relative mt-2">
             <span aria-hidden className="absolute bottom-3 top-3 w-px bg-[var(--border-primary)]" style={{ insetInlineStart: 79.5 }} />
             {day.stops.map((s, si) => {
@@ -199,6 +263,7 @@ export default function TripPage() {
                       <span className="flex justify-center"><span className="my-1 h-full border-s border-dashed border-[var(--tz-stone)]" /></span>
                       <div className="flex flex-wrap items-center gap-x-3 py-1.5 text-[12px] text-content-muted">
                         <span className="inline-flex items-center gap-1.5 text-content-secondary">
+                          {si === 0 && trip.base ? `From ${trip.base.name} · ` : ''}
                           {s.travel.fare ? <><Car className="h-3.5 w-3.5" />{HOP_LABEL[s.travel.mode ?? 'auto']} · {s.travel.min} min · {s.travel.km} km · {rupees(s.travel.fare)}</> : <><Footprints className="h-3.5 w-3.5" />Walk · {s.travel.min} min</>}
                         </span>
                       </div>
@@ -286,6 +351,11 @@ export default function TripPage() {
               )
             })}
           </ol>
+          {day.back && trip.base && (
+            <p className="ms-[96px] mt-1 inline-flex items-center gap-1.5 text-[12px] text-content-muted">
+              <HotelIcon className="h-3.5 w-3.5" />Back to {trip.base.name} · {day.back.fare ? `${HOP_LABEL[day.back.mode ?? 'auto']} · ${day.back.min} min · ${day.back.km} km · ${rupees(day.back.fare)}` : `walk · ${day.back.min} min`}
+            </p>
+          )}
         </section>
       ))}
       <p className="mt-14 border-t border-edge pt-6 text-[13px] text-content-muted">
@@ -309,6 +379,7 @@ function IconBtn({ label, disabled, onClick, children }: { label: string; disabl
 /** Google Maps directions from the previous stop (or just the place for the first stop). */
 function stopDirections(trip: Trip, day: Day, i: number) {
   const p = placeOf(trip, day.stops[i].placeId)!
+  if (i === 0 && trip.base) return `https://www.google.com/maps/dir/?api=1&origin=${trip.base.lat},${trip.base.lon}&destination=${p.lat},${p.lon}&travelmode=driving`
   if (i === 0) {
     const what = day.stops[i].name.startsWith('Meal near ') ? `restaurants near ${p.lat},${p.lon}` : `${day.stops[i].name} ${p.lat},${p.lon}`
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(what)}`

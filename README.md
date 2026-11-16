@@ -13,8 +13,8 @@
 One unified travel web application featuring two intelligent modules, each fully usable **solo or as a group** from a single screen:
 
 1. **Daily Traveller** (`/commute`) — Door-to-door multi-modal routes that intelligently combine the transport modes *you* choose, ranked three ways: Cheapest, Fastest, and Fewest transfers.
-2. **Tourist Planner** (`/tour`) — 12 interactive preference questions → complete day-by-day itinerary with costs → live interactive editing → cloud sync and group collaboration.
-3. **Tripzy AI Copilot** (`/ai`) — Conversational assistant powered by Gemini with tool-grounded routing, live weather, hotel discovery, and itinerary modifications.
+2. **Tourist Planner** (`/tour`) — 13 Travel DNA questions → a day-by-day itinerary shaped by your answers, with the destination's most visited places, getting there and back, and a hotel the days are planned around → live editing → cloud sync and group collaboration.
+3. **Tripzy AI Copilot** (`/ai`) — Conversational assistant powered by Gemini, by text or voice, with tool-grounded routing, live weather, hotel discovery, and changes to the plan you opened it from.
 
 ## The problem, in one real trip
 
@@ -37,13 +37,15 @@ Other apps plan in one mode and pick the nearest hub greedily, one leg at a time
 - **Dashboard** — welcome by name, two big module cards, saved routes and saved trips (one tap to reopen, delete with confirmation), "Continue where you left off" when a draft exists, and default preferences (modes, budget, max transfers).
 - **Daily Traveller** (`/commute`) — form and results on one page. Mode chips (walk, auto, bike taxi, cab, city bus, metro, intercity bus, train) are preselected from your preferences. Optional budget and max transfers. Up to three distinct routes (one route can carry two labels). Each has legs, time, fare, distance, changes and a "Why this route" line. Tap a card for the leg-by-leg timeline and a Leaflet/OpenStreetMap map (no API key). "Save route" for one-tap reuse. If nothing is found, it says which mode filter blocks the route and offers "Try with auto added"-style buttons.
 - **Tripzy AI** (`/ai`, ChatGPT-style) — asks your preferences once in the chat, fills Daily Traveller and the Tourist Planner (and creates the itinerary), and edits the current plan from follow-ups. Chat or speak ("Kokapet to Miyapur", "I have a scooty but don't want to drive in traffic", "I'm in a hurry").
+  - Opening `/ai` asks whether to start a new plan or continue one of yours. **"Change this plan with Tripzy AI"** on a trip opens the chat about that plan, and every change updates the same plan: "add Charminar to day 2", "replace Necklace Road with Golconda Fort", "add a day", "more nightlife", "we're staying at <hotel or Google Maps link>", "what are the most visited places here?".
+  - Voice: your words appear in the box while you speak and are sent when you stop; blocked microphones, silence and offline speech services are explained in plain words (Chrome and Edge).
   - Gemini calls Tripzy's own planners as tools (city routes, journeys, hotels, weather), so every fare and time comes from data.
   - Answers about the app and about you are grounded by retrieval (BM25 over the help knowledge base plus your saved routes, trips and preferences).
   - Multiple chats are saved to your account and sync across devices.
   - If the model is down or slow, a rule-based planner answers within seconds.
 - **Metro first in metro cities.** You board the metro at one of the nearest stations; Tripzy never sends a cab or bike along the line. "Least traffic & pollution" and "Via metro" options appear when they help. Heavy luggage means an auto for the first and last mile instead of a bike taxi.
-- **Tour travel like a traveller.** Long trips are timed to arrive on the morning of day 1, an overnight train replaces a hotel night, and sightseeing time lost is counted.
-- **Your data** (dashboard) — what is stored, export as JSON, delete chats and history.
+- **Getting there and back like a traveller.** From your live location or a typed home city, filtered by flight, train, bus, your own vehicle, cab or cruise/ship (Mumbai ↔ Goa, mainland ports ↔ Port Blair, Kochi ↔ Lakshadweep). Long trips are timed to arrive on the morning of day 1, an overnight train replaces a hotel night, sightseeing time lost is counted, and the way home leaves after the last day. The chosen way each direction is saved with the trip.
+- **Your data and history** (dashboard) — what is stored, export as JSON, delete chats and history. Tapping Trips, Saved routes, Tripzy AI chats or Journeys and answers opens the history page (`/history`) at that section. Starting a new plan never deletes an old one.
 - **Four answers for every trip** — Recommended, Fastest, Cheapest and Most comfortable. A **Public transport** option is added whenever none of them uses a bus or the metro.
   - Metro fares are one ticket across line changes.
   - At the stop where you get off, "Other ways from here" lists the next bus, auto, bike taxi, cab and walking, with times and fares.
@@ -52,8 +54,11 @@ Other apps plan in one mode and pick the nearest hub greedily, one leg at a time
 - **Own vehicle and profile** — save your family, car/scooter mileage and priority once in the dashboard. Your scooter or car can be the first ride of a city route (scooter → metro → bus).
 - **Meet up from different places** — in Group mode choose *Different starts, one destination*. Everyone sets where they start, and Tripzy picks the meeting point (a metro station, bus stand or railway station) where riding on together saves the most. If going separately is better, it says so. Each person gets their own leave time so nobody waits.
 - **Group commute** — switch to Group and share the link. Members join, everyone leaves from the same origin and time, and each member picks their own destination (updates live). The engine picks the split point **S** that minimises the cost of travelling together from the origin to S, plus each member's cost from S onwards. Auto and cab fares on shared legs are split across the group. The plan shows the shared legs, a "✂ Split at Uppal Bus Stand" marker, then each member's own legs. Every member gets a notification when the plan is ready. The organiser can remove members.
-- **Tourist Planner** (`/tour`) — one question per screen, large tap targets, "4 of 12" progress, Back and Next, a review screen where every answer can be edited, autosave, and resume at the first unanswered question after a refresh or a later visit.
+- **Tourist Planner** (`/tour`) — one question per screen, large tap targets, "4 of 13" progress, Back and Next, a review screen where every answer can be edited, autosave, and resume at the first unanswered question after a refresh or a later visit. Trips can be any length (up to 30 days); the end-date question shows how long most visitors stay. A short note explains when to use the Tourist Planner (to explore a place) and when Daily Traveller (only to get there).
+- **Travel DNA drives the plan** — places that match your picks always come before ones that don't; among them the famous sight wins (fame from the number of Wikipedia language editions, plus a built-in guide of must-sees, experiences and favourite restaurants for 16 popular destinations, e.g. Goa's beaches, water sports, scuba, beach bonfires and clubs). Who travels changes the day: friends get nightlife and late evenings, couples sunsets, families with kids never get bars and are back by 9, seniors get fewer and easier stops. No day is filled with one kind of place, night-only places are planned after 5 pm, chains and pan or juice shops are never booked as meals, and in a group every member gets places they picked.
 - **Itinerary** (`/tour/:tripId`) — day-by-day stops with times, travel between stops, cost per stop, cost per day, and the trip total against your budget. You can remove (with Undo), swap for a suggested alternative, or move a stop up or down. Totals recalculate at once, and edits autosave.
+  - **Most visited** — the destination's 10 best-known places sit above the plan, each marked "In your plan · Day 2" or with the reason it was left out, and can be added to a day or swapped in for a stop.
+  - **Where to stay** — hotel prices for your dates; "Stay here" re-plans every day to start and end at that hotel (with the ride back each evening). A hotel that isn't listed can be added by name, address or a pasted Google Maps link.
 - **Group tour** — the organiser answers the trip questions (destination, dates, days). Each member answers only the 9 personal ones through the invite link. When merging, the lowest budget, the slowest pace and the strictest diet win, and interests are ranked by votes. Stops carry a "Wanted by Asha, Ravi" tag. There is one shared itinerary, and it updates live for everyone.
 - **Reliability** — offline banner; drafts are kept on the device and synced on reconnect; "Saving…", "Saved 12:04" and "Saved on this device — will sync when online" status; Retry on every failure; skeleton loaders; submit buttons that ignore double clicks; and an "unsaved changes" warning only while an edit hasn't been written yet.
 
@@ -63,7 +68,7 @@ Other apps plan in one mode and pick the nearest hub greedily, one leg at a time
 - **Where algorithms are used and where AI is used** — see [docs/REALTIME_PLAN.md](docs/REALTIME_PLAN.md). In short: routing, fares, group splitting, opening hours, weather suitability, itinerary building and personalisation are deterministic algorithms; AI (Gemini) only reads fresh web search results (Tavily) to flag closures, festivals or crowds for a place on your date, with cited sources. AI never invents places, times or prices.
 - `src/commute/engine.ts` — pure routing engine (tested). Time-dependent multi-label Dijkstra over whole door-to-door paths: state = (node, arrival time, current vehicle), Pareto labels on time, fare, changes and km on the current vehicle. Metro fares are priced boarding → alighting from the official fare table. Party size splits auto/cab fares per vehicle; `planGroup()` picks the split point and compares it with **one cab / SUV for everyone**.
 - `server/plan/commute.ts` — builds that graph live for each query, anywhere in India: city railway junctions and bus terminals (OpenStreetMap via Photon), metro/bus stations from **GTFS timetables** with that day's real departures, one road-time matrix (OSRM or Ola Maps) between all points with a peak-hour calibration, trains (Indian Rail API when keyed, else a labelled estimate) and intercity buses (labelled estimates), plus booking links for Uber, Ola, Rapido, Namma Yatri, redBus, AbhiBus, the state RTC and IRCTC.
-- `src/tour/generate.ts` — one itinerary algorithm for live and offline data. `server/plan/tour.ts` feeds it real places (Wikipedia + OpenStreetMap, OpenTripMap popularity when keyed), per-date opening hours (OSM `opening_hours`, or typical hours flagged), hourly weather, air quality and real sunrise/sunset (Open-Meteo), optional AI web checks, and your history weights.
+- `src/tour/generate.ts` — one itinerary algorithm for live and offline data: Travel DNA weights per party, fame, variety, group fairness, meals, the hotel base, and the add/swap/remove edits. `server/plan/tour.ts` feeds it real places (Wikipedia + OpenStreetMap, fame from Wikidata, OpenTripMap popularity when keyed), the destination guide (`src/tour/destinations.ts`), per-date opening hours (OSM `opening_hours`, or typical hours flagged), hourly weather, air quality and real sunrise/sunset (Open-Meteo), optional AI web checks, and your history weights. `server/plan/tourTravel.ts` plans the way there and back.
 - `src/lib/taste.ts` — personalisation: interest boosts and preferred modes from your own `users/{uid}/history` (kept, removed and swapped stops, saved routes), decaying over 60 days; each boost is shown with its reason.
 - Shared mechanisms, each built once: `RequireAuth`, `useDraft(key)`, `request(fn)` (timeout, retries, de-duplication, plain-language errors), one status module, `LocationInput` (India-wide search) and `LiveMap` (numbered markers with popups).
 
@@ -72,9 +77,10 @@ server/                API: index.ts, providers/ (geo, route, weather, places, h
 scripts/gtfs-import.ts download + index public GTFS feeds (metro, city buses)
 src/
   commute/             engine.ts (+ tests), CommutePage, RouteView
-  tour/                questions.ts, generate.ts (+ tests), TourPage, TripPage
+  tour/                questions.ts, generate.ts (+ tests), destinations.ts, TourPage, TripPage, TopSights, GettingThere
   lib/                 firebase, auth, api, history/taste, useDraft, request, status, db, useGroup
-  pages/               HomePage (intro), LoginPage, Dashboard, JoinPage, CreditsPage
+  pages/               HomePage (intro), LoginPage, Dashboard, YourData, PlansPage (history), JoinPage, CreditsPage
+  ai/                  AiPage (chat, voice, plan-bound edits)
   ui/                  Tripzy UI kit, LiveMap, LocationInput, motion, photos, layouts
   data/                sample data for tests and the offline "Basic plan"
 ```
@@ -135,7 +141,10 @@ Open http://localhost:5173. Everything works without any API key using OpenStree
 |---|---|---|
 | `VITE_FIREBASE_*` | web | Firebase web config. Empty API key = emulators |
 | `OLA_MAPS_API_KEY` | server | India geocoding/places and traffic-aware directions (else Photon + OSRM) |
-| `GEMINI_API_KEY`, `TAVILY_API_KEY` | server | Live "good day to visit?" notices from web news, with sources |
+| `GEMINI_API_KEY`, `TAVILY_API_KEY` | server | Tripzy AI chat (else the rule-based planner), and live "good day to visit?" notices from web news, with sources |
+| `GEOAPIFY_API_KEY` | server | Restaurants with diet tags and hours, hotels from OpenStreetMap (else Photon) |
+| `SERPAPI_KEY`, `LITEAPI_KEY` | server | Live hotel prices (else hotels without prices, with booking links) |
+| `TRAVELPAYOUTS_TOKEN`, `TRAVELPAYOUTS_MARKER` | server | Flight prices (else a labelled estimate) |
 | `OPENTRIPMAP_API_KEY` | server | Attraction popularity ratings |
 | `RAIL_API_KEY` | server | Real trains between stations (else a labelled estimate) |
 
@@ -175,8 +184,8 @@ npm run build
 2. **Dashboard (0:30).** Two cards, empty saved lists, and preferences. Toggle a mode and press *Save preferences*; the commute form preselects these.
 3. **Solo commute at 18:00 (1:15).** *Daily Traveller* → tap **"Kokapet → Warangal (evening peak)"**. Point at the blue note: the nearest-hub plan via MGBS takes 5 h 53 min. Open **Fastest**: bike taxi → Raidurg metro → Uppal → bus, 4 h 39 min, *"Skips 50 min of peak traffic between MGBS and Uppal"*, plus the seat-risk note and the map. Press **Save route**. Untick *Metro* and press *Find routes*: the Fastest now goes via MGBS. Untick everything except Metro for CBIT → Dilsukhnagar to show "No route found" → tap *Try with auto added*. Refresh the page: the same results come back.
 4. **Group commute with a split (1:00).** Toggle **Group** and copy the invite link. Open it in a private window, register a second user, and pick *Hanamkonda*; a third user picks *Uppal Bus Stand*. The organiser picks *Warangal* and presses **Plan for the group**. Everyone gets "Group plan ready — split at Uppal Bus Stand" and sees the shared legs, the ✂ marker and their own onward legs. Remove a member to show the confirm dialog.
-5. **Tourist questionnaire with a refresh (0:45).** *Tourist Planner* → answer 4 questions → **refresh**: it resumes at "5 of 12". Finish, review, edit one answer, then press **Create my plan**.
-6. **Itinerary edit (0:30).** Move a stop up, remove one (then Undo), and swap one for a suggestion. The day total and trip total change at once, and the status shows "Saved hh:mm". Back on the dashboard, the trip is in *Saved trips*.
+5. **Tourist questionnaire with a refresh (0:45).** *Tourist Planner* → answer 4 questions → **refresh**: it resumes at "5 of 13". Finish, review, edit one answer, then press **Create my plan**.
+6. **Itinerary edit (0:30).** Look at *Most visited in Hyderabad* and add one place that was left out. Move a stop up, remove one (then Undo), and swap one for a suggestion. Paste a hotel's Google Maps link under *Staying somewhere else?* and the days re-plan from it. Press *Change this plan with Tripzy AI* and say "add a day". The status shows "Saved hh:mm"; the trip is in the dashboard's history.
 7. **Offline (0:30).** DevTools → Network → *Offline*. The banner appears. Change a mode chip on the commute form: the status shows "Saved on this device — will sync when online". Switch back online and it syncs ("Saved hh:mm").
 
 Optional extras: set `VITE_AI_PLANNER_URL=http://127.0.0.1:9/plan` to show the AI-failure path (Retry / **Basic plan**). Stop the emulators mid-edit to show the Firestore-outage path (draft kept locally, Retry).

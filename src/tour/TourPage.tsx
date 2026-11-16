@@ -1,5 +1,5 @@
 import { setDoc } from 'firebase/firestore'
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, FolderOpen, Info, Plus } from 'lucide-react'
 import { Card, Eyebrow } from '../ui/kit'
 import { photoSrc, type PhotoId } from '../ui/photos'
 import { useEffect, useMemo, useState } from 'react'
@@ -14,6 +14,7 @@ import { ErrorBox, SaveStatus, Skeleton, useAction, useStatus } from '../lib/sta
 import { useDraft } from '../lib/useDraft'
 import { SessionStrip, useSessions } from '../lib/sessions'
 import { GroupPanel, ModeToggle, useGroup } from '../lib/useGroup'
+import { destinationFor } from './destinations'
 import { generateBasic, type Trip } from './generate'
 import { isAnswered, localToday, MAX_TRIP_DAYS, mergeAnswers, questionsFor, QUESTIONS, tripDays, tripEnd, type Answers, type Question } from './questions'
 
@@ -148,6 +149,7 @@ export default function TourPage() {
           <div className="tz-chapter">Not another generic itinerary.</div>
           <h1 className="tz-h1 mt-2 text-content">Tourist Planner</h1>
           <p className="mt-3 max-w-xl text-[16px] text-content-muted">13 quick questions, then a day-by-day plan anywhere — real places, opening hours, weather and air quality, shaped by your past trips.</p>
+          <Link to="/history#trips" className="mt-2 inline-flex items-center gap-1 text-caption font-semibold text-accent-on hover:underline"><FolderOpen className="h-3.5 w-3.5" />Your earlier plans</Link>
         </div>
         <div className="flex items-center gap-3">
           <SaveStatus status={draft.status} onRetry={() => void draft.retry()} />
@@ -234,9 +236,13 @@ export default function TourPage() {
               <Link className="btn-secondary" to={`/tour/${draft.value.doneTripId}`}>Open last plan</Link>
             )}
             {role === 'solo' && (
-              <button className="btn-secondary" onClick={() => { draft.reset(); setParams({}) }}>Start over</button>
+              // a new plan in its own slot: the current answers and any plan made from them stay saved
+              <button className="btn-secondary" onClick={() => { sessions.create(); setParams({}) }}><Plus className="h-4 w-4" />Start a new plan</button>
             )}
           </div>
+          {role === 'solo' && (
+            <p className="text-caption text-content-muted">Starting a new plan keeps this one. Every plan stays in the strip at the top and in your <Link className="btn-link" to="/history#trips">history</Link> (Home → Your data).</p>
+          )}
           {sendAnswers.error && <ErrorBox message={sendAnswers.error} onRetry={() => void sendAnswers.retry()} />}
           {role === 'owner' && group && (
             <p className="text-xs text-content-muted">
@@ -267,9 +273,10 @@ function display(q: Question, a: Answers): string {
 const CITY_TILE: Record<string, PhotoId> = { hyderabad: 'charminar', jaipur: 'hawa-mahal' }
 
 /** Last day of the trip: stored as an inclusive day count so plans, the AI and saved trips stay compatible. */
-function EndDate({ start, days, onDays }: { start?: string; days?: number; onDays: (d: number) => void }) {
+function EndDate({ start, days, onDays, place }: { start?: string; days?: number; onDays: (d: number) => void; place?: Answers['place'] }) {
   if (!start) return <p className="field-error">Pick the start date first (go back one question).</p>
   const max = tripEnd(start, MAX_TRIP_DAYS)
+  const usual = destinationFor(place)
   const end = days ? tripEnd(start, days) : ''
   const n = end ? tripDays(start, end) : 0
   return (
@@ -283,7 +290,18 @@ function EndDate({ start, days, onDays }: { start?: string; days?: number; onDay
         <input id="end-date" type="date" min={start} max={max} className="tz-input" value={end}
           onChange={(e) => { const d = e.target.value; if (d && d >= start && d <= max) onDays(tripDays(start, d)) }} />
       </div>
-      <p className="text-[14px] text-content-muted sm:col-span-2">{n ? `${n} day${n === 1 ? '' : 's'}, including the first and last day.` : `Choose a date from the start date up to ${new Date(`${max}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}.`}</p>
+      <p className="text-[14px] text-content-muted sm:col-span-2">{n ? `${n} day${n === 1 ? '' : 's'}, including the first and last day.` : 'Choose the last day of your trip.'}</p>
+      {usual && place && (
+        <div className="sm:col-span-2">
+          <p className="text-[14px] text-content-secondary">Most visitors spend <strong>{usual.days[0] === usual.days[1] ? usual.days[0] : `${usual.days[0]}–${usual.days[1]}`} days</strong> in {place.name}: {usual.why}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[...new Set([usual.days[0], usual.days[1], usual.days[1] + 2])].map((d) => (
+              <button key={d} type="button" className={`chip ${days === d ? 'chip-on' : 'chip-off'}`} onClick={() => onDays(d)}>{d} days</button>
+            ))}
+          </div>
+        </div>
+      )}
+      {n > 7 && <p className="text-caption text-content-muted sm:col-span-2">Long trip: once the sights nearby are covered, Tripzy adds day trips further out, and free days when nothing new is within reach.</p>}
     </div>
   )
 }
@@ -333,6 +351,11 @@ function QuestionCard({ q, index, total, answers, onAnswer, onBack, onNext }: {
                 <button key={p.name} type="button" onClick={() => onAnswer(p, true)} className={`chip ${answers.place?.name === p.name ? 'chip-on' : 'chip-off'}`}>{p.name}</button>
               ))}
             </div>
+            <p className="flex gap-2 rounded-2xl bg-surface-secondary p-3 text-[14px] text-content-secondary">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent-on" />
+              <span>Going to another city or state to <strong>explore it</strong>? You're in the right place — after the day plan, Tripzy also plans getting there (flight, train, bus, your car, cruise) and the way back.
+                Only need to <strong>get there</strong> (work, family, an exam)? Use <Link className="btn-link" to={answers.place ? `/commute?${new URLSearchParams({ t: answers.place.name, tl: `${answers.place.lat},${answers.place.lon}` })}` : '/commute'}>Daily Traveller</Link> for door-to-door options.</span>
+            </p>
           </div>
         ) : q.kind === 'date' ? (
           <div className="max-w-xs">
@@ -341,7 +364,7 @@ function QuestionCard({ q, index, total, answers, onAnswer, onBack, onNext }: {
             {typeof v === 'string' && v < today && <p className="field-error">Pick today or a later date.</p>}
           </div>
         ) : q.kind === 'enddate' ? (
-          <EndDate start={answers.start} days={typeof v === 'number' ? v : undefined} onDays={(d) => onAnswer(d, false)} />
+          <EndDate start={answers.start} days={typeof v === 'number' ? v : undefined} onDays={(d) => onAnswer(d, false)} place={answers.place} />
         ) : (
           <div className={`grid gap-3 sm:gap-4 ${many ? 'grid-cols-2 sm:grid-cols-3' : q.options?.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`} role={q.kind === 'multi' ? 'group' : 'radiogroup'} aria-labelledby="q-title">
             {q.options!.map((o) => {

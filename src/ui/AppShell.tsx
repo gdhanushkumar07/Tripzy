@@ -132,7 +132,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div style={{ paddingTop: 'var(--nav-h)' }}>{children}</div>
       {/* Tripzy AI is one tap away from Daily Traveller and the Tourist Planner */}
       {!pathname.startsWith('/ai') && (
-        <Link to={readLast(user?.uid, '/ai')} className="btn fixed bottom-5 end-5 z-30 !rounded-full shadow-lg" aria-label="Ask Tripzy AI"><Sparkles className="h-4 w-4" />Ask Tripzy AI</Link>
+        // on a trip, the chat opens about that trip; elsewhere it reopens the last chat
+        <Link to={/^\/tour\/[^/]+$/.test(pathname) ? `/ai?trip=${encodeURIComponent(pathname.slice(6))}` : readLast(user?.uid, '/ai')} className="btn fixed bottom-5 end-5 z-30 !rounded-full shadow-lg" aria-label="Ask Tripzy AI"><Sparkles className="h-4 w-4" />Ask Tripzy AI</Link>
       )}
     </div>
   )

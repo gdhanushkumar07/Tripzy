@@ -29,6 +29,8 @@ export type JourneyQuery = {
   own: 'none' | 'car' | 'scooter'; vehicles?: Vehicles
   /** modes the traveller is comfortable with (empty = all) and whether flights are fine */
   modes?: Mode[]; flights?: boolean
+  /** passenger ships and cruises: only the Tourist Planner's "getting there" asks for them, Daily Traveller is unchanged */
+  sea?: boolean
 }
 const allows = (q: JourneyQuery, ...m: Mode[]) => !q.modes?.length || m.some((x) => q.modes!.includes(x))
 
@@ -40,7 +42,7 @@ export type JLeg = {
 }
 export type Tag = 'Fastest' | 'Cheapest' | 'Most comfortable' | 'Best balanced'
 export type JOption = {
-  id: string; title: string; kind: 'flight' | 'train' | 'bus' | 'car' | 'cab' | 'transit' | 'city'
+  id: string; title: string; kind: 'flight' | 'train' | 'bus' | 'car' | 'cab' | 'transit' | 'city' | 'ship'
   legs: JLeg[]; minutes: number; cost: number; perPerson: number; transfers: number; walkKm: number; waitMin: number
   comfort: number; reliability: number; notes: string[]; tags: Tag[]; why: string; estimate: boolean; gmaps: string
   /** special ways the city engine found: "Via metro", "Least traffic & pollution", "Public transport" */
@@ -293,6 +295,52 @@ async function flightOptions(q: JourneyQuery, startMin: number): Promise<{ optio
   return { options: out, sources: [...sources] }
 }
 
+// ---------------------------------------------------------------- sea: cruise and passenger ships
+
+type Port = LatLon & { name: string }
+/**
+ * Scheduled passenger sailings in India that a traveller can actually book (not ferries across a creek).
+ * Sailing days change by season, so times and fares are typical and marked as estimates.
+ */
+const SEA: { a: Port; b: Port; name: string; hours: number; fare: number; leaves: number; note: string; url: string }[] = [
+  { a: { name: 'Mumbai Ferry Wharf (Bhaucha Dhakka)', lat: 18.9567, lon: 72.8458 }, b: { name: 'Mormugao Port, Goa', lat: 15.4133, lon: 73.8018 }, name: 'Angriya cruise Mumbai ↔ Goa', hours: 15, fare: 4500, leaves: 17 * 60,
+    note: 'Overnight coastal cruise, sails on set days (usually not in the June–September monsoon) — check sailing days before you plan', url: 'https://www.google.com/search?q=Angriya+cruise+Mumbai+Goa+booking' },
+  { a: { name: 'Chennai Port', lat: 13.0952, lon: 80.2952 }, b: { name: 'Haddo Wharf, Port Blair', lat: 11.6765, lon: 92.7265 }, name: 'Ship Chennai ↔ Port Blair', hours: 62, fare: 3500, leaves: 10 * 60,
+    note: 'Government passenger ship, about 3 days at sea, a few sailings a month — book through the Andaman shipping service', url: 'https://andamans.gov.in/' },
+  { a: { name: 'Kolkata Port (Kidderpore)', lat: 22.5446, lon: 88.3155 }, b: { name: 'Haddo Wharf, Port Blair', lat: 11.6765, lon: 92.7265 }, name: 'Ship Kolkata ↔ Port Blair', hours: 64, fare: 3500, leaves: 10 * 60,
+    note: 'Government passenger ship, about 3 days at sea, a few sailings a month', url: 'https://andamans.gov.in/' },
+  { a: { name: 'Visakhapatnam Port', lat: 17.6896, lon: 83.2924 }, b: { name: 'Haddo Wharf, Port Blair', lat: 11.6765, lon: 92.7265 }, name: 'Ship Visakhapatnam ↔ Port Blair', hours: 56, fare: 3300, leaves: 10 * 60,
+    note: 'Government passenger ship, about 2½ days at sea, roughly monthly', url: 'https://andamans.gov.in/' },
+  { a: { name: 'Kochi Port (Willingdon Island)', lat: 9.9658, lon: 76.2636 }, b: { name: 'Kavaratti, Lakshadweep', lat: 10.5626, lon: 72.6369 }, name: 'Ship Kochi ↔ Lakshadweep', hours: 16, fare: 2600, leaves: 12 * 60,
+    note: 'Passenger ship; a Lakshadweep entry permit is required before booking', url: 'https://lakport.nic.in/' },
+]
+
+async function seaOptions(q: JourneyQuery, startMin: number): Promise<JOption[]> {
+  if (!allows(q, 'ferry')) return []
+  const people = size(q.party)
+  const out: JOption[] = []
+  for (const r of SEA) {
+    for (const [a, b] of [[r.a, r.b], [r.b, r.a]] as const) {
+      if (haversineKm(q.from, a) > 160 || haversineKm(q.to, b) > 90) continue
+      const toPort = await accessLeg(q.from, a, 0, true, people, true)
+      toPort.name = toPort.name.replace('to the airport', 'to the port')
+      // board an hour before the usual sailing time (the next one from the start of the journey)
+      const board = Math.max(toPort.minutes + 60, ((r.leaves - startMin) % 1440 + 1440) % 1440)
+      const sea: JLeg = {
+        mode: 'ferry', name: r.name, from: a.name, to: b.name, fromLL: ll(a), toLL: ll(b), start: board, wait: board - toPort.minutes, minutes: r.hours * 60,
+        km: Math.round(haversineKm(a, b) * 1.15), cost: r.fare * people, source: 'Typical sailing time and lowest class fare (estimate)', estimate: true,
+        links: [{ label: 'Check sailings', url: r.url }], geometry: [ll(a), ll(b)], note: r.note,
+      }
+      const fromPort = await accessLeg(b, q.to, sea.start + sea.minutes + 45, true, people, false)
+      fromPort.name = fromPort.name.replace('from the airport', 'from the port')
+      fromPort.wait = 45
+      out.push(finish({ id: `sea-${out.length}-${r.name.replace(/\W+/g, '-')}`, title: r.name.replace(/ ↔ .*/, '') + ` → ${b.name.split(',')[0]}`, kind: 'ship', estimate: true,
+        legs: [toPort, sea, fromPort], gmaps: gmapsUrl(q.from, q.to, 'driving'), notes: [r.note] }, q, startMin))
+    }
+  }
+  return out
+}
+
 const clock = (m: number) => `${String(Math.floor((((m % 1440) + 1440) % 1440) / 60)).padStart(2, '0')}:${String(Math.round(((m % 60) + 60) % 60)).padStart(2, '0')}`
 
 // ---------------------------------------------------------------- scoring
@@ -349,6 +397,7 @@ export async function planJourney(q: JourneyQuery): Promise<{ options: JOption[]
     roadOptions(q, startMin).catch(() => []),
     flightOptions(q, startMin).then((r) => { r.sources.forEach((s) => sources.add(s)); return r.options }).catch(() => []),
   ]
+  if (india && q.sea) tasks.push(seaOptions(q, startMin).catch(() => []))
   if (india && km <= 1500) tasks.push(indiaGroundOptions(q, startMin).then((r) => { r.sources.forEach((s) => sources.add(s)); return r.options }).catch(() => []))
   // open timetables worldwide; in India they add little beyond the engine, so only as a fallback abroad or across borders
   if (!india) tasks.push(transitPlan(q.from, q.to, startIso, 6).then((its) => {
@@ -358,9 +407,9 @@ export async function planJourney(q: JourneyQuery): Promise<{ options: JOption[]
   let options = (await Promise.all(tasks)).flat()
   // sanity: drop public-transport itineraries far slower than driving (bad feeds) when a road option exists
   const roadMin = options.find((o) => o.kind === 'car' || o.kind === 'cab')?.minutes
-  if (roadMin) options = options.filter((o) => o.kind === 'car' || o.kind === 'cab' || o.kind === 'flight' || o.minutes < roadMin * 3 + 60)
+  if (roadMin) options = options.filter((o) => o.kind === 'car' || o.kind === 'cab' || o.kind === 'flight' || o.kind === 'ship' || o.minutes < roadMin * 3 + 60)
   const perKind = new Map<string, number>()
-  options = prune(options).sort((a, b) => b.comfort - a.comfort).filter((o) => { if (o.badges?.length) return true; const n = (perKind.get(o.kind) ?? 0) + 1; perKind.set(o.kind, n); return n <= 2 })
+  options = prune(options.filter((o) => o.kind !== 'ship')).concat(options.filter((o) => o.kind === 'ship')).sort((a, b) => b.comfort - a.comfort).filter((o) => { if (o.badges?.length) return true; const n = (perKind.get(o.kind) ?? 0) + 1; perKind.set(o.kind, n); return n <= 2 })
   if (options.some((o) => o.legs.some((l) => l.mode === 'cab' || l.mode === 'owncar'))) sources.add('Roads: OSRM / OpenStreetMap (Ola Maps traffic when its key is active)')
   const tagged = tagOptions(options, q)
   return {

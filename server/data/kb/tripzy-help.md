@@ -40,26 +40,48 @@ Trips over 80 km or outside India compare flights (with the cab to the airport, 
 
 ## Tourist Planner
 The Tourist Planner asks 13 questions:
-- destination and dates;
+- destination and dates (any length — Tripzy shows how long most visitors stay, e.g. Hyderabad 3–4 days, Goa 4–5 days);
 - who is travelling, budget, pace and food;
-- interests, mornings, effort and evenings;
+- interests (including beaches and water sports), mornings, effort and evenings;
 - how you like to get around between places (walk, auto, bike taxi, cab, metro or bus, your car or scooter).
 
-It then builds a day-by-day plan with real places, opening hours, weather and air quality. The trip page adds:
-- "Getting there" from your live location (flights, trains, buses or car);
-- "Where to stay" with hotel prices for your dates.
+How your answers (your Travel DNA) shape the plan:
+- **Your picks lead**: a place that matches what you picked always beats one that doesn't; among matches the famous sight wins (Charminar before a minor ruin). Must-sees for well-known destinations are known.
+- **Why people go there**: for places like Goa (beaches, water sports, scuba at Grande Island, beach-shack bonfires, Baga clubs, churches and forts), Hyderabad (Charminar, Golconda, Chowmahalla, biryani), Jaipur, Udaipur, Agra, Varanasi, Rishikesh, Manali, Kerala, Mumbai, Delhi, Mysuru, Puducherry, the Andamans, Amritsar, Kolkata and Hampi.
+- **Who is travelling**: friends get nightlife, adventure and late evenings; couples get sunset views and evenings out; families with kids get kid-friendly places and are back by 9, never bars; seniors get easy places and fewer stops.
+- **Variety**: no day full of one kind of place. Night-only places (clubs, night markets, bonfires) are only planned after 5 pm.
+- **Food**: the local places people travel for (signature restaurants) before chains; no pan shops or juice counters as meals; breakfast out for food lovers.
+- **Groups**: interests are ranked by votes, and every member gets places they picked — members who have had fewer of their picks so far count more.
+- **Long trips**: later days reach day trips further out; when nothing new is within reach a day becomes a free day.
 
-## Getting to a tour destination
-The Tourist Planner plans the trip there like a traveller, from your live location:
+The trip page adds:
+- "Getting there and back": start from your live location or type your home city; filter by flight, train, bus, your own vehicle, cab with driver or cruise/ship; choose "Plan my return too", "I'll decide later" or "One way only". Pick an option each way and it is saved with the trip.
+- "Where to stay": hotel prices for your dates. "Stay here" re-plans every day to start and end at that hotel. A hotel that isn't listed can be added by name, address or a pasted Google Maps link, on the trip page or by telling Tripzy AI "we're staying at …".
+- "Change this plan with Tripzy AI" opens a chat about that plan; changes update the same plan.
+- "Edit answers" goes back to the questions; "All plans" opens your history.
+
+## Tourist Planner or Daily Traveller for another state?
+- Going to explore the place (sightseeing, holiday) → Tourist Planner. It plans the days there and the trip there and back.
+- Only need to get there (work, family visit, exam) → Daily Traveller, which compares flights, trains, buses, your car, cabs and ships door to door.
+
+## Getting to a tour destination and back
 - **Long trains and buses** are timed to arrive around 08:00 on day 1. A night spent on board replaces a hotel night, and that saving is counted.
 - **Short trips** leave early on day 1. A late-night arrival is flagged, and sightseeing time lost on day 1 counts against an option.
-- **Options shown**: Best for this trip, Cheapest overall (hotel included), Fastest and Most comfortable.
+- **The way back** leaves after the last day: short rides around 18:30, long trains and buses overnight (the last hotel night is saved), and 5–7 hour rides the next morning rather than reaching home after midnight.
+- **Cruises and ships**: Mumbai ↔ Goa (Angriya cruise, overnight), Chennai / Kolkata / Visakhapatnam ↔ Port Blair (2½–3 days), Kochi ↔ Lakshadweep (permit needed). Sailing days vary — times and fares are typical estimates.
+- **Options shown**: Best for this trip (or Best way home), Cheapest overall (hotel included), Fastest and Most comfortable.
+
+## Where everything is saved — History
+- **History**: on the home page, under "Your data", tap Trips, Saved routes, Tripzy AI chats or Journeys and answers. It opens the history page, which lists every tourist plan (solo and group), Tourist Planner answers in progress, Daily Traveller journeys and saved routes, and Tripzy AI chats.
+- **Start a new plan** keeps the old one; nothing is deleted unless you delete it. The strip at the top of the Tourist Planner and Daily Traveller switches between your plans.
+- **Clicked the wrong thing?** Every page has a way back: "Edit answers" on a trip, "Back" on each question, "Solo" to leave a group, Undo after removing or swapping a stop, and the history page (Home → Your data) to reopen anything.
 
 ## Tripzy AI
 Tripzy AI does the app's work from the chat:
+- **New or continue**: opening Tripzy AI directly offers a new plan or continuing one of your plans. From a trip page, "Change this plan with Tripzy AI" opens the chat about that plan (the same chat each time).
 - **Preferences**: it asks your preferences once (modes, luggage, vehicle, who travels, priority) with a picker and saves them to your profile.
 - **Forms**: every trip it plans fills Daily Traveller, and every tour fills the Tourist Planner and creates the itinerary.
-- **Follow-ups change the current plan**: "make it cheaper", "avoid buses", "use the metro", "leave at 8", "we are 4", "heavy bags", "make it 2 days", "we are vegetarian".
+- **Follow-ups change the current plan**: "make it cheaper", "avoid buses", "use the metro", "leave at 8", "we are 4", "heavy bags", "make it 2 days", "we are vegetarian", "more nightlife", "we're staying at <hotel or Google Maps link>".
 - **Chats**: you can keep several, synced to your account. You can speak instead of typing, and have answers read aloud.
 
 ## Your data

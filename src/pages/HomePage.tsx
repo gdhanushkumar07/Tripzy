@@ -110,7 +110,7 @@ function Opening() {
         <h1 className="tz-display max-w-[13ch] text-white">
           <Lines lines={['Some journeys', 'stay with you', 'forever.']} />
         </h1>
-        <p data-hero-sub className="mt-6 max-w-md text-[18px] leading-relaxed text-white/85 md:text-[20px]">Let's make every moment along the way count.</p>
+        <p data-hero-sub className="mt-6 max-w-md text-[18px] leading-relaxed text-white/85 md:text-[20px]">Your daily commute and your next holiday, planned together in one place.</p>
         <div data-hero-sub className="mt-9 flex flex-wrap gap-3">
           <button type="button" onClick={() => nav('/tour')} className="group inline-flex h-14 items-center gap-3 rounded-full bg-[#F7F5EF] px-7 text-[15px] font-semibold text-[#18211F] transition hover:bg-white">
             Plan your journey <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -151,7 +151,7 @@ const FRAGMENTS: Fragment[] = [
     </div>) },
   { key: 'notes', x: '70%', y: '40%', r: -3, w: 'w-[220px]', node: (
     <div className="rounded-xl bg-[#FFF6C9] p-3 text-[13px] leading-snug text-[#4b4320] shadow-sm">
-      <div className="font-semibold">notes!!</div>ask hotel re early check-in<br />dad – no long stairs<br />Hawa Mahal before 10?
+      <div className="font-semibold">notes</div>ask the hotel about early check-in<br />parents – fewer stairs<br />Hawa Mahal before 10?
     </div>) },
   { key: 'budget', x: '4%', y: '48%', r: 3, w: 'w-[250px]', node: (
     <div className="overflow-hidden rounded-xl border border-edge bg-surface-card text-[12px]">
@@ -218,11 +218,11 @@ function Problem() {
           <div className="relative mt-8 min-h-[150px]">
             <div data-head-a>
               <p className="font-serif text-[30px] leading-tight text-content md:text-[38px]">Too many tabs.<br />Too many decisions.</p>
-              <p className="mt-4 max-w-md text-[16px] leading-relaxed text-content-muted">Hotels in one tab, trains in another, a note about Dad's knees somewhere, and a budget that never adds up.</p>
+              <p className="mt-4 max-w-md text-[16px] leading-relaxed text-content-muted">Hotels in one tab, trains in another, opening hours somewhere else, and a budget that never quite adds up.</p>
             </div>
             <div data-head-b className="absolute inset-0 opacity-0 max-lg:static max-lg:mt-10 max-lg:opacity-100">
               <p className="font-serif text-[30px] leading-tight text-[var(--accent)] md:text-[38px]">Your journey<br />deserves better.</p>
-              <p className="mt-4 max-w-md text-[16px] leading-relaxed text-content-muted">One Trip Capsule that holds the plan, the bookings, the money and the moments, and keeps them in sync.</p>
+              <p className="mt-4 max-w-md text-[16px] leading-relaxed text-content-muted">One place that plans the route, the days, the stay and the way there, and keeps every plan safe for you.</p>
             </div>
           </div>
         </div>
@@ -238,10 +238,10 @@ function Problem() {
             <div className="overflow-hidden rounded-[26px] border border-edge bg-surface-card shadow-[0_30px_80px_-30px_rgba(24,33,31,.45)]">
               <Photo id="hawa-mahal" sizes="300px" showCredit={false} className="h-36" />
               <div className="p-5">
-                <div className="tz-kicker">Trip Capsule</div>
+                <div className="tz-kicker">Your trip</div>
                 <div className="mt-1 font-serif text-[26px] leading-tight text-content">Jaipur, 3 days</div>
                 <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-                  {['Itinerary', 'Train', 'Stay', 'Budget', 'Packing', 'Docs'].map((x) => <span key={x} className="rounded-full bg-accent-subtle px-2 py-0.5 text-accent-on">{x}</span>)}
+                  {['Day plan', 'Getting there', 'Stay', 'Budget', 'Weather', 'Group'].map((x) => <span key={x} className="rounded-full bg-accent-subtle px-2 py-0.5 text-accent-on">{x}</span>)}
                 </div>
               </div>
             </div>
@@ -255,16 +255,16 @@ function Problem() {
 // ---------------------------------------------------------------- 03 · the solution
 
 const NODES: [string, React.ComponentType<{ className?: string }>, string][] = [
-  ['Itinerary', Route, 'Timed, feasible, yours'],
-  ['Stay', BedDouble, 'Least travel to what you love'],
-  ['Trains & flights', Ticket, 'Fixed anchors, watched for delays'],
-  ['Readiness', ShieldCheck, 'Checklist that ticks itself'],
-  ['Documents', FileText, 'Tickets read, stored privately'],
-  ['Budget', Wallet, 'Full cost before you go'],
-  ['Expenses', Receipt, 'Split and settle with the group'],
-  ['Maps', MapIcon, 'Real roads, real times'],
-  ['Companion', MessageCircle, 'Re-plans with your OK'],
-  ['Memories', BookHeart, 'A journal that learns you'],
+  ['Daily routes', Route, 'Every mode, door to door'],
+  ['Stay', BedDouble, 'Days planned from your hotel'],
+  ['Trains & flights', Ticket, 'There and back, compared'],
+  ['Travel DNA', ShieldCheck, 'Plans shaped by your answers'],
+  ['Day plans', FileText, 'Opening hours and weather checked'],
+  ['Budget', Wallet, 'Full cost per person, per day'],
+  ['Groups', Receipt, "Everyone's picks, fairly shared"],
+  ['Maps', MapIcon, 'Real roads, live directions'],
+  ['Tripzy AI', MessageCircle, 'Plan and edit by asking'],
+  ['History', BookHeart, 'Every plan kept for you'],
 ]
 
 function Solution() {
@@ -290,7 +290,7 @@ function Solution() {
         <div className="mx-auto max-w-3xl text-center">
           <div className="flex justify-center"><Chapter n="03" title="The Tripzy solution" /></div>
           <h2 data-reveal className="tz-h1 mt-6 text-content">Everything, finally in one place.</h2>
-          <p data-reveal className="tz-lede mx-auto mt-6 max-w-xl">At the centre of every trip is a <em className="font-serif text-[1.15em] not-italic text-[var(--accent)]">Trip Capsule</em>. Everything else orbits it, and when one thing changes, everything connected to it knows.</p>
+          <p data-reveal className="tz-lede mx-auto mt-6 max-w-xl">At the centre is <em className="font-serif text-[1.15em] not-italic text-[var(--accent)]">your plan</em>. Routes, days, stays and the journey there all connect to it, so when one thing changes, the rest follows.</p>
         </div>
 
         <div data-orbit className="relative mx-auto mt-16 hidden aspect-[1.35] max-w-5xl md:block">
@@ -303,7 +303,7 @@ function Solution() {
             <div className="overflow-hidden rounded-full border-[6px] border-surface shadow-[0_40px_90px_-40px_rgba(24,33,31,.6)]">
               <Photo id="charminar" sizes="320px" showCredit={false} className="aspect-square" imgClassName="object-[50%_35%]" />
             </div>
-            <div className="mt-3 text-center"><div className="tz-kicker">Trip Capsule</div><div className="font-serif text-[22px] text-content">Hyderabad · 3 days</div></div>
+            <div className="mt-3 text-center"><div className="tz-kicker">Your plan</div><div className="font-serif text-[22px] text-content">Hyderabad · 3 days</div></div>
           </div>
           {NODES.map(([label, Icon, sub], i) => (
             <div key={label} data-node className="absolute w-[170px] -translate-x-1/2 -translate-y-1/2" style={{ left: `${pos[i].x}%`, top: `${pos[i].y}%` }}>
@@ -327,9 +327,9 @@ function Solution() {
         </div>
 
         <div className="mt-24 grid gap-6 md:grid-cols-3">
-          {([['/showcase/intel.png', 'Trip Intelligence', 'Every day checked against opening hours, travel time and energy.'],
-             ['/showcase/live.png', 'Live', 'Now, next and when to leave, while you travel.'],
-             ['/showcase/ready.png', 'Readiness', 'A checklist that ticks itself, and a packing list with reasons.']] as const).map(([src, t, d], i) => (
+          {([['/showcase/tour.png', 'Tourist Planner', 'A day-by-day plan shaped by your answers, with real opening hours and weather.'],
+             ['/showcase/commute.png', 'Daily Traveller', 'Every way across the city or between cities, ranked and explained.'],
+             ['/showcase/ai.png', 'Tripzy AI', 'Plan or change anything simply by asking, in text or by voice.']] as const).map(([src, t, d], i) => (
             <figure key={src} className={i === 1 ? 'md:mt-16' : ''}>
               <div data-reveal="mask" className="overflow-hidden rounded-[22px] border border-edge bg-surface-card">
                 <img src={src} alt={`${t}, a real Tripzy screen`} loading="lazy" className="aspect-[4/3] w-full object-cover object-top" />
@@ -378,7 +378,7 @@ function DailyTraveller() {
             <div><div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-content-muted">Peak traffic</div><div className="mt-1 font-serif text-[34px] leading-none text-[var(--tz-coral)]">−50 min</div></div>
           </div>
           <div data-reveal data-reveal-stagger className="mt-8 flex flex-wrap gap-2">
-            {['Recommended', 'Fastest', 'Cheapest', 'Most comfortable', 'Travel as a group, split or meet on the way'].map((t) => <span key={t} className="rounded-full border border-edge bg-surface-card px-3.5 py-1.5 text-[13px] text-content-secondary">{t}</span>)}
+            {['Recommended', 'Fastest', 'Cheapest', 'Least traffic & pollution', 'Travel together, or meet on the way'].map((t) => <span key={t} className="rounded-full border border-edge bg-surface-card px-3.5 py-1.5 text-[13px] text-content-secondary">{t}</span>)}
           </div>
           <button data-reveal type="button" onClick={() => nav('/commute')} className="group mt-10 inline-flex h-14 items-center gap-3 rounded-full bg-accent px-7 text-[15px] font-semibold text-accent-text transition hover:bg-accent-hover">
             Plan my commute <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -416,9 +416,9 @@ function DailyTraveller() {
 const STOPS = [
   { t: '08:30', name: 'Govind Dosa', note: 'Breakfast near the Old City', x: 70, y: 300, kind: 'meal' },
   { t: '09:20', name: 'Charminar', note: 'Before the crowds build', x: 150, y: 250, kind: 'stop' },
-  { t: '11:05', name: 'Chowmahalla Palace', note: 'Flat courtyards, easy on the knees', x: 250, y: 290, kind: 'stop' },
-  { t: '13:30', name: 'Rest at the hotel', note: 'Energy reset in the midday heat', x: 330, y: 180, kind: 'rest' },
-  { t: '15:30', name: 'Salar Jung Museum', note: 'Indoor, so it is also the rain Plan B', x: 420, y: 230, kind: 'stop' },
+  { t: '11:05', name: 'Chowmahalla Palace', note: 'Level courtyards, a comfortable walk for everyone', x: 250, y: 290, kind: 'stop' },
+  { t: '13:30', name: 'Rest at the hotel', note: 'A quiet break through the midday heat', x: 330, y: 180, kind: 'rest' },
+  { t: '15:30', name: 'Salar Jung Museum', note: 'Indoors, so the day stays easy if it rains', x: 420, y: 230, kind: 'stop' },
   { t: '17:45', name: 'Hussain Sagar', note: 'Golden hour by the lake', x: 520, y: 110, kind: 'stop' },
 ]
 const ROUTE = 'M70 300 C 100 270, 120 250, 150 250 S 220 300, 250 290 S 300 200, 330 180 S 390 240, 420 230 S 490 140, 520 110'
@@ -446,7 +446,7 @@ function PlanYourWay() {
           <div className="lg:sticky lg:top-28 lg:self-start">
             <Chapter n="05" title="Plan your way" />
             <h2 data-reveal className="tz-h1 mt-6 text-content">Not another generic itinerary.</h2>
-            <p data-reveal className="tz-lede mt-6 max-w-md">Tell Tripzy who's going and how you like to travel. Your Travel DNA shapes every stop, every meal and every pause. The weakest knee in the group sets the pace, not the guidebook.</p>
+            <p data-reveal className="tz-lede mt-6 max-w-md">Tell Tripzy who's going and how you like to travel. Your Travel DNA shapes every stop, every meal and every pause, so the plan fits the people on the trip rather than a guidebook.</p>
             <div data-reveal data-reveal-stagger className="mt-8 flex flex-wrap gap-2">
               {traits.map((t) => <span key={t} className="rounded-full border border-edge bg-surface-card px-3.5 py-1.5 text-[13px] text-content-secondary">{t}</span>)}
             </div>
@@ -456,10 +456,10 @@ function PlanYourWay() {
                 <span className="absolute inset-0 grid place-items-center font-serif text-[26px] text-content">94</span>
               </div>
               <div className="flex-1">
-                <div className="text-[13px] font-semibold text-content">Feasible as planned</div>
-                <div className="text-[12px] text-content-muted">Opening hours, real road times and energy all check out.</div>
+                <div className="text-[13px] font-semibold text-content">Fits the day</div>
+                <div className="text-[12px] text-content-muted">Opening hours, travel times and the weather all check out.</div>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-tertiary"><div data-energy className="h-full w-[62%] rounded-full bg-[var(--tz-sun)]" /></div>
-                <div className="mt-1 text-[11px] text-content-muted">Energy 62% · comfortable for the group</div>
+                <div className="mt-1 text-[11px] text-content-muted">Unhurried pace · comfortable for the group</div>
               </div>
             </div>
           </div>
@@ -528,7 +528,7 @@ function BeReady() {
     gsap.to(q('[data-ready-photo] img'), { yPercent: -8, ease: 'none', scrollTrigger: { trigger: root.current, start: 'top bottom', end: 'bottom top', scrub: true } })
   }, { scope: root })
 
-  const checks = ['Train booked and watched for delays', 'Ticket saved: PNR read from the PDF', 'Stay chosen: 18 min to your stops', 'Original photo ID packed', 'Offline map downloaded']
+  const checks = ['Overnight train chosen: one hotel night saved', 'Way back planned after the last day', 'Hotel picked: every day starts and ends there', 'Weather and air quality checked for each stop', 'Opening hours checked, typical ones marked']
   return (
     <section ref={root} className="bg-[#18211F] py-28 text-[#F7F5EF] md:py-36">
       <div className="mx-auto grid max-w-[1400px] items-center gap-14 px-5 md:px-10 lg:grid-cols-2 lg:gap-24">
@@ -540,13 +540,13 @@ function BeReady() {
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c706a]">Departure</div>
             <div className="mt-1 font-serif text-[44px] leading-none">6 days</div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e6e2d8]"><div className="h-full w-[75%] rounded-full bg-[#315C4C]" /></div>
-            <div className="mt-1.5 text-[12px] text-[#6c706a]">75% ready · example trip</div>
+            <div className="mt-1.5 text-[12px] text-[#6c706a]">Travel and stay planned · example trip</div>
           </div>
         </div>
         <div className="max-lg:pt-6">
           <Chapter n="06" title="Be ready for everything" light />
           <h2 data-reveal className="tz-h1 mt-6">The little things make the journey.</h2>
-          <p data-reveal className="mt-6 max-w-md text-[18px] leading-relaxed text-[#F7F5EF]/75">Tripzy turns your plan into preparation: a checklist that ticks itself as bookings land, a packing list built from the forecast and your stops, and a city guide that links to the official source.</p>
+          <p data-reveal className="mt-6 max-w-md text-[18px] leading-relaxed text-[#F7F5EF]/75">Tripzy also takes care of the parts around your days: the best way to get there and back, a stay close to what you came to see, and live weather and air quality for every stop.</p>
           <ul data-checks className="mt-10 space-y-4">
             {checks.map((c) => (
               <li key={c} className="flex items-center gap-4">
@@ -557,9 +557,9 @@ function BeReady() {
           </ul>
           <div className="mt-10 grid grid-cols-2 gap-6 border-t border-white/10 pt-8">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A6A39B]">Packing</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A6A39B]">Getting there</div>
               <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10"><div data-pack className="h-full w-[80%] rounded-full bg-[#D98955]" /></div>
-              <div className="mt-2 text-[13px] text-[#F7F5EF]/70">11 items, each with a reason</div>
+              <div className="mt-2 text-[13px] text-[#F7F5EF]/70">Every way compared, best for your trip first</div>
             </div>
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#A6A39B]">Currency</div>
@@ -604,44 +604,44 @@ function Companion() {
       <div className="absolute inset-0 bg-gradient-to-r from-[#18211F] via-[#18211F]/90 to-[#18211F]/60" />
       <div className="relative mx-auto grid max-w-[1400px] items-center gap-14 px-5 md:px-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-24">
         <div>
-          <Chapter n="07" title="Your companion on the way" light />
+          <Chapter n="07" title="Tripzy AI, by your side" light />
           <h2 data-reveal className="tz-h1 mt-6">Plans change. Your journey doesn't have to.</h2>
-          <p data-reveal className="mt-6 max-w-md text-[18px] leading-relaxed text-white/75">Rain, a late train, tired legs. Tell Tripzy what happened and it re-plans the rest of the day around what's still possible. It never changes anything until you've seen exactly what moves, and said yes.</p>
+          <p data-reveal className="mt-6 max-w-md text-[18px] leading-relaxed text-white/75">Rain, a change of mood, a hotel booked at the last minute. Tell Tripzy AI in your own words, by typing or speaking, and it updates the same plan. You can always see what changed, and undo it.</p>
           <ul data-reveal data-reveal-stagger className="mt-8 space-y-3 text-[15px] text-white/80">
-            <li className="flex gap-3"><Repeat className="mt-0.5 h-4 w-4 shrink-0 text-[#D98955]" />Bookings stay fixed. Meals stay on time.</li>
-            <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#D98955]" />Every change is shown before it's saved.</li>
-            <li className="flex gap-3"><MapIcon className="mt-0.5 h-4 w-4 shrink-0 text-[#D98955]" />Nearby pharmacies, ATMs and cafés, from live map data.</li>
+            <li className="flex gap-3"><Repeat className="mt-0.5 h-4 w-4 shrink-0 text-[#D98955]" />Your answers and your hotel are remembered.</li>
+            <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#D98955]" />Every change shows up in your plan, with undo.</li>
+            <li className="flex gap-3"><MapIcon className="mt-0.5 h-4 w-4 shrink-0 text-[#D98955]" />Add, swap or remove any place just by asking.</li>
           </ul>
         </div>
         <div data-chat className="mx-auto w-full max-w-[460px]">
           <div className="rounded-[30px] border border-white/10 bg-[#F7F5EF] p-5 text-[#18211F] shadow-[0_40px_120px_-40px_rgba(0,0,0,.8)]">
             <div className="flex items-center gap-3 border-b border-[#e2ded3] pb-4">
               <Emblem className="h-10 w-10" />
-              <div><div className="font-serif text-[22px] leading-none">Tripzy</div><div className="mt-1 text-[12px] text-[#6c706a]">Travelling with you · Hyderabad, Day 2</div></div>
+              <div><div className="font-serif text-[22px] leading-none">Tripzy</div><div className="mt-1 text-[12px] text-[#6c706a]">About your plan · Hyderabad, Day 2</div></div>
             </div>
             <div className="space-y-3 pt-4 text-[15px]">
               <div data-msg-user className="ml-auto w-fit max-w-[80%] rounded-[20px] rounded-br-md bg-[#315C4C] px-4 py-2.5 text-white">It's raining. What should we do?</div>
               <div data-typing className="tz-typing w-fit overflow-hidden rounded-[20px] rounded-bl-md bg-white px-4 py-3 text-[#A6A39B]" aria-hidden><span /><span /><span /></div>
               <div data-msg-bot className="max-w-[88%] rounded-[20px] rounded-bl-md bg-white px-4 py-2.5">I found an indoor alternative nearby. It fits your remaining schedule and keeps your travel time low.</div>
               <div data-diff className="rounded-[20px] border border-[#e2ded3] bg-white p-4">
-                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-[#c97a46]"><span>Ripple Engine</span><span className="text-[#A6A39B]">15:10</span></div>
+                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-[#c97a46]"><span>Plan update</span><span className="text-[#A6A39B]">15:10</span></div>
                 <div className="mt-1 font-serif text-[20px]">Rain expected 15:00–18:00</div>
                 <div className="mt-3 space-y-2 text-[14px]">
                   <div data-diff-row className="flex items-center gap-2"><span className="text-[#A6A39B] line-through">Golconda Fort</span><ArrowRight className="h-3.5 w-3.5 text-[#A6A39B]" /><b>Salar Jung Museum</b><span className="text-[12px] text-[#6c706a]">· indoor</span></div>
                   <div data-diff-row className="flex items-center gap-2 text-[#3b4542]"><Route className="h-3.5 w-3.5" />Travel time 48 → 17 min</div>
-                  <div data-diff-row className="flex items-center gap-2 text-[#3b4542]"><Landmark className="h-3.5 w-3.5" />Dinner booking unchanged at 20:00</div>
+                  <div data-diff-row className="flex items-center gap-2 text-[#3b4542]"><Landmark className="h-3.5 w-3.5" />Dinner stays at 20:00</div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button type="button" tabIndex={-1} className="h-10 rounded-full border border-[#e2ded3] text-[13px] font-semibold text-[#3b4542]">Keep original</button>
+                  <button type="button" tabIndex={-1} className="h-10 rounded-full border border-[#e2ded3] text-[13px] font-semibold text-[#3b4542]">Undo</button>
                   <button type="button" tabIndex={-1} data-accept className="relative h-10 rounded-full bg-[#D98955] text-[13px] font-semibold text-[#18211F]">
-                    <span data-accept-label>Accept new plan</span>
+                    <span data-accept-label>Update my plan</span>
                     <span data-accepted className="absolute inset-0 flex items-center justify-center gap-1.5 text-white opacity-0"><Check className="h-4 w-4" />Saved and synced</span>
                   </button>
                 </div>
               </div>
             </div>
           </div>
-          <p className="mt-4 text-center text-[12px] text-white/50">Example conversation. In the app, the Companion uses your real trip.</p>
+          <p className="mt-4 text-center text-[12px] text-white/50">Example conversation. In the app, Tripzy AI works on your real plan.</p>
         </div>
       </div>
     </section>
@@ -671,7 +671,7 @@ function Memories() {
             <Chapter n="08" title="The memories" />
             <h2 data-reveal className="tz-h1 mt-6 max-w-[14ch] text-content">Collect moments, not just destinations.</h2>
           </div>
-          <p data-reveal className="tz-lede max-w-md">Every trip becomes a journal: where you went, what you loved, where the plan changed and why. Tripzy learns from each reaction, so your next journey starts closer to you.</p>
+          <p data-reveal className="tz-lede max-w-md">Every plan you make is kept safely in your history, on every device you sign in on. Tripzy also learns from the places you keep, swap or remove, so your next trip starts closer to what you love.</p>
         </div>
 
         <div className="relative mt-16 grid grid-cols-12 gap-3 md:gap-5">
@@ -679,9 +679,9 @@ function Memories() {
           <div data-speed="-1" className="col-span-5 mt-16 md:col-span-4 md:mt-28"><div data-reveal="mask" className="overflow-hidden rounded-[22px]"><Photo id="chowmahalla-palace" sizes="33vw" className="aspect-[4/5]" /></div></div>
           <div data-speed="3" className="col-span-12 md:col-span-3 md:mt-8">
             <div data-reveal className="rounded-[22px] border border-edge bg-surface-card p-6">
-              <div className="tz-kicker">Day 2 · journal</div>
-              <p className="mt-3 font-serif text-[24px] italic leading-snug text-content">"Stayed an hour longer at Chowmahalla. Tripzy moved lunch and nobody rushed."</p>
-              <div className="mt-4 flex items-center gap-2 text-[12px] text-content-muted"><Sparkles className="h-3.5 w-3.5 text-[var(--tz-sun)]" />Learned: more time for palaces</div>
+              <div className="tz-kicker">Day 2 · your plan</div>
+              <p className="mt-3 font-serif text-[24px] italic leading-snug text-content">"Swapped the zoo for Chowmahalla Palace. The rest of the day adjusted on its own."</p>
+              <div className="mt-4 flex items-center gap-2 text-[12px] text-content-muted"><Sparkles className="h-3.5 w-3.5 text-[var(--tz-sun)]" />Noted: you enjoy palaces</div>
             </div>
             <svg viewBox="0 0 200 120" className="mt-6 hidden w-full md:block" aria-hidden><path data-trail d="M10 100 C 40 20, 80 120, 110 60 S 170 10, 190 30" pathLength={1} strokeDasharray="1" strokeDashoffset="0" stroke="var(--accent)" strokeWidth="1.6" fill="none" strokeLinecap="round" /><circle cx="10" cy="100" r="4" fill="var(--tz-sun)" /><circle cx="190" cy="30" r="4" fill="var(--accent)" /></svg>
           </div>
@@ -721,7 +721,7 @@ function Invitation() {
           <button type="submit" className="group inline-flex h-14 items-center justify-center gap-2 rounded-full bg-[#F7F5EF] px-8 text-[15px] font-semibold text-[#18211F] transition hover:bg-white">Start planning <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button>
         </form>
         <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-white/60">
-          <span>Hyderabad and Jaipur today</span><span>Solo or with your group</span><Link to="/credits" className="tz-link">Photo credits</Link>
+          <span>Any city or town in India</span><span>Solo or with your group</span><Link to="/credits" className="tz-link">Photo credits</Link>
         </div>
         <p className="tz-credit mt-10">{credit('qutb-shahi-tombs')}</p>
       </div>

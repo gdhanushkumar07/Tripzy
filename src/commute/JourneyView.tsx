@@ -187,10 +187,14 @@ export function JourneyResults({ r, ask, onReplanFrom, to, date, showHotels = tr
 
 // ---------------------------------------------------------------- places to stay
 
-type Hotel = { id: string; name: string; km: number; stars?: number; rating?: number; reviews?: number; photo?: string; address?: string; pricePerNight?: number; board?: string; refundable?: boolean; source: string; estimate: boolean; links: Link[] }
+export type Hotel = { id: string; name: string; lat: number; lon: number; km: number; stars?: number; rating?: number; reviews?: number; photo?: string; address?: string; pricePerNight?: number; board?: string; refundable?: boolean; source: string; estimate: boolean; links: Link[] }
 const addDays = (d: string, n: number) => { const x = new Date(`${d}T12:00:00`); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10) }
 
-export function Hotels({ at, checkin, nights = 1, guests, title, autoload = false }: { at: GeoPoint; checkin: string; nights?: number; guests: Family; title: string; autoload?: boolean }) {
+export function Hotels({ at, checkin, nights = 1, guests, title, autoload = false, onPick, picked }: {
+  at: GeoPoint; checkin: string; nights?: number; guests: Family; title: string; autoload?: boolean
+  /** "Stay here": the trip re-plans its days from this hotel */
+  onPick?: (h: Hotel) => void; picked?: string
+}) {
   const [list, setList] = useState<{ hotels: Hotel[]; sources: string[] } | null>(null)
   const adults = Math.max(1, guests.adults + guests.seniors)
   const checkout = addDays(checkin, Math.max(1, nights))
@@ -223,6 +227,11 @@ export function Hotels({ at, checkin, nights = 1, guests, title, autoload = fals
                   <p className="font-semibold text-content">{h.name}</p>
                   <p className="text-caption text-content-muted">{h.stars ? `${'★'.repeat(Math.min(5, h.stars))} · ` : ''}{h.rating ? `${h.rating}/10${h.reviews ? ` (${h.reviews})` : ''} · ` : ''}{h.km} km away</p>
                   {h.pricePerNight != null && <p className="mt-1 text-body"><strong>{rupees(h.pricePerNight)}</strong> <span className="text-content-muted">/ night{h.estimate ? ' (test price)' : ''}{h.board ? ` · ${h.board}` : ''}{h.refundable ? ' · free cancellation' : ''}</span></p>}
+                  {onPick && (
+                    <button type="button" className={`mt-2 ${picked === h.name ? 'btn' : 'btn-secondary'} btn-sm`} onClick={() => onPick(h)} aria-pressed={picked === h.name}>
+                      {picked === h.name ? 'Staying here' : 'Stay here — plan days from it'}
+                    </button>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-1.5 text-caption">
                     {h.links.map((x) => <a key={x.label} href={x.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-edge px-2.5 py-0.5 text-content-secondary hover:border-[var(--accent)]">{x.label}<ExternalLink className="h-3 w-3" /></a>)}
                   </div>

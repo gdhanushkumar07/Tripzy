@@ -12,7 +12,7 @@ export default function JoinPage() {
   const nav = useNavigate()
   const valid = CODE_RE.test(upper)
   const join = useAction(async () => {
-    const g = await joinGroup(upper, user!.uid, profile.name || user!.email?.split('@')[0] || 'Member')
+    const g = await joinGroup(upper, user!.uid, profile.name || user!.displayName || user!.email?.split('@')[0] || 'Member')
     nav(`/${g.type === 'tour' ? 'tour' : 'commute'}?group=${upper}`, { replace: true })
   })
   const started = useRef(false)

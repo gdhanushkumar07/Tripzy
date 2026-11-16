@@ -32,11 +32,11 @@ function titleOf(kind: SessionKind, d: Draft): string {
   if (kind === 'commute') {
     const from = (v.from as { name?: string } | undefined)?.name
     const to = (v.to as { name?: string } | undefined)?.name
-    return from && to ? `${from} → ${to}` : from ? `From ${from}` : to ? `To ${to}` : 'New journey'
+    return from && to ? `${from} → ${to}` : from ? `From ${from}` : to ? `To ${to}` : 'Untitled journey'
   }
   const a = (v.answers ?? {}) as { place?: { name?: string }; days?: number }
   const place = a.place?.name
-  return place ? `${place}${a.days ? `, ${a.days} day${a.days === 1 ? '' : 's'}` : ''}` : 'New trip'
+  return place ? `${place}${a.days ? `, ${a.days} day${a.days === 1 ? '' : 's'}` : ''}` : 'Untitled trip'
 }
 
 export function useSessions(kind: SessionKind) {
@@ -81,7 +81,7 @@ export function useSessions(kind: SessionKind) {
 
 export function SessionStrip({ s, kind }: { s: ReturnType<typeof useSessions>; kind: SessionKind }) {
   const noun = kind === 'commute' ? 'journey' : 'trip'
-  const items = s.list.some((x) => x.id === s.active) ? s.list : [{ id: s.active, title: kind === 'commute' ? 'New journey' : 'New trip', updatedAt: 0 }, ...s.list]
+  const items = s.list.some((x) => x.id === s.active) ? s.list : [{ id: s.active, title: kind === 'commute' ? 'New journey' : 'Untitled trip', updatedAt: 0 }, ...s.list]
   return (
     <section aria-label={`Your ${noun}s`} className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
       <button type="button" className="btn btn-sm shrink-0" onClick={s.create}><Plus className="h-4 w-4" />New {noun}</button>

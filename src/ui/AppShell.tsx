@@ -13,6 +13,26 @@ const TABS = [
   { path: '/ai', label: 'Tripzy AI', Icon: Sparkles, match: (p: string) => p.startsWith('/ai') },
 ]
 
+/**
+ * Remember the last page visited inside each section (per account), so a tab
+ * reopens your plan or chat instead of starting over.
+ */
+const lastKey = (uid: string, path: string) => `tripzy:last:${uid}:${path}`
+function useLastPlaces(uid: string | undefined) {
+  const { pathname, search } = useLocation()
+  useEffect(() => {
+    if (!uid) return
+    const tab = TABS.find((t) => t.path !== '/' && t.match(pathname))
+    if (!tab) return
+    try { localStorage.setItem(lastKey(uid, tab.path), pathname + search) } catch { /* storage blocked */ }
+  }, [uid, pathname, search])
+  return (path: string) => readLast(uid, path)
+}
+function readLast(uid: string | undefined, path: string) {
+  if (!uid || path === '/') return path
+  try { return localStorage.getItem(lastKey(uid, path)) || path } catch { return path }
+}
+
 export function useDarkMode(): [boolean, () => void] {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
   useEffect(() => {
@@ -32,6 +52,7 @@ function Navbar() {
   const [dark, toggleDark] = useDarkMode()
   const [open, setOpen] = useState(false)
   const name = profile.name || user?.email?.split('@')[0] || 'Traveller'
+  const lastIn = useLastPlaces(user?.uid)
 
   return (
     <nav className="tz-glass fixed inset-x-0 top-0 z-[500] border-b border-edge">
@@ -46,7 +67,7 @@ function Navbar() {
             const active = match(pathname)
             return (
               <Link
-                key={path} to={path} aria-label={label} aria-current={active ? 'page' : undefined}
+                key={path} to={lastIn(path)} aria-label={label} aria-current={active ? 'page' : undefined}
                 className={`flex items-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 py-[5px] text-[13.5px] font-medium transition-colors sm:px-4 ${
                   active ? 'bg-surface-card text-content shadow-[0_1px_2px_rgba(0,0,0,0.06),0_2px_6px_rgba(0,0,0,0.05)]' : 'text-content-muted hover:text-content'
                 }`}
@@ -104,13 +125,14 @@ function Navbar() {
 /** Standard signed-in page chrome: themed root, the fixed navbar, content offset below it. */
 export default function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
+  const { user } = useAuth()
   return (
     <div className="min-h-screen bg-surface text-content">
       <Navbar />
       <div style={{ paddingTop: 'var(--nav-h)' }}>{children}</div>
       {/* Tripzy AI is one tap away from Daily Traveller and the Tourist Planner */}
       {!pathname.startsWith('/ai') && (
-        <Link to="/ai" className="btn fixed bottom-5 end-5 z-30 !rounded-full shadow-lg" aria-label="Ask Tripzy AI"><Sparkles className="h-4 w-4" />Ask Tripzy AI</Link>
+        <Link to={readLast(user?.uid, '/ai')} className="btn fixed bottom-5 end-5 z-30 !rounded-full shadow-lg" aria-label="Ask Tripzy AI"><Sparkles className="h-4 w-4" />Ask Tripzy AI</Link>
       )}
     </div>
   )

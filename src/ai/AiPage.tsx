@@ -6,7 +6,7 @@
  *  - preferences are asked once with a picker inside the chat and saved to the profile
  *  - follow-ups edit the current plan; several chats, synced to the account; voice in, voice out
  */
-import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, setDoc } from '../lib/localstore'
+import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore'
 import { BedDouble, Check, CloudSun, ExternalLink, LocateFixed, Menu, Mic, MicOff, Minus, Plus, Send, Sparkles, Trash2, Volume2, VolumeX, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'

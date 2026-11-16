@@ -1,7 +1,7 @@
 import {
   arrayRemove, arrayUnion, deleteDoc, deleteField, doc, getDoc, setDoc, updateDoc,
   type DocumentReference,
-} from './localstore'
+} from 'firebase/firestore'
 import { db } from './firebase'
 import { request } from './request'
 import type { Prefs } from './types'

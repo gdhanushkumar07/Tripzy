@@ -3,7 +3,7 @@
  * delete it. Everything lives in Firestore under users/{uid} (readable only by this user, see
  * firestore.rules) and is cached on this device for offline use.
  */
-import { collection, deleteDoc, getCountFromServer, getDocs, limit, query } from '../lib/localstore'
+import { collection, deleteDoc, getCountFromServer, getDocs, limit, query } from 'firebase/firestore'
 import { Database, Download, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth'

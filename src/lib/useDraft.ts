@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from './localstore'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from './auth'
 import { db } from './firebase'

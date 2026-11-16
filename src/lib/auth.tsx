@@ -1,6 +1,6 @@
 import { getAdditionalUserInfo, getRedirectResult, onAuthStateChanged, signOut, type User } from 'firebase/auth'
 import { savePrefs } from './db'
-import { doc, onSnapshot } from './localstore'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import { auth, db } from './firebase'

@@ -1,4 +1,4 @@
-import { collection, limit, onSnapshot, orderBy, query } from '../lib/localstore'
+import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { ArrowRight, ArrowUpRight, CalendarDays, Luggage, Plus, Route as RouteIcon, Trash2, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'

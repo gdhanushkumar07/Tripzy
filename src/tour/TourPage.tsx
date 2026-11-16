@@ -12,6 +12,7 @@ import { toFriendly } from '../lib/request'
 import { LocationInput } from '../ui/LocationInput'
 import { ErrorBox, SaveStatus, Skeleton, useAction, useStatus } from '../lib/status'
 import { useDraft } from '../lib/useDraft'
+import { SessionStrip, useSessions } from '../lib/sessions'
 import { GroupPanel, ModeToggle, useGroup } from '../lib/useGroup'
 import { generateBasic, type Trip } from './generate'
 import { isAnswered, localToday, MAX_TRIP_DAYS, mergeAnswers, questionsFor, QUESTIONS, tripDays, tripEnd, type Answers, type Question } from './questions'
@@ -39,7 +40,8 @@ export default function TourPage() {
   const { toast } = useStatus()
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
-  const draft = useDraft<TourDraft>('tour', EMPTY)
+  const sessions = useSessions('tour')
+  const draft = useDraft<TourDraft>(sessions.active, EMPTY)
   const a = draft.value.answers
   const groupCode = params.get('group')
 
@@ -140,6 +142,7 @@ export default function TourPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-5 pb-24 pt-10 md:px-10">
+      <SessionStrip s={sessions} kind="tour" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="tz-chapter">Not another generic itinerary.</div>

@@ -10,6 +10,7 @@ import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query,
 import { BedDouble, Check, CloudSun, ExternalLink, LocateFixed, Menu, Mic, MicOff, Minus, Plus, Send, Sparkles, Trash2, Volume2, VolumeX, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { newSessionKey, setActiveSession } from '../lib/sessions'
 import { fmtDur } from '../commute/engine'
 import { api, type GeoPoint } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -263,7 +264,8 @@ export default function AiPage() {
     for (const a of actions) {
       if (a.type === 'commute') {
         const [fl, tl] = [a.params.fl, a.params.tl].map((v) => v.split(',').map(Number))
-        await writeDraft(uid!, 'commute', {
+        const ck = newSessionKey('commute'); setActiveSession(uid!, 'commute', ck)
+        await writeDraft(uid!, ck, {
           from: { name: a.params.f, lat: fl[0], lon: fl[1] }, to: { name: a.params.t, lat: tl[0], lon: tl[1] }, date: a.params.d, time: a.params.tm,
           modes: a.params.m.split(',').filter(Boolean), budget: '', maxTransfers: '', people: Number(a.params.p ?? 1) || 1, touched: true, groupCode: null,
           lastSearch: new URLSearchParams(a.params).toString(),
@@ -272,7 +274,8 @@ export default function AiPage() {
         next = { ...next, commuteUrl: a.url }
       }
       if (a.type === 'tour') {
-        await writeDraft(uid!, 'tour', { answers: a.answers, groupCode: null, doneTripId: null })
+        const tk = newSessionKey('tour'); setActiveSession(uid!, 'tour', tk)
+        await writeDraft(uid!, tk, { answers: a.answers, groupCode: null, doneTripId: null })
         if (a.create && a.answers.place) {
           setCreating(true)
           try {
@@ -282,7 +285,7 @@ export default function AiPage() {
             const trip = await api.post<Trip>('/api/tour/plan', { answers: merged, groupSize: size, place: a.answers.place }, `ai-tour:${JSON.stringify(merged)}`)
             tripId = newId()
             await write(() => setDoc(tripDoc(uid!, tripId!), trip), `trip:${tripId}`)
-            await writeDraft(uid!, 'tour', { answers: a.answers, groupCode: null, doneTripId: tripId })
+            await writeDraft(uid!, tk, { answers: a.answers, groupCode: null, doneTripId: tripId })
             next = { ...next, tripId }
           } catch (e) { toast(`Could not create the itinerary: ${(e as Error).message}`, 'error') } finally { setCreating(false) }
         }

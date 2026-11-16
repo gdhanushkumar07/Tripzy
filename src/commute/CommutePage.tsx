@@ -9,6 +9,7 @@ import { logEvent, useTaste } from '../lib/history'
 import { ErrorBox, SaveStatus, Skeleton, useAction, useStatus } from '../lib/status'
 import { MODES, MODE_ICON, MODE_LABEL, type Mode } from '../lib/types'
 import { useDraft } from '../lib/useDraft'
+import { SessionStrip, useSessions } from '../lib/sessions'
 import { GroupPanel, ModeToggle, useGroup } from '../lib/useGroup'
 import { budgetError, optNum, transfersError, validTime } from '../lib/validate'
 import { currentPosition } from '../lib/location'
@@ -84,7 +85,8 @@ export default function CommutePage() {
   const { toast } = useStatus()
   const taste = useTaste(user?.uid)
   const [params, setParams] = useSearchParams()
-  const draft = useDraft<CommuteForm>('commute', EMPTY)
+  const sessions = useSessions('commute')
+  const draft = useDraft<CommuteForm>(sessions.active, EMPTY)
   const f = { ...EMPTY, ...draft.value, from: typeof draft.value.from === 'object' ? draft.value.from : null, to: typeof draft.value.to === 'object' ? draft.value.to : null }
   const set = (patch: Partial<CommuteForm>) => draft.update((p) => ({ ...p, ...patch, touched: true }))
   const groupCode = params.get('group')
@@ -271,6 +273,7 @@ export default function CommutePage() {
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-6 px-5 pb-24 pt-10 md:px-10">
+      <SessionStrip s={sessions} kind="commute" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="tz-chapter">The nearest bus stand is not always the fastest way out.</div>
